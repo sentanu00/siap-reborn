@@ -1,0 +1,609 @@
+<div class="row">
+	<div class="col-md-12">
+
+
+
+		<?php echo $this->session->flashdata('message'); ?>
+		<ul class="parsley-error-list">
+			<?php echo $this->session->flashdata('errors'); ?>
+		</ul>
+		<form action="<?php echo site_url('riwayat_jabatan3/save/' . $row['JABATAN_RIWAYAT_ID']); ?>" class='form-horizontal' parsley-validate='true' novalidate='true' method="post" enctype="multipart/form-data">
+
+			<div class="row">
+				<div class="col-md-12">
+
+					<div class="form-group row  ">
+						<label for="JABATAN RIWAYAT ID" class=" control-label col-md-4 text-left"> JABATAN RIWAYAT ID </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['JABATAN_RIWAYAT_ID']; ?>' name='JABATAN_RIWAYAT_ID' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="PEGAWAI ID" class=" control-label col-md-4 text-left"> PEGAWAI ID </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $PEGAWAI_ID; ?>' name='PEGAWAI_ID' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="PEJABAT PENETAP ID" class=" control-label col-md-4 text-left"> PEJABAT PENETAP ID </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['PEJABAT_PENETAP_ID']; ?>' name='PEJABAT_PENETAP_ID' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="ESELON ID" class=" control-label col-md-4 text-left"> ESELON ID </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['ESELON_ID']; ?>' name='ESELON_ID' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="JABATAN FUNGSIONAL ID" class=" control-label col-md-4 text-left"> JABATAN FUNGSIONAL ID </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['JABATAN_FUNGSIONAL_ID']; ?>' name='JABATAN_FUNGSIONAL_ID' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="NO SK" class=" control-label col-md-4 text-left"> NO SK </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['NO_SK']; ?>' name='NO_SK' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="TANGGAL SK" class=" control-label col-md-4 text-left"> TANGGAL SK </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['TANGGAL_SK']; ?>' name='TANGGAL_SK' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="TMT JABATAN" class=" control-label col-md-4 text-left"> TMT JABATAN </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['TMT_JABATAN']; ?>' name='TMT_JABATAN' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="TMT ESELON" class=" control-label col-md-4 text-left"> TMT ESELON </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['TMT_ESELON']; ?>' name='TMT_ESELON' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="NAMA" class=" control-label col-md-4 text-left"> NAMA </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['NAMA']; ?>' name='NAMA' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="NO PELANTIKAN" class=" control-label col-md-4 text-left"> NO PELANTIKAN </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['NO_PELANTIKAN']; ?>' name='NO_PELANTIKAN' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="TANGGAL PELANTIKAN" class=" control-label col-md-4 text-left"> TANGGAL PELANTIKAN </label>
+						<div class="col-md-8">
+
+							<input type='text' class='form-control input-sm datetime' placeholder='' value='<?php echo $row['TANGGAL_PELANTIKAN']; ?>' name='TANGGAL_PELANTIKAN' style='width:150px !important;' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="TUNJANGAN" class=" control-label col-md-4 text-left"> TUNJANGAN </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['TUNJANGAN']; ?>' name='TUNJANGAN' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="KREDIT" class=" control-label col-md-4 text-left"> KREDIT </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['KREDIT']; ?>' name='KREDIT' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="BULAN DIBAYAR" class=" control-label col-md-4 text-left"> BULAN DIBAYAR </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['BULAN_DIBAYAR']; ?>' name='BULAN_DIBAYAR' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="SUDAH DIBAYAR" class=" control-label col-md-4 text-left"> SUDAH DIBAYAR </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['SUDAH_DIBAYAR']; ?>' name='SUDAH_DIBAYAR' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="TANGGAL UPDATE" class=" control-label col-md-4 text-left"> TANGGAL UPDATE </label>
+						<div class="col-md-8">
+
+							<input type='text' class='form-control input-sm datetime' placeholder='' value='<?php echo $row['TANGGAL_UPDATE']; ?>' name='TANGGAL_UPDATE' style='width:150px !important;' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="FLAG DATA TERAKHIR" class=" control-label col-md-4 text-left"> FLAG DATA TERAKHIR </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['FLAG_DATA_TERAKHIR']; ?>' name='FLAG_DATA_TERAKHIR' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="SATKER ID" class=" control-label col-md-4 text-left"> SATKER ID </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['SATKER_ID']; ?>' name='SATKER_ID' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="PEJABAT PENETAP" class=" control-label col-md-4 text-left"> PEJABAT PENETAP </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['PEJABAT_PENETAP']; ?>' name='PEJABAT_PENETAP' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="FOTO BLOB" class=" control-label col-md-4 text-left"> FOTO BLOB </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['FOTO_BLOB']; ?>' name='FOTO_BLOB' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="TMT JABATAN FUNGSIONAL" class=" control-label col-md-4 text-left"> TMT JABATAN FUNGSIONAL </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['TMT_JABATAN_FUNGSIONAL']; ?>' name='TMT_JABATAN_FUNGSIONAL' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="TMT TUGAS TAMBAHAN" class=" control-label col-md-4 text-left"> TMT TUGAS TAMBAHAN </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['TMT_TUGAS_TAMBAHAN']; ?>' name='TMT_TUGAS_TAMBAHAN' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="FORMAT" class=" control-label col-md-4 text-left"> FORMAT </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['FORMAT']; ?>' name='FORMAT' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="UKURAN" class=" control-label col-md-4 text-left"> UKURAN </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['UKURAN']; ?>' name='UKURAN' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="USER APP ID" class=" control-label col-md-4 text-left"> USER APP ID </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['USER_APP_ID']; ?>' name='USER_APP_ID' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="LAST CREATE USER" class=" control-label col-md-4 text-left"> LAST CREATE USER </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['LAST_CREATE_USER']; ?>' name='LAST_CREATE_USER' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="LAST CREATE DATE" class=" control-label col-md-4 text-left"> LAST CREATE DATE </label>
+						<div class="col-md-8">
+
+							<input type='text' class='form-control input-sm datetime' placeholder='' value='<?php echo $row['LAST_CREATE_DATE']; ?>' name='LAST_CREATE_DATE' style='width:150px !important;' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="LAST UPDATE USER" class=" control-label col-md-4 text-left"> LAST UPDATE USER </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['LAST_UPDATE_USER']; ?>' name='LAST_UPDATE_USER' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="LAST UPDATE DATE" class=" control-label col-md-4 text-left"> LAST UPDATE DATE </label>
+						<div class="col-md-8">
+
+							<input type='text' class='form-control input-sm datetime' placeholder='' value='<?php echo $row['LAST_UPDATE_DATE']; ?>' name='LAST_UPDATE_DATE' style='width:150px !important;' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="LAST CREATE SATKER" class=" control-label col-md-4 text-left"> LAST CREATE SATKER </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['LAST_CREATE_SATKER']; ?>' name='LAST_CREATE_SATKER' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="LAST UPDATE SATKER" class=" control-label col-md-4 text-left"> LAST UPDATE SATKER </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['LAST_UPDATE_SATKER']; ?>' name='LAST_UPDATE_SATKER' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="KETERANGAN BUP" class=" control-label col-md-4 text-left"> KETERANGAN BUP </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['KETERANGAN_BUP']; ?>' name='KETERANGAN_BUP' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="SATUAN KERJA HISTORI ID" class=" control-label col-md-4 text-left"> SATUAN KERJA HISTORI ID </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['SATUAN_KERJA_HISTORI_ID']; ?>' name='SATUAN_KERJA_HISTORI_ID' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="TINGKAT JABATAN ID" class=" control-label col-md-4 text-left"> TINGKAT JABATAN ID </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['TINGKAT_JABATAN_ID']; ?>' name='TINGKAT_JABATAN_ID' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="TINGKAT JABATAN" class=" control-label col-md-4 text-left"> TINGKAT JABATAN </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['TINGKAT_JABATAN']; ?>' name='TINGKAT_JABATAN' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="LINK FILE APPS" class=" control-label col-md-4 text-left"> LINK FILE APPS </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['LINK_FILE_APPS']; ?>' name='LINK_FILE_APPS' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="KEPALA SEKOLAH" class=" control-label col-md-4 text-left"> KEPALA SEKOLAH </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['KEPALA_SEKOLAH']; ?>' name='KEPALA_SEKOLAH' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="BARCODE" class=" control-label col-md-4 text-left"> BARCODE </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['BARCODE']; ?>' name='BARCODE' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="IS JABATAN" class=" control-label col-md-4 text-left"> IS JABATAN </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['IS_JABATAN']; ?>' name='IS_JABATAN' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="KELAS JABATAN" class=" control-label col-md-4 text-left"> KELAS JABATAN </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['KELAS_JABATAN']; ?>' name='KELAS_JABATAN' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="NAMA KELAS JABATAN" class=" control-label col-md-4 text-left"> NAMA KELAS JABATAN </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['NAMA_KELAS_JABATAN']; ?>' name='NAMA_KELAS_JABATAN' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="NILAI KELAS JABATAN" class=" control-label col-md-4 text-left"> NILAI KELAS JABATAN </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['NILAI_KELAS_JABATAN']; ?>' name='NILAI_KELAS_JABATAN' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="KELAS JABATAN ID" class=" control-label col-md-4 text-left"> KELAS JABATAN ID </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['KELAS_JABATAN_ID']; ?>' name='KELAS_JABATAN_ID' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="RW JABATAN ID SAPK" class=" control-label col-md-4 text-left"> RW JABATAN ID SAPK </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['RW_JABATAN_ID_SAPK']; ?>' name='RW_JABATAN_ID_SAPK' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="JENIS JABATAN SAPK" class=" control-label col-md-4 text-left"> JENIS JABATAN SAPK </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['JENIS_JABATAN_SAPK']; ?>' name='JENIS_JABATAN_SAPK' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="INSTANSI KERJA ID SAPK" class=" control-label col-md-4 text-left"> INSTANSI KERJA ID SAPK </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['INSTANSI_KERJA_ID_SAPK']; ?>' name='INSTANSI_KERJA_ID_SAPK' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="INSTANSI KERJA NAMA SAPK" class=" control-label col-md-4 text-left"> INSTANSI KERJA NAMA SAPK </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['INSTANSI_KERJA_NAMA_SAPK']; ?>' name='INSTANSI_KERJA_NAMA_SAPK' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="SATUAN KERJA ID SAPK" class=" control-label col-md-4 text-left"> SATUAN KERJA ID SAPK </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['SATUAN_KERJA_ID_SAPK']; ?>' name='SATUAN_KERJA_ID_SAPK' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="SATUAN KERJA NAMA SAPK" class=" control-label col-md-4 text-left"> SATUAN KERJA NAMA SAPK </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['SATUAN_KERJA_NAMA_SAPK']; ?>' name='SATUAN_KERJA_NAMA_SAPK' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="UNOR ID SAPK" class=" control-label col-md-4 text-left"> UNOR ID SAPK </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['UNOR_ID_SAPK']; ?>' name='UNOR_ID_SAPK' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="UNOR NAMA SAPK" class=" control-label col-md-4 text-left"> UNOR NAMA SAPK </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['UNOR_NAMA_SAPK']; ?>' name='UNOR_NAMA_SAPK' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="JFT ID SAPK" class=" control-label col-md-4 text-left"> JFT ID SAPK </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['JFT_ID_SAPK']; ?>' name='JFT_ID_SAPK' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="JFT NAMA SAPK" class=" control-label col-md-4 text-left"> JFT NAMA SAPK </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['JFT_NAMA_SAPK']; ?>' name='JFT_NAMA_SAPK' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="JFU ID SAPK" class=" control-label col-md-4 text-left"> JFU ID SAPK </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['JFU_ID_SAPK']; ?>' name='JFU_ID_SAPK' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="JFU NAMA SAPK" class=" control-label col-md-4 text-left"> JFU NAMA SAPK </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['JFU_NAMA_SAPK']; ?>' name='JFU_NAMA_SAPK' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="FILE PDF" class=" control-label col-md-4 text-left"> FILE PDF </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['FILE_PDF']; ?>' name='FILE_PDF' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="FILE PELANTIKAN" class=" control-label col-md-4 text-left"> FILE PELANTIKAN </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['FILE_PELANTIKAN']; ?>' name='FILE_PELANTIKAN' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="JABATAN RIWAYAT ID LAMA" class=" control-label col-md-4 text-left"> JABATAN RIWAYAT ID LAMA </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['JABATAN_RIWAYAT_ID_LAMA']; ?>' name='JABATAN_RIWAYAT_ID_LAMA' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="KETERANGAN DATA" class=" control-label col-md-4 text-left"> KETERANGAN DATA </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['KETERANGAN_DATA']; ?>' name='KETERANGAN_DATA' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="KETERANGAN WAKTU DATA" class=" control-label col-md-4 text-left"> KETERANGAN WAKTU DATA </label>
+						<div class="col-md-8">
+
+							<input type='text' class='form-control input-sm datetime' placeholder='' value='<?php echo $row['KETERANGAN_WAKTU_DATA']; ?>' name='KETERANGAN_WAKTU_DATA' style='width:150px !important;' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="UnorIndukIdSapk" class=" control-label col-md-4 text-left"> UnorIndukIdSapk </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['unorIndukIdSapk']; ?>' name='unorIndukIdSapk' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="UnorIndukNama" class=" control-label col-md-4 text-left"> UnorIndukNama </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['unorIndukNama']; ?>' name='unorIndukNama' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="EselonNama" class=" control-label col-md-4 text-left"> EselonNama </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['eselonNama']; ?>' name='eselonNama' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="EselonIdSAPK" class=" control-label col-md-4 text-left"> EselonIdSAPK </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['eselonIdSAPK']; ?>' name='eselonIdSAPK' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="IdPns" class=" control-label col-md-4 text-left"> IdPns </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['idPns']; ?>' name='idPns' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="NipBaru" class=" control-label col-md-4 text-left"> NipBaru </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['nipBaru']; ?>' name='nipBaru' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="NipLama" class=" control-label col-md-4 text-left"> NipLama </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['nipLama']; ?>' name='nipLama' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="NamaUnor" class=" control-label col-md-4 text-left"> NamaUnor </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['namaUnor']; ?>' name='namaUnor' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="Keterangansingkron" class=" control-label col-md-4 text-left"> Keterangansingkron </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['keterangansingkron']; ?>' name='keterangansingkron' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="Message" class=" control-label col-md-4 text-left"> Message </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['message']; ?>' name='message' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="JenisMutasiId" class=" control-label col-md-4 text-left"> JenisMutasiId </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['jenisMutasiId']; ?>' name='jenisMutasiId' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="JenisPenugasanId" class=" control-label col-md-4 text-left"> JenisPenugasanId </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['jenisPenugasanId']; ?>' name='jenisPenugasanId' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="TmtMutasi" class=" control-label col-md-4 text-left"> TmtMutasi </label>
+						<div class="col-md-8">
+
+							<input type='text' class='form-control input-sm datetime' placeholder='' value='<?php echo $row['tmtMutasi']; ?>' name='tmtMutasi' style='width:150px !important;' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+				</div>
+
+
+			</div>
+
+			<div style="clear:both">
+				<hr />
+			</div>
+
+			<div class="toolbar-line text-center">
+				<?
+				if ($this->access['is_edit'] == 1 || $this->access['is_add'] == 1) {
+				?>
+					<input type="submit" name="submit" class="btn btn-primary btn-sm" value="<?php echo $this->lang->line('core.sb_submit'); ?>" />
+				<?
+				}
+				?>
+				<a href="javascript:cancelform()" class="btn btn-sm btn-warning"><?php echo $this->lang->line('core.sb_cancel'); ?> </a>
+			</div>
+
+		</form>
+
+	</div>
+</div>
+</section>
+
+<script type="text/javascript">
+	$(document).on("keypress", 'form', function(e) {
+		var code = e.keyCode || e.which;
+		if (code == 13) {
+			e.preventDefault();
+			return false;
+		}
+	});
+
+	$('input').on('keyup', function(event) {
+		if (event.keyCode == 13) { // 13 is the keycode for enter button
+			$(this).next('input').focus();
+		}
+	});
+
+	$(document).ready(function() {
+
+		var frm = $('form');
+		frm.submit(function(ev) {
+			$.ajax({
+				type: frm.attr('method'),
+				url: frm.attr('action'),
+				data: frm.serialize(),
+				success: function(data) {
+					alert('Data Berhasil Disimpan !!');
+					table.ajax.reload();
+					$('#form-ajax').html("");
+				}
+			});
+			ev.preventDefault();
+		});
+
+
+
+
+		<?
+		if ($this->access['is_edit'] != 1 && $this->access['is_add'] != 1) {
+		?>
+			$('form input').attr('readonly', 'readonly');
+		<?
+		}
+		?>
+
+	});
+</script>

@@ -1,0 +1,174 @@
+<div class="row">
+	<div class="col-md-12">
+
+
+
+		<?php echo $this->session->flashdata('message'); ?>
+		<ul class="parsley-error-list">
+			<?php echo $this->session->flashdata('errors'); ?>
+		</ul>
+
+		<form action="<?php echo site_url('penghargaan/save/' . $row['PENGHARGAAN_ID']); ?>" class='form-vertical' parsley-validate='true' novalidate='true' method="post" enctype="multipart/form-data" id="form-datax">
+
+
+			<div class="row">
+				<div class="col-md-6">
+
+					<div class="form-group hidethis " style="display:none;">
+						<label for="ipt" class=" control-label "> PENGHARGAAN ID </label>
+						<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['PENGHARGAAN_ID']; ?>' name='PENGHARGAAN_ID' />
+					</div>
+					<div class="form-group hidethis " style="display:none;">
+						<label for="ipt" class=" control-label "> PEGAWAI ID </label>
+						<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $PEGAWAI_ID; ?>' name='PEGAWAI_ID' />
+					</div>
+					<div class="form-group  ">
+						<label for="ipt" class=" control-label "> JENIS PENGHARGAAN </label>
+						<select name='HARGAID' rows='5' id='HARGAID' code='{$HARGAID}' class='form-control input-sm select2 ' style='width: 100%;' required></select>
+					</div>
+					<div class="form-group  ">
+						<label for="ipt" class=" control-label "> PEJABAT PENETAP ID </label>
+						<select name='PEJABAT_PENETAP_ID' rows='5' id='PEJABAT_PENETAP_ID' code='{$PEJABAT_PENETAP_ID}' class='form-control input-sm select2 ' style='width: 100%;'></select>
+					</div>
+					<div class="form-group  ">
+						<label for="ipt" class=" control-label "> NAMA <span class="asterix"> * </span> </label>
+						<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['NAMA']; ?>' name='NAMA' required />
+					</div>
+				</div>
+
+				<div class="col-md-6">
+
+					<div class="form-group  ">
+						<label for="ipt" class=" control-label "> NO SK </label>
+						<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['NO_SK']; ?>' name='NO_SK' />
+					</div>
+					<div class="form-group  ">
+						<label for="ipt" class=" control-label "> TANGGAL SK </label>
+
+						<input type='date' class='form-control input-sm' placeholder='' value='<?php echo $row['TANGGAL_SK']; ?>' name='TANGGAL_SK' style='width:150px !important;' />
+					</div>
+					<div class="form-group  ">
+						<label for="ipt" class=" control-label "> TAHUN </label>
+						<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['TAHUN']; ?>' name='TAHUN' />
+					</div>
+					<div class="form-group  ">
+						<!-- <label for="ipt" class=" control-label "> FILE PDF </label>
+						<textarea name='FILE_PDF' rows='2' id='FILE_PDF' class='form-control input-sm '><?php //echo $row['FILE_PDF']; 
+																										?></textarea> -->
+						<label for="ipt" class=" control-label "> DOK. SK <span class="asterix">*</span></label>
+						<input type='file' class='form-control input-sm' required id="FILE_PDF" name="FILE_PDF" accept="application/pdf">
+						<!-- <input type="hidden" name="file_pdf_cek"  value="<?php //echo $row['FILE_PDF']; 
+																				?>" /> -->
+						<input type="hidden" name="FILE_PDF" value="<?php echo $row['FILE_PDF']; ?>" />
+
+						<?
+						if ($row['FILE_PDF'] != '') {
+							echo '<br /><a href="javascript:SximoModal(\'' . site_url('penghargaan/viewfile') . '/FILE_PDF/' . $row['PENGHARGAAN_ID'] . '\',\'View File\',1000)" class="btn btn-danger"><img src="' . base_url('/assets/icon/adadoc.png') . '" style="width:20px"> Preview File</a>';
+						}
+						?>
+					</div>
+				</div>
+
+
+			</div>
+
+			<div style="clear:both">
+				<hr />
+			</div>
+
+			<div class="toolbar-line text-center">
+				<?
+				if ($this->access['is_edit'] == 1 || $this->access['is_add'] == 1) {
+				?>
+					<!-- <input type="submit" name="submit" class="btn btn-primary btn-sm" value="<?php //echo $this->lang->line('core.sb_submit'); 
+																									?>" /> -->
+
+
+					<input type="button" id="kirimdata" class="btn btn-primary btn-sm" value="<?php echo $this->lang->line('core.sb_submit'); ?>" onclick="return validateForm();" />
+
+				<?
+				}
+				?>
+				<a href="javascript:cancelform()" class="btn btn-sm btn-warning"><?php echo $this->lang->line('core.sb_cancel'); ?> </a>
+			</div>
+
+		</form>
+
+	</div>
+</div>
+</section>
+
+<script type="text/javascript">
+	$(document).on("keypress", 'form', function(e) {
+		var code = e.keyCode || e.which;
+		if (code == 13) {
+			e.preventDefault();
+			return false;
+		}
+	});
+
+	$('input').on('keyup', function(event) {
+		if (event.keyCode == 13) { // 13 is the keycode for enter button
+			$(this).next('input').focus();
+		}
+	});
+
+	<?
+	if ($row['FILE_PDF'] != '') {
+	?>
+		$('#FILE_PDF').prop('required', false);
+	<?
+	} else {
+	?>
+		$('#FILE_PDF').prop('required', true);
+	<?
+	}
+	?>
+
+	$(document).ready(function() {
+		$('.select2').select2();
+
+		var frm = $('form');
+		$("#kirimdata").click(function() {
+
+			var form_data = new FormData(frm[0]);
+			//var files = $('#FILE_PDF')[0].files;
+			//form_data.append('FILE_PDF', files[0]);
+			if (!frm.valid()) return false;
+			$.ajax({
+				type: frm.attr('method'),
+				url: frm.attr('action'),
+				data: form_data,
+				cache: false,
+				processData: false,
+				contentType: false,
+				success: function(data) {
+					alert(data);
+					table.ajax.reload();
+					$('#form-ajax').html("");
+				}
+			});
+		});
+
+
+
+		$("#HARGAID").jCombo("<?php echo site_url('penghargaan/comboselect?filter=jenis_penghargaan:hargaId:nama') ?>", {
+			selected_value: '<?php echo $row["HARGAID"] ?>'
+		});
+
+		$("#PEJABAT_PENETAP_ID").jCombo("<?php echo site_url('penghargaan/comboselect?filter=pejabat_penetap:PEJABAT_PENETAP_ID:JABATAN') ?>", {
+			selected_value: '<?php echo $row["PEJABAT_PENETAP_ID"] ?>'
+		});
+
+
+
+		<?
+		if ($this->access['is_edit'] != 1 && $this->access['is_add'] != 1) {
+		?>
+			$('form input').attr('readonly', 'readonly');
+		<?
+		}
+		?>
+
+	});
+</script>

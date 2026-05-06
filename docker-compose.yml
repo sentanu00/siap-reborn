@@ -1,0 +1,22 @@
+version: '3'
+services:
+  siapreborn_app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: siapreborn_app
+    environment:
+      - PUID=1001
+      - PGID=1001
+      - TZ=Asia/Jakarta 
+    ports:
+      - 30083:80
+      - 30443:443
+    volumes:
+      # - /mnt/ext-hdd0/dokumen:/dokumen
+      # - /mnt/ext-hdd0/foto:/foto
+      - /mnt/f6f99dea-b350-4282-b0cb-c64f2e3fe4be/docker_siap/bkd_ci:/var/www/html
+      - /mnt/f6f99dea-b350-4282-b0cb-c64f2e3fe4be/docker_siap/.php/php.ini:/usr/local/etc/php/php.ini
+    restart: always
+
+
