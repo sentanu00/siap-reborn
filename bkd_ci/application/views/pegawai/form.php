@@ -147,9 +147,18 @@
 								<span class="pull-right-container"><i class="fa fa-angle-right pull-right"></i></span>
 							</a></li>
 					<?php endif; ?>
+
+					
 					<?php if ($this->session->userdata('gid') == 1 || $this->session->userdata('gid') == 5) : ?>
 						<li class="treeview"><a href="javascript:changepages('riwayat_jabatan3')">
 								<span>Riwayat Jabatan baru</span>
+								<span class="pull-right-container"><i class="fa fa-angle-right pull-right"></i></span>
+							</a></li>
+
+					<?php endif; ?>
+					<?php if ($this->session->userdata('gid') == 1) : ?>
+						<li class="treeview"><a href="javascript:changepages('pltplh')">
+								<span>Riwayat PLT/PLH</span>
 								<span class="pull-right-container"><i class="fa fa-angle-right pull-right"></i></span>
 							</a></li>
 
