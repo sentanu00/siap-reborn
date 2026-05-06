@@ -539,6 +539,7 @@ ORDER BY
         j.jenisMutasiId,
         j.jenisPenugasanId,
         j.tmtMutasi,
+        j.FILE_PDF,
         j.subJabatanId
     ");
 
@@ -573,6 +574,7 @@ ORDER BY
 		$tmtMutasi = $row->tmtMutasi;
 		$tmtPelantikan = $row->tmtPelantikan;
 		$unorId = $row->unorId;
+		$FILE_PDF = $row->FILE_PDF;
 
 		// =========================
 		// LANJUT PAKAI LOGIC LAMA
@@ -611,8 +613,8 @@ ORDER BY
 		$bodyjson = json_encode([
 			"eselonId" => $eselonId,
 			"id" => $id,
-			"instansiId" => $instansiId,
-			"InstansiIndukID" => $instansiId,
+			"instansiId" => "A5EB03E23B3BF6A0E040640A040252AD",
+			"InstansiIndukID" => "A5EB03E23B3BF6A0E040640A040252AD",
 			"jabatanFungsionalId" => $jabatanFungsionalId,
 			"jabatanFungsionalUmumId" => $jabatanFungsionalUmumId,
 			"jenisJabatan" => $jenisJabatan,
@@ -620,7 +622,7 @@ ORDER BY
 			"jenisPenugasanId" => "D",
 			"nomorSk" => $nomorSk,
 			"pnsId" => $pnsId,
-			"satuanKerjaId" => $satuanKerjaId,
+			"satuanKerjaId" => "A5EB03E24222F6A0E040640A040252AD",
 			"subJabatanId" => $subJabatanId,
 			"tanggalSk" => $tanggalSk,
 			"tmtJabatan" => $tmtJabatan,
@@ -657,6 +659,30 @@ ORDER BY
 			];
 
 			$this->db->insert('post_data_siap', $data2);
+
+			$file = FCPATH . "tmp_dokumen/" . basename($FILE_PDF);
+			$bodyjson = json_encode([
+				"id_riwayat" => '',
+				"id_ref_dokumen" => '872', // id ref dapat dari tabel refrensi BKN
+				"file" => new CURLFILE($file)
+			]);
+
+			$uploadfile = [
+				'table_name' => $table_name,
+				'id_table' => $id_table,
+				'nama' => '/upload-dok',
+				'PEGAWAI_ID' => $PEGAWAI_ID,
+				'url' => 'https://apimws.bkn.go.id:8243/apisiasn/1.0/upload-dok-rw',
+				'bodyjson' => $bodyjson,
+				'status' => 'siap kirim',
+				'postget' => 'POST',
+				'create_date' => date('Y-m-d H:i:s')
+			];
+
+			$this->db->insert('post_data_siap', $uploadfile);
+
+
+
 
 			return "Data berhasil dimasukkan ke tabel post_data_siap.";
 		} else {

@@ -492,7 +492,7 @@ INNER JOIN satker sa ON sa.`SATKER_ID`=LEFT(a.`SATKER_ID`,2)) AS pegawai WHERE (
 	{
 		$this->db->from('post_data_siap p');
 		$this->db->where('p.status', 'siap kirim');
-		$this->db->order_by('p.create_date', 'asc');
+		$this->db->order_by('p.id', 'asc');
 
 		return $this->db->get()->result(); // hasil berupa array object
 	}
