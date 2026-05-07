@@ -695,26 +695,8 @@ ORDER BY
 	{
 
 		$this->db->select("
-        j.JABATAN_RIWAYAT_ID as id_table,
-        j.PEGAWAI_ID,
-        j.ESELON_ID as eselonId,
-        j.NO_SK as nomorSk,
-        j.TANGGAL_SK as tanggalSk,
-        j.TMT_JABATAN as tmtJabatan,
-        j.TANGGAL_PELANTIKAN as tmtPelantikan,
-        j.RW_JABATAN_ID_SAPK as id,
-        j.JENIS_JABATAN_SAPK as jenisJabatan,
-        j.INSTANSI_KERJA_ID_SAPK as instansiId,
-        j.SATUAN_KERJA_ID_SAPK as satuanKerjaId,
-        j.UNOR_ID_SAPK as unorId,
-        j.JFT_ID_SAPK as jabatanFungsionalId,
-        j.JFU_ID_SAPK as jabatanFungsionalUmumId,
-        s.siasnid as pnsId,
-        j.jenisMutasiId,
-        j.jenisPenugasanId,
-        j.tmtMutasi,
-        j.FILE_PDF,
-        j.subJabatanId
+        j.RW_JABATAN_ID_SAPK,
+        j.PEGAWAI_ID
     ");
 
 
@@ -724,14 +706,13 @@ ORDER BY
 		$row = $this->db->get()->row();
 
 		$data = [
-			'id_table' => $id_table,
-			'PEGAWAI_ID' => $PEGAWAI_ID,
-			'nama' => $nama,
-			'table_name' => $table_name,
-			'url' => $url,
-			'bodyjson' => $bodyjson,
+			'table_name' => 'jabatan_riwayat',
+			'id_table' => $id,
+			'nama' => '/jabatan/delete/',
+			'PEGAWAI_ID' => $row->PEGAWAI_ID,
+			'url' => 'https://apimws.bkn.go.id:8243/apisiasn/1.0/jabatan/delete/?idRiwayatJabatan=' . $row->RW_JABATAN_ID_SAPK,
 			'status' => 'siap kirim data',
-			'postget' => 'POST',
+			'postget' => 'DELETE',
 			'create_date' => date('Y-m-d H:i:s')
 		];
 
