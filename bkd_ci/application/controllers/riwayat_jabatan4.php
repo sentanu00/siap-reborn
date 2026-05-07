@@ -470,6 +470,7 @@ class Riwayat_jabatan4 extends SB_Controller
 			echo "err : maaf anda tidak memiliki hak untuk menghapus data";
 		}
 
+		$this->delete_siasn($_POST['id']);
 		$this->model->destroy($_POST['id']);
 		$this->inputLogs("ID : " . $_POST['id'] . "  , Has Been Removed Successfull");
 		echo "ID : " . $_POST['id'] . "  , berhasil dihapus !!";
