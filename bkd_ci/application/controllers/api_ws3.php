@@ -28,7 +28,7 @@ class Api_ws3 extends SB_Controller
         ini_set('display_errors', 1);
         header('Content-Type: text/html');
 
-        $data = $this->apimodel->get_data_siap_kirim();
+        $data = $this->apimodel->get_data_siap_kirim_data();
         $apimwstoken = $this->api_mws_token;
 
 
@@ -60,32 +60,36 @@ class Api_ws3 extends SB_Controller
                 $hasil = $this->kirim_ws_siasn_get($apimwstoken, $row->url, $row->bodyjson);
             } elseif ($row->postget == 'POST') {
 
-                if ($row->url == "https://apimws.bkn.go.id:8243/apisiasn/1.0/upload-dok-rw") {
-                    //disini fungsi untuk upload file
-                    echo "upload id= " . $row->id . " " . $row->id_table . " " . $row->url;
-                    $hasil = $this->kirimfilesiasnbasic($row->id_table, $apimwstoken);
-                } else {
-                    $hasil = $this->kirim_ws_siasn_post($apimwstoken, $row->url, $row->bodyjson);
-                    echo "data " . $row->url;
-                }
+                // if ($row->url == "https://apimws.bkn.go.id:8243/apisiasn/1.0/upload-dok-rw") {
+                //     //disini fungsi untuk upload file
+                //     echo "upload id= " . $row->id . " " . $row->id_table . " " . $row->url;
+                //     $hasil = $this->kirimfilesiasnbasic($row->id_table, $apimwstoken);
+                // } else {
+                $hasil = $this->kirim_ws_siasn_post($apimwstoken, $row->url, $row->bodyjson);
+                echo "data " . $row->url;
+                // }
             }
 
-            //---------------------------------------------------------------------------------
+            //---------------------------------------------------------------------------------"Message":"Data Tidak Ada Perubahan"
 
-            if ((isset($hasil['Error']) && $hasil['Error'] === 'false') || (isset($hasil['success']) && $hasil['success'] === true) || (isset($hasil['code']) && $hasil['code'] === 200)) {
+            if ((isset($hasil['Error']) && $hasil['Error'] === 'false') || (isset($hasil['success']) && $hasil['success'] === true)
+                || (isset($hasil['code']) && $hasil['code'] === 200)
+                ||  (isset($hasil['Message']) && $hasil['Message'] === "Data Tidak Ada Perubahan")
+            ) {
 
                 $this->apimodel->update_status($row->id, 'sukses', json_encode($hasil));
 
                 //disini bakal cek ketika nama = "/jabatan/save"
-                if (isset($hasil['mapData']['nama']) && $hasil['mapData']['nama'] === '/jabatan/save') {
+                if ($row->nama == '/jabatan/save') {
                     $rwJabatanId = $hasil['mapData']['rwJabatanId'];
-                    $this->handle_after_success($rwJabatanId, $row->id_table);
+                    echo "rwJabatanId: " . $rwJabatanId . "<br>";
+                    $this->handle_after_success_rwjabatan($rwJabatanId, $row->id_table);
                 }
 
                 echo "<b style='color:green;'>✔ Sukses dikirim</b><br>";
             } else {
 
-                $this->apimodel->update_status($row->id, 'gagal', json_encode($hasil));
+                $this->apimodel->update_status($row->id, 'gagal kirim data', json_encode($hasil));
 
                 echo "<b style='color:red;'>✖ Gagal dikirim</b><br>";
 
@@ -96,6 +100,7 @@ class Api_ws3 extends SB_Controller
 
             echo "<hr>";
         }
+        $this->apimodel->update_status_error_data();
     }
 
 
@@ -225,7 +230,7 @@ class Api_ws3 extends SB_Controller
     }
 
 
-    public function handle_after_success($rwJabatanId, $id_table)
+    public function handle_after_success_rwjabatan($rwJabatanId, $id_table)
     {
         // 1. Update jabatan_riwayat
         $this->db->query("

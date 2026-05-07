@@ -638,7 +638,7 @@ ORDER BY
 			'table_name' => $table_name,
 			'url' => $url,
 			'bodyjson' => $bodyjson,
-			'status' => 'siap kirim',
+			'status' => 'siap kirim data',
 			'postget' => 'POST',
 			'create_date' => date('Y-m-d H:i:s')
 		];
@@ -653,7 +653,7 @@ ORDER BY
 				'nama' => '/pns/data-utama-jabatansync',
 				'PEGAWAI_ID' => $PEGAWAI_ID,
 				'url' => 'https://apimws.bkn.go.id:8243/apisiasn/1.0/pns/data-utama-jabatansync?pns_orang_id=' . $pnsId,
-				'status' => 'siap kirim',
+				'status' => 'siap kirim data',
 				'postget' => 'GET',
 				'create_date' => date('Y-m-d H:i:s')
 			];
@@ -674,7 +674,7 @@ ORDER BY
 				'PEGAWAI_ID' => $PEGAWAI_ID,
 				'url' => 'https://apimws.bkn.go.id:8243/apisiasn/1.0/upload-dok-rw',
 				'bodyjson' => $bodyjson,
-				'status' => 'siap kirim',
+				'status' => 'siap kirim file',
 				'postget' => 'POST',
 				'create_date' => date('Y-m-d H:i:s')
 			];
@@ -688,5 +688,53 @@ ORDER BY
 		} else {
 			return "Gagal insert data.";
 		}
+	}
+
+
+	public function delete_siasn($id)
+	{
+
+		$this->db->select("
+        j.JABATAN_RIWAYAT_ID as id_table,
+        j.PEGAWAI_ID,
+        j.ESELON_ID as eselonId,
+        j.NO_SK as nomorSk,
+        j.TANGGAL_SK as tanggalSk,
+        j.TMT_JABATAN as tmtJabatan,
+        j.TANGGAL_PELANTIKAN as tmtPelantikan,
+        j.RW_JABATAN_ID_SAPK as id,
+        j.JENIS_JABATAN_SAPK as jenisJabatan,
+        j.INSTANSI_KERJA_ID_SAPK as instansiId,
+        j.SATUAN_KERJA_ID_SAPK as satuanKerjaId,
+        j.UNOR_ID_SAPK as unorId,
+        j.JFT_ID_SAPK as jabatanFungsionalId,
+        j.JFU_ID_SAPK as jabatanFungsionalUmumId,
+        s.siasnid as pnsId,
+        j.jenisMutasiId,
+        j.jenisPenugasanId,
+        j.tmtMutasi,
+        j.FILE_PDF,
+        j.subJabatanId
+    ");
+
+
+		$this->db->from('jabatan_riwayat j');
+		$this->db->where('j.JABATAN_RIWAYAT_ID', $id);
+
+		$row = $this->db->get()->row();
+
+		$data = [
+			'id_table' => $id_table,
+			'PEGAWAI_ID' => $PEGAWAI_ID,
+			'nama' => $nama,
+			'table_name' => $table_name,
+			'url' => $url,
+			'bodyjson' => $bodyjson,
+			'status' => 'siap kirim data',
+			'postget' => 'POST',
+			'create_date' => date('Y-m-d H:i:s')
+		];
+
+		$this->db->insert('post_data_siap', $data);
 	}
 }

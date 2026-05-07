@@ -311,7 +311,7 @@
       $('#mobile-collapse').click();
     }, 500);
     $("#gridv_length").append(' Status Pegawai <select class="form-control" id="status_peg" onchange="reloadgridx()" style="width:150px">' +
-      '<option value="1,2,10,0,3,4,5,6,7,8,9,18">SEMUA</option>' +
+      '<option value="1,2,10,0,3,4,5,6,7,8,9,18,19,20,21">SEMUA</option>' +
       '<option value="0">USULAN</option>' +
       '<option value="1">CPNS</option>' +
       '<option value="2">PNS</option>' +
@@ -319,6 +319,9 @@
       '<option value="18">PPPK Paruh Waktu</option>' +
       '<option value="1,2,10,18" selected>CPNS/PNS/PPPK/PPPK PW</option>' +
       '<option value="3">PENSIUN</option>' +
+      '<option value="19">PENSIUN PPPK</option>' +
+      '<option value="20">PENSIUN PPPK PW</option>' +
+      '<option value="21">PENSIUN KARENA UZUR</option>' +
       '<option value="4">P3D</option>' +
       '<option value="5">TEWAS</option>' +
       '<option value="6">WAFAT</option>' +

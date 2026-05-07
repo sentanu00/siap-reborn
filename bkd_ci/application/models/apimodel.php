@@ -488,10 +488,10 @@ INNER JOIN satker sa ON sa.`SATKER_ID`=LEFT(a.`SATKER_ID`,2)) AS pegawai WHERE (
 		return $response;
 	}
 
-	public function get_data_siap_kirim()
+	public function get_data_siap_kirim_data()
 	{
 		$this->db->from('post_data_siap p');
-		$this->db->where('p.status', 'siap kirim');
+		$this->db->where('p.status', 'siap kirim data');
 		$this->db->order_by('p.id', 'asc');
 
 		return $this->db->get()->result(); // hasil berupa array object
@@ -504,6 +504,17 @@ INNER JOIN satker sa ON sa.`SATKER_ID`=LEFT(a.`SATKER_ID`,2)) AS pegawai WHERE (
 		$this->db->update('post_data_siap', [
 			'status' => $status,
 			'message' => $message,
+			'last_sync_date' => date('Y-m-d H:i:s')
+		]);
+	}
+
+	public function update_status_error_data()
+	{
+		$this->db->where('status', 'gagal kirim data');
+		$this->db->where('create_date >=', date('Y-m-d H:i:s', strtotime('-2 days')));
+
+		$this->db->update('post_data_siap', [
+			'status' => 'siap kirim data',
 			'last_sync_date' => date('Y-m-d H:i:s')
 		]);
 	}
