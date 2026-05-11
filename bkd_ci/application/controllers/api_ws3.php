@@ -90,6 +90,10 @@ class Api_ws3 extends SB_Controller
                     $rwJabatanId = $hasil['mapData']['rwJabatanId'];
                     echo "rwJabatanId: " . $rwJabatanId . "<br>";
                     $this->handle_after_success_rwjabatan($rwJabatanId, $row->id_table);
+                } else if ($row->nama == '/jabatan/save' && $row->table_name == 'plt_plh') {
+                    $rwJabatanId = $hasil['mapData']['rwJabatanId'];
+                    echo "rwJabatanId: " . $rwJabatanId . "<br>";
+                    $this->handle_after_success_rwpltplh($rwJabatanId, $row->id_table);
                 }
 
                 echo "<b style='color:green;'>✔ Sukses dikirim</b><br>";
@@ -280,6 +284,40 @@ class Api_ws3 extends SB_Controller
         // 1. Update jabatan_riwayat
         $this->db->query("
         UPDATE jabatan_riwayat 
+        SET RW_JABATAN_ID_SAPK = ? 
+        WHERE JABATAN_RIWAYAT_ID = ?
+    ", [$rwJabatanId, $id_table]);
+
+        // 2. Ambil data upload dokumen
+        $query = $this->db->query("
+        SELECT * FROM post_data_siap 
+        WHERE nama = '/upload-dok' 
+        AND status = 'tunggu id riwayat'
+    ");
+
+        $results = $query->result();
+
+        foreach ($results as $p) {
+
+            $body = json_decode($p->bodyjson, true);
+
+            if ($body) {
+                $body['id_riwayat'] = $rwJabatanId;
+
+                $this->db->query("
+                UPDATE post_data_siap 
+                SET bodyjson = ?, status = 'siap kirim'
+                WHERE id = ?
+            ", [json_encode($body), $p->id]);
+            }
+        }
+    }
+
+    public function handle_after_success_rwpltplh($rwJabatanId, $id_table)
+    {
+        // 1. Update plt_plh
+        $this->db->query("
+        UPDATE plt_plh 
         SET RW_JABATAN_ID_SAPK = ? 
         WHERE JABATAN_RIWAYAT_ID = ?
     ", [$rwJabatanId, $id_table]);
