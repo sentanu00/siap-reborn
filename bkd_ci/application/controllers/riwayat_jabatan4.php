@@ -711,7 +711,7 @@ ORDER BY
 			'id_table' => $id,
 			'nama' => '/jabatan/delete/',
 			'PEGAWAI_ID' => $row->PEGAWAI_ID,
-			'url' => 'https://apimws.bkn.go.id:8243/apisiasn/1.0/jabatan/delete/?idRiwayatJabatan=' . $row->RW_JABATAN_ID_SAPK,
+			'url' => 'https://apimws.bkn.go.id:8243/apisiasn/1.0/jabatan/delete/' . $row->RW_JABATAN_ID_SAPK,
 			'status' => 'siap kirim data',
 			'postget' => 'DELETE',
 			'create_date' => date('Y-m-d H:i:s')
