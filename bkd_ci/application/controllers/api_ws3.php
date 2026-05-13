@@ -28,6 +28,9 @@ class Api_ws3 extends SB_Controller
         ini_set('display_errors', 1);
         header('Content-Type: text/html');
 
+        $this->apimodel->update_status_error_data();
+
+
         $data = $this->apimodel->get_data_siap_kirim_data();
         $apimwstoken = $this->api_mws_token;
 
@@ -86,12 +89,13 @@ class Api_ws3 extends SB_Controller
                 $this->apimodel->update_status($row->id, 'sukses', json_encode($hasil));
 
                 //disini bakal cek ketika nama = "/jabatan/save"
-                if ($row->nama == '/jabatan/save') {
+                if ($row->nama == '/jabatan/save' && $row->table_name == 'jabatan_riwayat') {
                     $rwJabatanId = $hasil['mapData']['rwJabatanId'];
                     echo "rwJabatanId: " . $rwJabatanId . "<br>";
                     $this->handle_after_success_rwjabatan($rwJabatanId, $row->id_table);
                 } else if ($row->nama == '/jabatan/save' && $row->table_name == 'plt_plh') {
                     $rwJabatanId = $hasil['mapData']['rwJabatanId'];
+                    echo "<br> - plt plh setelah sukses - ";
                     echo "rwJabatanId: " . $rwJabatanId . "<br>";
                     $this->handle_after_success_rwpltplh($rwJabatanId, $row->id_table);
                 }
@@ -110,7 +114,69 @@ class Api_ws3 extends SB_Controller
 
             echo "<hr>";
         }
-        $this->apimodel->update_status_error_data();
+    }
+
+
+
+    public function exe_ws_siasn_file()
+    {
+        error_reporting(E_ALL);
+        ini_set('display_errors', 1);
+        header('Content-Type: text/html');
+
+        $this->apimodel->update_status_error_file();
+
+        $data = $this->apimodel->get_data_siap_kirim_file();
+        $apimwstoken = $this->api_mws_token;
+
+
+        foreach ($data as $row) {
+
+            echo "ID: " . $row->id . "<br>";
+            echo "Nama: " . $row->nama . "<br>";
+            echo "URL: " . $row->url . "<br>";
+            echo "Method: " . $row->postget . "<br>";
+            echo "Create Date: " . $row->create_date . "<br>";
+
+            $json = json_decode($row->bodyjson, true);
+
+            // default aman
+            $pnsId = '-';
+            $nomorSk = '-';
+
+            if (is_array($json)) {
+                $pnsId = isset($json['pnsId']) && $json['pnsId'] != '' ? $json['pnsId'] : '-';
+                $nomorSk = isset($json['nomorSk']) && $json['nomorSk'] != '' ? $json['nomorSk'] : '-';
+            }
+
+            echo "PNS ID: " . $pnsId . "<br>";
+            echo "Nomor SK: " . $nomorSk . "<br>";
+
+
+            if ($row->postget == 'POST') {
+                $hasil = $this->kirimfilesiasnbasic($row->id_table, $apimwstoken);
+            }
+
+            //---------------------------------------------------------------------------------"Message":"Data Tidak Ada Perubahan"
+
+            if ($hasil['message'] === "File berhasil di upload") {
+
+                $this->apimodel->update_status($row->id, 'sukses', json_encode($hasil));
+
+                echo "<b style='color:green;'>✔ Sukses dikirim</b><br>";
+            } else {
+
+                $this->apimodel->update_status($row->id, 'gagal kirim file', json_encode($hasil));
+
+                echo "<b style='color:red;'>✖ Gagal dikirim</b><br>";
+
+                if (isset($hasil['message'])) {
+                    echo "Error: " . $hasil['message'] . "<br>";
+                }
+            }
+
+            echo "<hr>";
+        }
     }
 
 

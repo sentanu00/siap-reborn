@@ -497,6 +497,15 @@ INNER JOIN satker sa ON sa.`SATKER_ID`=LEFT(a.`SATKER_ID`,2)) AS pegawai WHERE (
 		return $this->db->get()->result(); // hasil berupa array object
 	}
 
+	public function get_data_siap_kirim_file()
+	{
+		$this->db->from('post_data_siap p');
+		$this->db->where('p.status', 'siap kirim file');
+		$this->db->order_by('p.id', 'asc');
+
+		return $this->db->get()->result(); // hasil berupa array object
+	}
+
 
 	public function update_status($id, $status, $message = null)
 	{
@@ -515,6 +524,18 @@ INNER JOIN satker sa ON sa.`SATKER_ID`=LEFT(a.`SATKER_ID`,2)) AS pegawai WHERE (
 
 		$this->db->update('post_data_siap', [
 			'status' => 'siap kirim data',
+			'last_sync_date' => date('Y-m-d H:i:s')
+		]);
+	}
+
+
+	public function update_status_error_file()
+	{
+		$this->db->where('status', 'gagal kirim file');
+		$this->db->where('create_date >=', date('Y-m-d H:i:s', strtotime('-12 days')));
+
+		$this->db->update('post_data_siap', [
+			'status' => 'siap kirim file',
 			'last_sync_date' => date('Y-m-d H:i:s')
 		]);
 	}
