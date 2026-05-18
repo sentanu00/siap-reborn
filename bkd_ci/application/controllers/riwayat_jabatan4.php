@@ -706,17 +706,26 @@ ORDER BY
 
 		$row = $this->db->get()->row();
 
-		$data = [
-			'table_name' => 'jabatan_riwayat',
-			'id_table' => $id,
-			'nama' => '/jabatan/delete/',
-			'PEGAWAI_ID' => $row->PEGAWAI_ID,
-			'url' => 'https://apimws.bkn.go.id:8243/apisiasn/1.0/jabatan/delete/' . $row->RW_JABATAN_ID_SAPK,
-			'status' => 'siap kirim data',
-			'postget' => 'DELETE',
-			'create_date' => date('Y-m-d H:i:s')
-		];
+		// jika RW_JABATAN_ID_SAPK kosong/null
+		if (empty($row->RW_JABATAN_ID_SAPK)) {
 
-		$this->db->insert('post_data_siap', $data);
+			$this->db->where('table_name', 'jabatan_riwayat'); //sesuaikan table_name nya...
+			$this->db->where('id_table', $id);
+			$this->db->delete('post_data_siap');
+		} else {
+
+			$data = [
+				'table_name' => 'jabatan_riwayat',
+				'id_table' => $id,
+				'nama' => '/jabatan/delete/',
+				'PEGAWAI_ID' => $row->PEGAWAI_ID,
+				'url' => 'https://apimws.bkn.go.id:8243/apisiasn/1.0/jabatan/delete/' . $row->RW_JABATAN_ID_SAPK,
+				'status' => 'siap kirim data',
+				'postget' => 'DELETE',
+				'create_date' => date('Y-m-d H:i:s')
+			];
+
+			$this->db->insert('post_data_siap', $data);
+		}
 	}
 }

@@ -532,7 +532,7 @@ INNER JOIN satker sa ON sa.`SATKER_ID`=LEFT(a.`SATKER_ID`,2)) AS pegawai WHERE (
 	public function update_status_error_file()
 	{
 		$this->db->where('status', 'gagal kirim file');
-		$this->db->where('create_date >=', date('Y-m-d H:i:s', strtotime('-12 days')));
+		$this->db->where('create_date >=', date('Y-m-d H:i:s', strtotime('-2 days')));
 
 		$this->db->update('post_data_siap', [
 			'status' => 'siap kirim file',
