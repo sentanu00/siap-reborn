@@ -518,6 +518,9 @@ ORDER BY
 		}
 	}
 
+
+
+	//============================= fitur tambahan untuk kirim data siap ke SIASN =============================
 	public function insert_post_data_jabatan_siap($file_pdf)
 	{
 		// ambil data dari jabatan_riwayat berdasarkan file_pdf

@@ -146,7 +146,7 @@
 
 
 					<!-- batas atas------------------------------------ -->
-					<div class="form-group row jft-wrapper">
+					<div class="form-group row">
 						<label for="subJabatanId" class=" control-label col-md-4 text-left"> SUB JABATAN FUNGSIONAL <span class="asterix"> * </span></label>
 						<div class="col-md-8">
 							<select name='subJabatanId' rows='5' id='subJabatanId' code='{$subJabatanId}'
@@ -804,6 +804,16 @@
 			}
 		});
 		$('#JFT_ID_SAPK').on('select2:select', function(e) {
+
+
+			$('input[name="JFT_NAMA_SAPK"]').val('');
+			$('input[name="NAMA"]').val('');
+			$('input[name="NAMA_KELAS_JABATAN"]').val('');
+			$('input[name="KELAS_JABATAN_ID"]').val('');
+			$('input[name="KELAS_JABATAN"]').val('');
+			$('input[name="KETERANGAN_BUP"]').val('');
+			$('input[name="kel_jabatan_id"]').val('');
+
 			let data = e.params.data;
 			$('input[name="JFT_NAMA_SAPK"]').val(data.text);
 			$('input[name="NAMA"]').val(data.text);
@@ -825,7 +835,7 @@
 		});
 
 		$('#subJabatanId').select2({
-			placeholder: 'Pilih Jabatan',
+			placeholder: 'Guru dan Dokter Wajib Diisi',
 			allowClear: true,
 			minimumInputLength: 0, // 🔥 ini kuncinya
 			ajax: {

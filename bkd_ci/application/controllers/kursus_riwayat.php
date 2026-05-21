@@ -387,6 +387,7 @@ class Kursus_riwayat extends SB_Controller
 			//start #tambahan ganti
 			if ($a == '') {
 				$a = "Berhasil Simpan !!";
+				$this->insert_post_data_siap($data['FILE_PDF']);
 			} else {
 				$this->session->set_flashdata('message', SiteHelpers::alert('error', $a));
 			}
@@ -408,6 +409,7 @@ class Kursus_riwayat extends SB_Controller
 			echo "err : maaf anda tidak memiliki hak untuk menghapus data";
 		}
 
+		$this->delete_siasn($_POST['id']);
 		$this->model->destroy($_POST['id']);
 		$this->inputLogs("ID : " . $_POST['id'] . "  , Has Been Removed Successfull");
 		echo "ID : " . $_POST['id'] . "  , berhasil dihapus !!";
@@ -996,5 +998,167 @@ class Kursus_riwayat extends SB_Controller
 		} else {
 			echo "Tidak ada data yang perlu dikirim.";
 		}
+	}
+
+
+	//============================= fitur tambahan untuk kirim data siap ke SIASN =============================
+	public function insert_post_data_siap($file_pdf)
+	{
+		// ambil data dari jabatan_riwayat berdasarkan file_pdf
+		$this->db->select("s.siasnid as pnsId,
+        k.PEGAWAI_ID,
+        k.diklat_riwayat_id as id_table,
+        k.pnsOrangId, 
+        k.jenisDiklatId, 
+        k.jenisKursus, 
+        k.jenisKursusSertipikat, 
+        k.namaKursus, 
+        k.institusiPenyelenggara, 
+        k.nomorSertipikat, 
+        k.tanggalKursus, 
+        k.tanggalSelesaiKursus, 
+        k.tahunKursus, 
+        k.jumlahJam, 
+        k.instansiId, 
+        k.lokasiId, 
+        k.rumpunDiklat");
+
+
+		$this->db->from('kursus_riwayat k');
+		$this->db->join('siasnpegawaiid s', 'k.PEGAWAI_ID = s.pegawai_id', 'left');
+		$this->db->where('k.FILE_PDF', $file_pdf);
+
+		$row = $this->db->get()->row();
+
+		if (!$row) {
+			return "Data tidak ditemukan untuk file_pdf: " . $file_pdf;
+		}
+
+		// mapping ke variabel lama biar gak banyak ubah kode bawah
+		$id_table = $row->id_table;
+		$PEGAWAI_ID = $row->PEGAWAI_ID;
+		$FILE_PDF = $row->FILE_PDF;
+
+		$tanggalKursus = ($row->tanggalKursus && $row->tanggalKursus != '0000-00-00' && $row->tanggalKursus != '0000-00-00 00:00:00')
+			? (new DateTime($row->tanggalKursus))->format('d-m-Y') : '';
+		$tanggalSelesaiKursus = ($row->tanggalSelesaiKursus && $row->tanggalSelesaiKursus != '0000-00-00' && $row->tanggalSelesaiKursus != '0000-00-00 00:00:00')
+			? (new DateTime($row->tanggalSelesaiKursus))->format('d-m-Y') : '';
+
+
+		$nama = '/kursus/save';
+		$table_name = 'kursus_riwayat';
+		$url = 'https://apimws.bkn.go.id:8243/apisiasn/1.0/kursus/save';
+
+		$bodyjson = json_encode([
+			"pnsOrangId" => $row->pnsId,
+			"jenisDiklatId" => $row->jenisDiklatId,
+			"jenisKursus" => $row->jenisKursus,
+			"jenisKursusSertipikat" => $row->jenisKursusSertipikat,
+			"namaKursus" => $row->namaKursus,
+			"institusiPenyelenggara" => $row->institusiPenyelenggara,
+			"nomorSertipikat" => $row->nomorSertipikat,
+			"tanggalKursus" => $tanggalKursus,
+			"tanggalSelesaiKursus" => $tanggalSelesaiKursus,
+			"tahunKursus" => (int) $row->tahunKursus,
+			"jumlahJam" => (int) $row->jumlahJam,
+			"instansiId" => $row->instansiId,
+			"lokasiId" => $row->lokasiId
+		]);
+
+		$data = [
+			'id_table' => $id_table,
+			'PEGAWAI_ID' => $PEGAWAI_ID,
+			'nama' => $nama,
+			'table_name' => $table_name,
+			'url' => $url,
+			'bodyjson' => $bodyjson,
+			'status' => 'siap kirim data',
+			'postget' => 'POST',
+			'create_date' => date('Y-m-d H:i:s')
+		];
+
+		$this->db->insert('post_data_siap', $data);
+
+		if ($this->db->affected_rows() > 0) {
+
+			// $data2 = [
+			// 	'table_name' => $table_name,
+			// 	'id_table' => $id_table,
+			// 	'nama' => '/pns/data-utama-jabatansync',
+			// 	'PEGAWAI_ID' => $PEGAWAI_ID,
+			// 	'url' => 'https://apimws.bkn.go.id:8243/apisiasn/1.0/pns/data-utama-jabatansync?pns_orang_id=' . $pnsId,
+			// 	'status' => 'siap kirim data',
+			// 	'postget' => 'GET',
+			// 	'create_date' => date('Y-m-d H:i:s')
+			// ];
+
+			// $this->db->insert('post_data_siap', $data2);
+
+			$file = FCPATH . "tmp_dokumen/" . basename($FILE_PDF);
+			$bodyjson = json_encode([
+				"id_riwayat" => '',
+				"id_ref_dokumen" => '881', // id ref dapat dari tabel refrensi BKN
+				"file" => new CURLFILE($file)
+			]);
+
+			$uploadfile = [
+				'table_name' => $table_name,
+				'id_table' => $id_table,
+				'nama' => '/upload-dok',
+				'PEGAWAI_ID' => $PEGAWAI_ID,
+				'url' => 'https://apimws.bkn.go.id:8243/apisiasn/1.0/upload-dok-rw',
+				'bodyjson' => $bodyjson,
+				'status' => 'siap kirim file',
+				'postget' => 'POST',
+				'create_date' => date('Y-m-d H:i:s')
+			];
+
+			$this->db->insert('post_data_siap', $uploadfile);
+
+
+
+
+			return "Data berhasil dimasukkan ke tabel post_data_siap.";
+		} else {
+			return "Gagal insert data.";
+		}
+	}
+
+
+	public function delete_siasn($id)
+	{
+
+		$this->db->select("
+        j.diklat_riwayat_id,
+        j.PEGAWAI_ID
+    ");
+
+
+		$this->db->from('kursus_riwayat j');
+		$this->db->where('j.diklat_riwayat_id', $id);
+
+		$row = $this->db->get()->row();
+
+		// jika kursus_id_siasn kosong/null
+		if (empty($row->kursus_id_siasn)) {
+
+			$this->db->where('table_name', 'kursus_riwayat'); //sesuaikan table_name nya...
+			$this->db->where('id_table', $id);
+			$this->db->delete('post_data_siap');
+		} /*else {
+
+			$data = [
+				'table_name' => 'kursus_riwayat',
+				'id_table' => $id,
+				'nama' => '/jabatan/delete/',
+				'PEGAWAI_ID' => $row->PEGAWAI_ID,
+				'url' => 'https://apimws.bkn.go.id:8243/apisiasn/1.0/jabatan/delete/' . $row->RW_JABATAN_ID_SAPK,
+				'status' => 'siap kirim data',
+				'postget' => 'DELETE',
+				'create_date' => date('Y-m-d H:i:s')
+			];
+
+			$this->db->insert('post_data_siap', $data);
+		}*/
 	}
 }
