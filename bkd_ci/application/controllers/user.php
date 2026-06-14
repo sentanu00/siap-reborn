@@ -141,25 +141,94 @@ class User extends SB_controller
 			$this->db->where('id', $row->id);
 			$this->db->update('tb_users', array('last_login' => date("Y-m-d H:i:s")));
 
-			$this->session->set_userdata(array(
-				'logged_in'	=> true,
-				'uid'		=> $row->id,
-				'username'		=> $row->username,
-				'gid'		=> $row->group_id,
-				'eid'		=> $row->email,
-				'll'		=> $row->last_login,
-				'fid'		=> $row->first_name . ' ' . $row->last_name,
-				'satker'		=> $row->satker,
-			));
+			// $this->session->set_userdata(array(
+			// 	'logged_in'	=> true,
+			// 	'uid'		=> $row->id,
+			// 	'username'		=> $row->username,
+			// 	'gid'		=> $row->group_id,
+			// 	'eid'		=> $row->email,
+			// 	'll'		=> $row->last_login,
+			// 	'fid'		=> $row->first_name . ' ' . $row->last_name,
+			// 	'satker'		=> $row->satker,
+			// ));
 			if ($row->group_id == 3) {
 				redirect('pegawai/profile/' . $row->username, 301);
 			} else {
-				redirect('dashboard', 301);
+				// redirect('dashboard', 301);
+
+				// Password benar, cek apakah MFA aktif
+				if ($row->mfa_enabled == 1) {
+					// Simpan user_id ke session sementara
+					$this->session->set_userdata('temp_user_id', $row->id);
+					// Arahkan ke halaman verifikasi OTP
+					redirect('user/verify_otp');
+				} else {
+					// Langsung login tanpa MFA	
+					$this->session->set_userdata(array(
+						'logged_in'	=> true,
+						'uid'		=> $row->id,
+						'username'		=> $row->username,
+						'gid'		=> $row->group_id,
+						'eid'		=> $row->email,
+						'll'		=> $row->last_login,
+						'fid'		=> $row->first_name . ' ' . $row->last_name,
+						'satker'		=> $row->satker,
+					));
+					redirect('dashboard', 301);
+				}
 			}
 		} else {
 			$this->session->set_flashdata('message', SiteHelpers::alert('error', 'Invalid user or password combination <br /> or your account is not active yet'));
 			redirect('user/login', 301);
 		}
+	}
+
+	public function verify_otp()
+	{
+		// Jika tidak ada temp_user_id, redirect ke login
+		if (!$this->session->userdata('temp_user_id')) {
+			redirect('user/login');
+		}
+
+		$this->load->view('mfa/verify_otp');
+	}
+
+	public function do_verify_otp()
+	{
+		$this->load->library('GoogleAuthenticator');
+
+		$temp_user_id = $this->session->userdata('temp_user_id');
+		$user = $this->db->get_where('tb_users', array('id' => $temp_user_id))->row();
+		$otp_code = $this->input->post('otp_code');
+
+		// Verifikasi kode OTP
+		$checkResult = $this->googleauthenticator->verifyCode($user->ga_secret, $otp_code, 2);
+
+		if ($checkResult) {
+
+			// Langsung login tanpa MFA
+			$this->session->set_userdata('logged_in', TRUE);
+			$this->session->set_userdata('user_id', $user->id);
+			$this->session->set_userdata(array(
+				'logged_in'	=> true,
+				'uid'		=> $user->id,
+				'username'	=> $user->username,
+				'gid'		=> $user->group_id,
+				'eid'		=> $user->email,
+				'll'		=> $user->last_login,
+				'fid'		=> $user->first_name . ' ' . $user->last_name,
+				'satker'	=> $user->satker,
+			));
+			redirect('dashboard', 301);
+		} else {
+			$this->session->set_flashdata('error', 'Kode OTP salah');
+			redirect('user/verify_otp');
+		}
+	}
+
+	public function forgot_password()
+	{
+		$this->load->view('auth/forgot_password');
 	}
 
 	public function register()
@@ -419,6 +488,204 @@ class User extends SB_controller
 			$this->session->set_flashdata('message', SiteHelpers::alert('error', 'Invalid ' . $provider . ' account <br /> or your account is not active yet'));
 			redirect('user/login', 301);
 		}
+	}
+
+	public function update_email()
+	{
+		// Cek apakah user sudah login
+		if (!$this->session->userdata('logged_in')) {
+			redirect('user/login');
+		}
+
+		$this->load->library('form_validation');
+		$this->form_validation->set_rules('email', 'Email', 'required|valid_email');
+
+		if ($this->form_validation->run() == FALSE) {
+			$this->load->view('user/edit_email');
+		} else {
+			$new_email = $this->input->post('email');
+			$user_id = $this->session->userdata('uid');
+
+			// Update email di database
+			$this->db->where('id', $user_id);
+			$this->db->update('tb_users', array('email' => $new_email));
+
+			$this->session->set_flashdata('success', 'Email berhasil diupdate');
+			redirect('user/profile');
+		}
+	}
+	public function qrcode()
+	{
+		// Ambil parameter 'data' dari URL
+		$data = $this->input->get('data');
+		if (empty($data)) {
+			show_404();
+		}
+
+		// Load library phpqrcode
+		require_once APPPATH . 'libraries/phpqrcode.php';
+
+		// Set header image/png
+		header('Content-Type: image/png');
+
+		// Generate QR code langsung (sama persis dengan test_qr.php yang berhasil)
+		QRcode::png($data, false, 'L', 6, 2);
+	}
+
+
+	public function setup_mfa()
+	{
+		if (!$this->session->userdata('logged_in')) {
+			redirect('user/login');
+		}
+
+		$this->load->library('GoogleAuthenticator');
+		$user_id = $this->session->userdata('uid');
+		$user = $this->db->get_where('tb_users', array('id' => $user_id))->row();
+
+		if (empty($user->ga_secret)) {
+			$secret = $this->googleauthenticator->createSecret();
+			$this->db->where('id', $user_id);
+			$this->db->update('tb_users', array('ga_secret' => $secret));
+		} else {
+			$secret = $user->ga_secret;
+		}
+
+		$issuer = 'siap-reborn';
+		$totp_uri = 'otpauth://totp/' . urlencode($issuer) . ':' . $user->email . '?secret=' . $secret . '&issuer=' . urlencode($issuer);
+
+		$data['totp_uri'] = $totp_uri;
+		$data['secret'] = $secret;
+		$this->load->view('mfa/setup', $data);
+	}
+
+	public function verify_mfa_setup()
+	{
+		$this->load->library('GoogleAuthenticator');
+
+		$user_id = $this->session->userdata('uid');
+		$user = $this->db->get_where('tb_users', array('id' => $user_id))->row();
+		$otp_code = $this->input->post('otp_code');
+
+		// Verifikasi kode OTP
+		$checkResult = $this->googleauthenticator->verifyCode($user->ga_secret, $otp_code, 2);
+
+		if ($checkResult) {
+			// MFA berhasil diaktivasi
+			$this->db->where('id', $user_id);
+			$this->db->update('tb_users', array('mfa_enabled' => 1));
+
+			$this->session->set_flashdata('success', 'MFA berhasil diaktifkan!');
+			redirect('dashboard');
+		} else {
+			$this->session->set_flashdata('error', 'Kode OTP salah. Silakan coba lagi.');
+			redirect('user/setup_mfa');
+		}
+	}
+	public function send_reset_link()
+	{
+		$this->load->library('email');
+		$email = $this->input->post('email');
+
+		// Cek apakah email terdaftar
+		$user = $this->db->get_where('tb_users', array('email' => $email))->row();
+
+		if ($user) {
+			// Generate token unik
+			$token = bin2hex(random_bytes(32));
+			$expiry = date('Y-m-d H:i:s', strtotime('+1 hour'));
+
+			// Simpan token ke database
+			$this->db->where('email', $email);
+			$this->db->update('tb_users', array(
+				'forgot_password_code' => $token,
+				'forgot_password_expiry' => $expiry
+			));
+
+			// Kirim email
+			$link = base_url('user/reset_password?token=' . $token);
+			$this->email->from('noreply@bkpsdm.probolinggokab.go.id', 'SIAP REBORN BKPSDM');
+			$this->email->to($email);
+			$this->email->subject('Reset Password SIAP REBORN');
+			$this->email->message("
+            <h3>Reset Password</h3>
+            <p>Klik link di bawah untuk mereset password Anda. Link berlaku 1 jam.</p>
+            <p><a href='{$link}'>Reset Password</a></p>
+            <p>Jika Anda tidak merasa meminta reset password, abaikan email ini.</p>
+        ");
+
+			if ($this->email->send()) {
+				$this->session->set_flashdata('message', 'Link reset password telah dikirim ke email Anda.');
+			} else {
+				$this->session->set_flashdata('message', 'Gagal mengirim email. Silakan coba lagi.');
+			}
+		} else {
+			$this->session->set_flashdata('message', 'Email tidak terdaftar.');
+		}
+
+		redirect('user/forgot_password');
+	}
+
+	public function reset_password()
+	{
+		$token = $this->input->get('token');
+
+		// Cek token di database
+		$user = $this->db->get_where('tb_users', array('forgot_password_code' => $token))->row();
+
+		if ($user) {
+			$data['token'] = $token;
+			$this->load->view('user/reset_password_form', $data);
+		} else {
+			show_error('Token tidak valid atau sudah kadaluarsa');
+		}
+	}
+
+	public function do_reset_password()
+	{
+		$token = $this->input->post('token');
+		$new_password = $this->input->post('password');
+		$confirm_password = $this->input->post('confirm_password');
+
+		if ($new_password !== $confirm_password) {
+			$this->session->set_flashdata('error', 'Password tidak cocok');
+			redirect('user/reset_password?token=' . $token);
+		}
+
+		$user = $this->db->get_where('tb_users', array('forgot_password_code' => $token))->row();
+
+		if ($user) {
+			// Update password
+			$hashed_password = md5($new_password);
+			$this->db->where('id', $user->id);
+			$this->db->update('tb_users', array(
+				'password' => $hashed_password,
+				'forgot_password_code' => NULL
+			));
+
+			$this->session->set_flashdata('message', 'Password berhasil direset. Silakan login.');
+			redirect('user/ogin');
+		} else {
+			show_error('Token tidak valid');
+		}
+	}
+	public function reset_mfa()
+	{
+		if (!$this->session->userdata('logged_in')) {
+			redirect('user/login');
+		}
+
+		$user_id = $this->session->userdata('uid');
+
+		// Reset MFA: hapus secret dan set mfa_enabled = 0
+		$this->db->where('id', $user_id);
+		$this->db->update('tb_users', array(
+			'ga_secret' => NULL,
+			'mfa_enabled' => 0
+		));
+
+		$this->session->set_flashdata('success', 'MFA berhasil di-reset. Silakan setup ulang di menu Profil.');
+		redirect('user/profile');
 	}
 }
 
