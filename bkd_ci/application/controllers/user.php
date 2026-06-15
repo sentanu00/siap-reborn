@@ -154,25 +154,30 @@ class User extends SB_controller
 			if ($row->group_id == 3) {
 				redirect('pegawai/profile/' . $row->username, 301);
 			} else {
-				// redirect('dashboard', 301);
+				// ---- CEK FORCE PASSWORD CHANGE ----
+				if ($row->force_password_change == 1) {
+					$this->session->set_userdata('force_change_temp_id', $row->id);
+					redirect('user/force_change_password');
+				}
 
-				// Password benar, cek apakah MFA aktif
-				if ($row->mfa_enabled == 1) {
-					// Simpan user_id ke session sementara
+				// ---- CEK METODE 2FA ----
+				if ($row->two_factor_method == 'token') {
 					$this->session->set_userdata('temp_user_id', $row->id);
-					// Arahkan ke halaman verifikasi OTP
+					redirect('user/verify_token');  // akan buat method ini
+				} elseif ($row->two_factor_method == 'totp') {
+					$this->session->set_userdata('temp_user_id', $row->id);
 					redirect('user/verify_otp');
 				} else {
-					// Langsung login tanpa MFA	
+					// Langsung login tanpa 2FA
 					$this->session->set_userdata(array(
-						'logged_in'	=> true,
-						'uid'		=> $row->id,
-						'username'		=> $row->username,
-						'gid'		=> $row->group_id,
-						'eid'		=> $row->email,
-						'll'		=> $row->last_login,
-						'fid'		=> $row->first_name . ' ' . $row->last_name,
-						'satker'		=> $row->satker,
+						'logged_in' => true,
+						'uid' => $row->id,
+						'username' => $row->username,
+						'gid' => $row->group_id,
+						'eid' => $row->email,
+						'll' => $row->last_login,
+						'fid' => $row->first_name . ' ' . $row->last_name,
+						'satker' => $row->satker,
 					));
 					redirect('dashboard', 301);
 				}
@@ -180,6 +185,185 @@ class User extends SB_controller
 		} else {
 			$this->session->set_flashdata('message', SiteHelpers::alert('error', 'Invalid user or password combination <br /> or your account is not active yet'));
 			redirect('user/login', 301);
+		}
+	}
+
+	public function force_change_password()
+	{
+		// Cek apakah ada temp session dari postLogin
+		$user_id = $this->session->userdata('force_change_temp_id');
+		if (!$user_id) {
+			redirect('user/login');
+		}
+
+		$user = $this->db->get_where('tb_users', array('id' => $user_id))->row();
+		if (!$user) {
+			redirect('user/login');
+		}
+
+		$this->data['user'] = $user;
+		$this->load->view('user/force_change_password', $this->data);
+	}
+
+	public function do_force_change_password()
+	{
+		$user_id = $this->session->userdata('force_change_temp_id');
+		if (!$user_id) redirect('user/login');
+
+		$user = $this->db->get_where('tb_users', array('id' => $user_id))->row();
+		if (!$user) redirect('user/login');
+
+		$new_password = $this->input->post('password');
+		$confirm = $this->input->post('password_confirmation');
+
+		// Validasi kompleksitas (sama seperti sebelumnya)
+		$errors = array();
+		if (strlen($new_password) < 8) $errors[] = 'Password minimal 8 karakter';
+		if (!preg_match('/[A-Z]/', $new_password)) $errors[] = 'Password harus mengandung huruf kapital';
+		if (!preg_match('/[a-z]/', $new_password)) $errors[] = 'Password harus mengandung huruf kecil';
+		if (!preg_match('/[0-9]/', $new_password)) $errors[] = 'Password harus mengandung angka';
+		if (!preg_match('/[^A-Za-z0-9]/', $new_password)) $errors[] = 'Password harus mengandung karakter unik';
+		if ($new_password !== $confirm) $errors[] = 'Konfirmasi password tidak cocok';
+
+		if (!empty($errors)) {
+			$this->session->set_flashdata('errors', $errors);
+			redirect('user/force_change_password');
+		}
+
+		// Update password, reset force flag, set metode 2FA ke 'token'
+		$hashed = md5($new_password);
+
+		// Generate token 6 digit angka acak
+		$plain_token = sprintf("%06d", mt_rand(1, 999999));
+		// Enkripsi token dengan password_hash (BCRYPT)
+		$token_hash = password_hash($plain_token, PASSWORD_DEFAULT);
+
+		$this->db->where('id', $user_id);
+		$this->db->update('tb_users', array(
+			'password' => $hashed,
+			'force_password_change' => 0,
+			'two_factor_method' => 'token',
+			'auth_token_hash' => $token_hash,
+			'mfa_enabled' => 0, // matikan MFA jika sebelumnya aktif
+			'ga_secret' => NULL
+		));
+
+		// ... setelah update password dan generate token hash ...
+
+		// Simpan plain token ke session flashdata (hanya sekali tampil)
+		$this->session->set_flashdata('new_token', $plain_token);
+
+		// Hapus session temporary force
+		$this->session->unset_userdata('force_change_temp_id');
+
+		// Redirect ke halaman tampil token
+		redirect('user/show_token');
+
+		// 	// Kirim token ke email user (opsional, tapi disarankan)
+		// 	$this->load->library('email');
+		// 	$this->email->from('noreply@bkpsdm.probolinggokab.go.id', 'SIAP REBORN BKPSDM');
+		// 	$this->email->to($user->email);
+		// 	$this->email->subject('Token Keamanan Akun SIAP REBORN');
+		// 	$this->email->message("
+		//     <h3>Token Autentikasi Dua Langkah</h3>
+		//     <p>Berikut adalah token 6 digit yang harus Anda masukkan setiap kali login:</p>
+		//     <h2 style='background:#f0f0f0; padding:10px; text-align:center; letter-spacing:5px;'><strong>{$plain_token}</strong></h2>
+		//     <p>Simpan token ini dengan aman. Jangan berikan kepada siapapun.</p>
+		//     <p>Jika ingin mengganti dengan Google Authenticator, silakan ubah di menu Profil.</p>
+		// ");
+		// 	$this->email->send();
+
+		// 	// Hapus session temporary force
+		// 	$this->session->unset_userdata('force_change_temp_id');
+
+		// 	// Tampilkan token di halaman (sebagai cadangan jika email gagal)
+		// 	$this->session->set_flashdata('token_created', "Token keamanan Anda: <strong>{$plain_token}</strong>. Simpan dan jangan hilang. Juga dikirim ke email.");
+
+		// 	// Set session temporary untuk user agar bisa langsung ke halaman login (atau ke verifikasi token?)
+		// 	// Arahkan ke halaman login biasa, karena sekarang dia harus login dengan token
+		// 	redirect('user/login');
+	}
+
+	public function show_token()
+	{
+		$token = $this->session->flashdata('new_token');
+		if (empty($token)) {
+			redirect('user/login');
+		}
+		$data['token'] = $token;
+		$this->load->view('user/show_token', $data);
+	}
+
+	public function verify_token()
+	{
+		if (!$this->session->userdata('temp_user_id')) {
+			redirect('user/login');
+		}
+		$this->load->view('mfa/verify_token');
+	}
+
+	public function do_verify_token()
+	{
+		$temp_user_id = $this->session->userdata('temp_user_id');
+		if (!$temp_user_id) redirect('user/login');
+
+		$user = $this->db->get_where('tb_users', array('id' => $temp_user_id))->row();
+		if (!$user) redirect('user/login');
+
+		$input_token = $this->input->post('token');
+
+		// Verifikasi hash token
+		if (password_verify($input_token, $user->auth_token_hash)) {
+			// Login sukses
+			$this->session->unset_userdata('temp_user_id');
+			$this->session->set_userdata(array(
+				'logged_in' => true,
+				'uid' => $user->id,
+				'username' => $user->username,
+				'gid' => $user->group_id,
+				'eid' => $user->email,
+				'll' => $user->last_login,
+				'fid' => $user->first_name . ' ' . $user->last_name,
+				'satker' => $user->satker,
+			));
+			redirect('dashboard');
+		} else {
+			$this->session->set_flashdata('error', 'Token salah');
+			redirect('user/verify_token');
+		}
+	}
+
+	public function switch_2fa_method($method = '')
+	{
+		if (!$this->session->userdata('logged_in')) {
+			redirect('user/login');
+		}
+		$user_id = $this->session->userdata('uid');
+
+		if ($method == 'token') {
+			// Generate token baru
+			$plain_token = sprintf("%06d", mt_rand(1, 999999));
+			$token_hash = password_hash($plain_token, PASSWORD_DEFAULT);
+
+			// Update database
+			$this->db->where('id', $user_id);
+			$this->db->update('tb_users', array(
+				'two_factor_method' => 'token',
+				'auth_token_hash' => $token_hash,
+				'mfa_enabled' => 0,
+				'ga_secret' => NULL
+			));
+
+			$this->session->set_flashdata('new_token', $plain_token);
+			$this->session->sess_destroy();
+			redirect('user/show_token');
+		} elseif ($method == 'totp') {
+			// Beralih ke MFA (Google Authenticator)
+			$this->session->set_userdata('switch_to_totp', true);
+			redirect('user/setup_mfa');
+		} else {
+			$this->session->set_flashdata('message', SiteHelpers::alert('error', 'Metode tidak dikenal'));
+			redirect('user/profile');
 		}
 	}
 
@@ -562,18 +746,24 @@ class User extends SB_controller
 	public function verify_mfa_setup()
 	{
 		$this->load->library('GoogleAuthenticator');
-
 		$user_id = $this->session->userdata('uid');
 		$user = $this->db->get_where('tb_users', array('id' => $user_id))->row();
 		$otp_code = $this->input->post('otp_code');
 
-		// Verifikasi kode OTP
 		$checkResult = $this->googleauthenticator->verifyCode($user->ga_secret, $otp_code, 2);
-
 		if ($checkResult) {
-			// MFA berhasil diaktivasi
+			$update_data = array(
+				'mfa_enabled' => 1,
+				'two_factor_method' => 'totp',
+				'auth_token_hash' => NULL
+			);
 			$this->db->where('id', $user_id);
-			$this->db->update('tb_users', array('mfa_enabled' => 1));
+			$this->db->update('tb_users', $update_data);
+
+			// Hapus flag jika ada
+			if ($this->session->userdata('switch_to_totp')) {
+				$this->session->unset_userdata('switch_to_totp');
+			}
 
 			$this->session->set_flashdata('success', 'MFA berhasil diaktifkan!');
 			redirect('dashboard');
@@ -582,6 +772,9 @@ class User extends SB_controller
 			redirect('user/setup_mfa');
 		}
 	}
+
+
+
 	public function send_reset_link()
 	{
 		$this->load->library('email');
@@ -674,18 +867,78 @@ class User extends SB_controller
 		if (!$this->session->userdata('logged_in')) {
 			redirect('user/login');
 		}
-
 		$user_id = $this->session->userdata('uid');
 
-		// Reset MFA: hapus secret dan set mfa_enabled = 0
 		$this->db->where('id', $user_id);
 		$this->db->update('tb_users', array(
 			'ga_secret' => NULL,
-			'mfa_enabled' => 0
+			'mfa_enabled' => 0,
+			'two_factor_method' => 'none',   // tambahkan ini
+			'auth_token_hash' => NULL
 		));
 
-		$this->session->set_flashdata('success', 'MFA berhasil di-reset. Silakan setup ulang di menu Profil.');
+		$this->session->set_flashdata('message', SiteHelpers::alert('success', 'MFA berhasil di-reset. Silakan setup ulang metode autentikasi dua langkah.'));
 		redirect('user/profile');
+	}
+
+	public function ajax_generate_token()
+	{
+		// Pastikan user login
+		if (!$this->session->userdata('logged_in')) {
+			echo json_encode(array('status' => 'error', 'message' => 'Not logged in'));
+			return;
+		}
+
+		$user_id = $this->session->userdata('uid');
+
+		// Generate token 6 digit
+		$plain_token = sprintf("%06d", mt_rand(1, 999999));
+		$token_hash = password_hash($plain_token, PASSWORD_DEFAULT);
+
+		// Update database
+		$this->db->where('id', $user_id);
+		$this->db->update('tb_users', array(
+			'auth_token_hash' => $token_hash,
+			'two_factor_method' => 'token' // pastikan metode tetap token
+		));
+
+		echo json_encode(array('status' => 'success', 'token' => $plain_token));
+	}
+
+	public function generate_new_token()
+	{
+		// Matikan auto layout jika ada (misalnya dari SB_controller)
+		$this->layout = false; // asumsi SB_controller memiliki properti $layout
+		// atau jika menggunakan library template, bisa dengan:
+		// $this->template->set_layout(false);
+
+		if (!$this->session->userdata('logged_in')) {
+			redirect('user/login');
+		}
+
+		$user_id = $this->session->userdata('uid');
+
+		// Generate token baru
+		$plain_token = sprintf("%06d", mt_rand(1, 999999));
+		$token_hash = password_hash($plain_token, PASSWORD_DEFAULT);
+
+		// Update database
+		$this->db->where('id', $user_id);
+		$this->db->update('tb_users', array(
+			'auth_token_hash' => $token_hash,
+			'two_factor_method' => 'token',
+			'mfa_enabled' => 0,
+			'ga_secret' => NULL
+		));
+
+		// Simpan token ke flashdata
+		$this->session->set_flashdata('new_token', $plain_token);
+
+		// Hapus semua session (logout)
+		$this->session->sess_destroy();
+
+		// Redirect ke halaman tampil token
+		redirect('user/show_token');
 	}
 }
 
