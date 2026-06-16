@@ -62,7 +62,7 @@ class Users extends SB_Controller
 
 			if (isset($_POST['search']['value']) && $_POST['search']['value'] != '') {
 				if ($i == 0) {
-					$filter .= " AND " .  "tb_users." .$this->col[$i + 1] . " LIKE '%" . $_POST['search']['value'] . "%'";
+					$filter .= " AND " .  "tb_users." . $this->col[$i + 1] . " LIKE '%" . $_POST['search']['value'] . "%'";
 				} else {
 					$filter .= " OR " . $this->col[$i + 1] . " LIKE '%" . $_POST['search']['value'] . "%'";
 				}
@@ -114,6 +114,16 @@ class Users extends SB_Controller
 			if ($this->access['is_remove'] == 1) {
 				$btn .= '<a class="dropdown-item waves-effect waves-light" href="#" onclick="ConfirmDelete(\'' . site_url('users/destroy/') . '\',' . $dt->$idku . ')"><i class="ti-trash"></i> Delete</a>';
 			}
+			// === TAMBAHKAN DUA ITEM INI ===
+			// Reset Token (hanya tampil jika user punya metode token atau tidak peduli)
+			$btn .= '<a class="dropdown-item waves-effect waves-light" href="' . site_url('users/reset_token/' . $dt->$idku) . '" onclick="return confirm(\'Reset token untuk user ini? Token baru akan dikirim ke email.\')"><i class="ti-key"></i> Reset Akun dan Token</a>';
+
+
+
+			// Reset MFA (hanya tampil jika user punya MFA aktif atau tidak peduli)
+			// $btn .= '<a class="dropdown-item waves-effect waves-light" href="' . site_url('users/reset_mfa_admin/' . $dt->$idku) . '" onclick="return confirm(\'Reset MFA (Google Authenticator) untuk user ini? User harus setup ulang.\')"><i class="ti-shield"></i> Reset Akun dan MFA</a>';
+
+
 			$btn .= '</div>';
 
 			$row[] = $btn;
@@ -228,5 +238,62 @@ class Users extends SB_Controller
 		$this->model->destroy($_POST['id']);
 		$this->inputLogs("ID : " . $_POST['id'] . "  , Has Been Removed Successfull");
 		echo "ID : " . $_POST['id'] . "  , berhasil dihapus !!";
+	}
+
+
+	// Reset Token (paksa user ganti password dan akan mendapat token baru)
+	public function reset_token($id)
+	{
+		if ($this->access['is_edit'] == 0) {
+			$this->session->set_flashdata('error', SiteHelpers::alert('error', 'Anda tidak memiliki izin untuk melakukan ini.'));
+			redirect('users');
+		}
+
+		$user = $this->db->get_where('tb_users', array('id' => $id))->row();
+		if (!$user) {
+			$this->session->set_flashdata('error', SiteHelpers::alert('error', 'User tidak ditemukan.'));
+			redirect('users');
+		}
+
+		// Update database: set force_password_change = 1, metode = token, hapus data MFA & token lama
+		$this->db->where('id', $id);
+		$this->db->update('tb_users', array(
+			'force_password_change' => 1,
+			'two_factor_method' => 'token',
+			'auth_token_hash' => NULL,
+			'mfa_enabled' => 0,
+			'ga_secret' => NULL
+		));
+
+		$this->session->set_flashdata('message', SiteHelpers::alert('success', 'User ' . $user->username . ' telah di-reset (Token). Saat login, user akan diwajibkan mengganti password dan mendapatkan token baru.'));
+		redirect('users');
+	}
+
+	// Reset MFA (paksa user ganti password dan akan setup MFA ulang)
+	public function reset_mfa($id)
+	{
+		if ($this->access['is_edit'] == 0) {
+			$this->session->set_flashdata('error', SiteHelpers::alert('error', 'Anda tidak memiliki izin untuk melakukan ini.'));
+			redirect('users');
+		}
+
+		$user = $this->db->get_where('tb_users', array('id' => $id))->row();
+		if (!$user) {
+			$this->session->set_flashdata('error', SiteHelpers::alert('error', 'User tidak ditemukan.'));
+			redirect('users');
+		}
+
+		// Update database: set force_password_change = 1, metode = totp, hapus data token & MFA lama
+		$this->db->where('id', $id);
+		$this->db->update('tb_users', array(
+			'force_password_change' => 1,
+			'two_factor_method' => 'totp',
+			'auth_token_hash' => NULL,
+			'mfa_enabled' => 0,
+			'ga_secret' => NULL
+		));
+
+		$this->session->set_flashdata('message', SiteHelpers::alert('success', 'User ' . $user->username . ' telah di-reset (MFA). Saat login, user akan diwajibkan mengganti password dan setup ulang MFA.'));
+		redirect('users');
 	}
 }

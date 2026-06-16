@@ -98,8 +98,15 @@
           "orderable": false, //set not orderable
         }, ],
         order: [
-          [2, 'asc']
+          [2, 'asc'],
+          [3, 'asc']
         ]
       });
     });
+
+    function confirmReset(url, id, type) {
+      if (confirm('Anda yakin ingin mereset ' + type + ' untuk user ini? User akan diwajibkan ganti password pada login berikutnya.')) {
+        window.location.href = url + id;
+      }
+    }
   </script>

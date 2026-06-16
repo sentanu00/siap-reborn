@@ -127,6 +127,11 @@
                 <input type="password" name="password_confirmation" id="confirm" required>
                 <span class="toggle-password" onclick="togglePassword('confirm')">👁️</span>
             </div>
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" name="email" id="email" class="form-control" value="<?php echo $user->email; ?>" required>
+                <!-- <small class="text-muted">Token keamanan akan dikirim ke email ini.</small> -->
+            </div>
             <div id="client-error" class="error" style="display:none;"></div>
             <button type="submit">Simpan Password</button>
         </form>
