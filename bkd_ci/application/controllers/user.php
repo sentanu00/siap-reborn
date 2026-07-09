@@ -272,7 +272,7 @@ class User extends SB_controller
 
 			// Kirim token ke email (email yang baru diupdate)
 			$this->load->library('email');
-			$this->email->from('noreply@bkpsdm.probolinggokab.go.id', 'SIAP REBORN BKPSDM');
+			$this->email->from('siap.bkd@gmail.com', 'SIAP REBORN BKPSDM');
 			$this->email->to($email); // Kirim ke email yang baru
 			$this->email->subject('Token Keamanan Baru - SIAP REBORN');
 			$this->email->message("
@@ -420,7 +420,8 @@ class User extends SB_controller
 
 	public function forgot_password()
 	{
-		$this->load->view('auth/forgot_password');
+		$this->data['content'] = $this->load->view('user/forgot_password', $this->data, true);
+		$this->load->view('layouts/login', $this->data);
 	}
 
 	public function register()
@@ -706,6 +707,62 @@ class User extends SB_controller
 			redirect('user/profile');
 		}
 	}
+
+	public function kirim_email_test()
+	{
+		$this->load->library('email');
+
+		$this->email->from('siap.bkd@gmail.com', 'SIAP REBORN BKPSDM');
+		$this->email->to('sentanu00@gmail.com');
+		$this->email->subject('Test Email dari SIAP REBORN');
+		$this->email->message('
+        <h3>Test Email</h3>
+        <p>Email ini dikirim dari aplikasi SIAP REBORN BKPSDM.</p>
+        <p>Jika Anda menerima email ini, berarti konfigurasi email berhasil.</p>
+    ');
+
+		if ($this->email->send()) {
+			echo 'Email berhasil dikirim';
+		} else {
+			echo 'Email gagal dikirim: ' . $this->email->print_debugger();
+		}
+	}
+
+	public function qrcode_test()
+	{
+		// DEBUG: Cek nilai APPPATH
+		$debug = array(
+			'APPPATH' => APPPATH,
+			'FCPATH' => FCPATH,
+			'BASEPATH' => BASEPATH,
+			'File exists' => file_exists(APPPATH . 'libraries/phpqrcode.php'),
+			'Document Root' => $_SERVER['DOCUMENT_ROOT']
+		);
+
+		// Tampilkan debug jika ada parameter 'debug=1' di URL
+		if ($this->input->get('debug') == '1') {
+			echo '<pre>';
+			print_r($debug);
+			echo '</pre>';
+			exit;
+		}
+
+		// Ambil parameter 'data' dari URL
+		$data = $this->input->get('data');
+		if (empty($data)) {
+			show_404();
+		}
+
+		// Load library phpqrcode
+		require_once APPPATH . 'libraries/phpqrcode.php';
+
+		// Set header image/png
+		header('Content-Type: image/png');
+
+		// Generate QR code langsung (sama persis dengan test_qr.php yang berhasil)
+		QRcode::png($data, false, 'L', 6, 2);
+	}
+
 	public function qrcode()
 	{
 		// Ambil parameter 'data' dari URL
@@ -753,8 +810,8 @@ class User extends SB_controller
 			$secret = $user->ga_secret;
 		}
 
-		$issuer = 'SIAP REBORN BKPSDM';
-		$totp_uri = 'otpauth://totp/' . urlencode($issuer) . ':' . $user->email . '?secret=' . $secret . '&issuer=' . urlencode($issuer);
+		$issuer = 'siap-reborn';
+		$totp_uri = 'otpauth://totp/' . urlencode($issuer) . ':' . $user->username . '?secret=' . $secret . '&issuer=' . urlencode($issuer);
 
 		$data['totp_uri'] = $totp_uri;
 		$data['secret'] = $secret;
@@ -821,91 +878,182 @@ class User extends SB_controller
 
 	public function send_reset_link()
 	{
+
+
+		// DEBUG: log bahwa function dipanggil
+		error_log('=== send_reset_link dipanggil ===');
+		error_log('POST: ' . print_r($_POST, true));
+
 		$this->load->library('email');
-		$email = $this->input->post('email');
+		$username = trim($this->input->post('username'));
+		$email = trim($this->input->post('email'));
 
-		// Cek apakah email terdaftar
-		$user = $this->db->get_where('tb_users', array('email' => $email))->row();
+		// DEBUG: cek nilai input
+		error_log('Username: ' . $username . ', Email: ' . $email);
 
-		if ($user) {
-			// Generate token unik
-			$token = bin2hex(random_bytes(32));
-			$expiry = date('Y-m-d H:i:s', strtotime('+1 hour'));
 
-			// Simpan token ke database
-			$this->db->where('email', $email);
-			$this->db->update('tb_users', array(
-				'forgot_password_code' => $token,
-				'forgot_password_expiry' => $expiry
-			));
+		$this->load->library('email');
+		$username = trim($this->input->post('username'));
+		$email = trim($this->input->post('email'));
 
-			// Kirim email
-			$link = base_url('user/reset_password?token=' . $token);
-			$this->email->from('noreply@bkpsdm.probolinggokab.go.id', 'SIAP REBORN BKPSDM');
-			$this->email->to($email);
-			$this->email->subject('Reset Password SIAP REBORN');
-			$this->email->message("
-            <h3>Reset Password</h3>
-            <p>Klik link di bawah untuk mereset password Anda. Link berlaku 1 jam.</p>
-            <p><a href='{$link}'>Reset Password</a></p>
-            <p>Jika Anda tidak merasa meminta reset password, abaikan email ini.</p>
-        ");
+		// Validasi input
+		if (empty($username) || empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+			$this->session->set_flashdata('error', 'Username dan email harus diisi dengan benar.');
+			redirect('user/forgot_password');
+		}
 
-			if ($this->email->send()) {
-				$this->session->set_flashdata('message', 'Link reset password telah dikirim ke email Anda.');
-			} else {
-				$this->session->set_flashdata('message', 'Gagal mengirim email. Silakan coba lagi.');
-			}
+		// Cek kombinasi username + email di database
+		$user = $this->db->get_where('tb_users', array(
+			'username' => $username,
+			'email' => $email,
+			'active' => 1
+		))->row();
+
+		if (!$user) {
+			// Pesan umum (jangan beri tahu mana yang salah)
+			$this->session->set_flashdata('message', 'Jika kombinasi username dan email cocok, link reset akan dikirim.');
+			redirect('user/forgot_password');
+		}
+
+		// Generate token
+		$token = bin2hex(random_bytes(32));
+		$expiry = date('Y-m-d H:i:s', strtotime('+1 hour'));
+
+		$this->db->where('id', $user->id);
+		$this->db->update('tb_users', array(
+			'reminder' => $token,
+			'reset_expiry' => $expiry
+		));
+
+		// Kirim email (sama seperti sebelumnya)
+		$reset_link = base_url('user/reset_password?token=' . $token);
+
+		$this->email->from('siap.bkd@gmail.com', 'SIAP REBORN BKPSDM');
+		$this->email->to($email);
+		$this->email->subject('Reset Password - SIAP REBORN BKPSDM');
+		$this->email->message("
+        <html>
+        <head>
+            <style>
+                body { font-family: Arial, sans-serif; }
+                .container { max-width: 500px; margin: 0 auto; padding: 20px; }
+                .btn { display: inline-block; padding: 10px 20px; background: #0b2b5c; color: white; text-decoration: none; border-radius: 5px; }
+                .warning { background: #fff3cd; padding: 10px; border-left: 4px solid #ffc107; margin: 15px 0; }
+            </style>
+        </head>
+        <body>
+            <div class='container'>
+                <h2>🔐 Reset Password</h2>
+                <p>Halo <strong>{$user->first_name} {$user->last_name}</strong> (<strong>{$user->username}</strong>),</p>
+                <p>Kami menerima permintaan untuk mereset password akun SIAP REBORN Anda.</p>
+                <p>Klik tombol di bawah untuk mereset password:</p>
+                <p style='text-align: center;'>
+                    <a href='{$reset_link}' class='btn'>Reset Password</a>
+                </p>
+                <div class='warning'>
+                    <strong>⚠️ Link ini berlaku selama 1 jam.</strong><br>
+                    Jika Anda tidak merasa meminta reset password, abaikan email ini.
+                </div>
+                <p style='font-size: 12px; color: #888;'>Email ini dikirim oleh SIAP REBORN BKPSDM Kabupaten Probolinggo.</p>
+            </div>
+        </body>
+        </html>
+    ");
+
+		if ($this->email->send()) {
+			$this->session->set_flashdata('message', 'Link reset password telah dikirim ke email Anda.');
 		} else {
-			$this->session->set_flashdata('message', 'Email tidak terdaftar.');
+			$this->session->set_flashdata('error', 'Gagal mengirim email. Silakan coba lagi.');
+			log_message('error', 'Gagal kirim email reset: ' . $this->email->print_debugger());
 		}
 
 		redirect('user/forgot_password');
 	}
 
+	// public function reset_password()
+	// {
+	// 	$token = $this->input->get('token');
+
+	// 	// Cek token di database
+	// 	$user = $this->db->get_where('tb_users', array('forgot_password_code' => $token))->row();
+
+	// 	if ($user) {
+	// 		$data['token'] = $token;
+	// 		$this->load->view('user/reset_password_form', $data);
+	// 	} else {
+	// 		show_error('Token tidak valid atau sudah kadaluarsa');
+	// 	}
+	// }
+
 	public function reset_password()
 	{
 		$token = $this->input->get('token');
 
-		// Cek token di database
-		$user = $this->db->get_where('tb_users', array('forgot_password_code' => $token))->row();
-
-		if ($user) {
-			$data['token'] = $token;
-			$this->load->view('user/reset_password_form', $data);
-		} else {
-			show_error('Token tidak valid atau sudah kadaluarsa');
+		if (empty($token)) {
+			show_error('Token reset tidak ditemukan.');
 		}
+
+		// Cek token di database
+		$user = $this->db->get_where('tb_users', array('reminder' => $token))->row();
+
+		if (!$user) {
+			show_error('Token reset tidak valid.');
+		}
+
+		// Cek apakah token masih berlaku
+		$expiry = strtotime($user->reset_expiry);
+		if (time() > $expiry) {
+			show_error('Token reset sudah kadaluarsa. Silakan minta link reset ulang.');
+		}
+
+		$data['token'] = $token;
+		$data['user'] = $user;
+		$this->load->view('user/reset_password_form', $data);
 	}
 
 	public function do_reset_password()
 	{
 		$token = $this->input->post('token');
 		$new_password = $this->input->post('password');
-		$confirm_password = $this->input->post('confirm_password');
+		$confirm = $this->input->post('password_confirmation');
 
-		if ($new_password !== $confirm_password) {
-			$this->session->set_flashdata('error', 'Password tidak cocok');
+		// Validasi token
+		if (empty($token)) {
+			show_error('Token tidak valid.');
+		}
+
+		$user = $this->db->get_where('tb_users', array('reminder' => $token))->row();
+		if (!$user) {
+			show_error('Token tidak valid.');
+		}
+
+		// Validasi kompleksitas password
+		$errors = array();
+		if (strlen($new_password) < 8) $errors[] = 'Password minimal 8 karakter';
+		if (!preg_match('/[A-Z]/', $new_password)) $errors[] = 'Password harus mengandung huruf kapital';
+		if (!preg_match('/[a-z]/', $new_password)) $errors[] = 'Password harus mengandung huruf kecil';
+		if (!preg_match('/[0-9]/', $new_password)) $errors[] = 'Password harus mengandung angka';
+		if (!preg_match('/[^A-Za-z0-9]/', $new_password)) $errors[] = 'Password harus mengandung karakter unik';
+		if ($new_password !== $confirm) $errors[] = 'Konfirmasi password tidak cocok';
+
+		if (!empty($errors)) {
+			$this->session->set_flashdata('errors', $errors);
 			redirect('user/reset_password?token=' . $token);
 		}
 
-		$user = $this->db->get_where('tb_users', array('forgot_password_code' => $token))->row();
+		// Update password dan hapus token
+		$this->db->where('id', $user->id);
+		$this->db->update('tb_users', array(
+			'password' => md5($new_password),
+			'reminder' => NULL,
+			'reset_expiry' => NULL
+		));
 
-		if ($user) {
-			// Update password
-			$hashed_password = md5($new_password);
-			$this->db->where('id', $user->id);
-			$this->db->update('tb_users', array(
-				'password' => $hashed_password,
-				'forgot_password_code' => NULL
-			));
-
-			$this->session->set_flashdata('message', 'Password berhasil direset. Silakan login.');
-			redirect('user/ogin');
-		} else {
-			show_error('Token tidak valid');
-		}
+		$this->session->set_flashdata('message', SiteHelpers::alert('success', 'Password berhasil direset. Silakan login dengan password baru Anda.'));
+		redirect('user/login');
 	}
+
+
 	public function reset_mfa()
 	{
 		if (!$this->session->userdata('logged_in')) {

@@ -116,12 +116,12 @@ class Users extends SB_Controller
 			}
 			// === TAMBAHKAN DUA ITEM INI ===
 			// Reset Token (hanya tampil jika user punya metode token atau tidak peduli)
-			$btn .= '<a class="dropdown-item waves-effect waves-light" href="' . site_url('users/reset_token/' . $dt->$idku) . '" onclick="return confirm(\'Reset token untuk user ini? Token baru akan dikirim ke email.\')"><i class="ti-key"></i> Reset Akun dan Token</a>';
+			$btn .= '<a class="dropdown-item waves-effect waves-light" href="' . site_url('users/reset_token/' . $dt->$idku) . '" onclick="return confirm(\'Reset token dan password untuk user ini? \')"><i class="ti-key"></i> Reset Akun dan Token</a>';
 
 
 
 			// Reset MFA (hanya tampil jika user punya MFA aktif atau tidak peduli)
-			// $btn .= '<a class="dropdown-item waves-effect waves-light" href="' . site_url('users/reset_mfa_admin/' . $dt->$idku) . '" onclick="return confirm(\'Reset MFA (Google Authenticator) untuk user ini? User harus setup ulang.\')"><i class="ti-shield"></i> Reset Akun dan MFA</a>';
+			$btn .= '<a class="dropdown-item waves-effect waves-light" href="' . site_url('users/reset_mfa/' . $dt->$idku) . '" onclick="return confirm(\'Reset MFA (Google Authenticator) dan password untuk user ini? User harus setup ulang.\')"><i class="ti-shield"></i> Reset Akun dan MFA</a>';
 
 
 			$btn .= '</div>';
@@ -240,8 +240,7 @@ class Users extends SB_Controller
 		echo "ID : " . $_POST['id'] . "  , berhasil dihapus !!";
 	}
 
-
-	// Reset Token (paksa user ganti password dan akan mendapat token baru)
+	// Reset Token (paksa user ganti password, reset password ke YYYYMMDD, dan akan mendapat token baru)
 	public function reset_token($id)
 	{
 		if ($this->access['is_edit'] == 0) {
@@ -255,9 +254,14 @@ class Users extends SB_Controller
 			redirect('users');
 		}
 
-		// Update database: set force_password_change = 1, metode = token, hapus data MFA & token lama
+		// Generate password default: YYYYMMDD
+		$default_password = date('Ymd') . rand(100, 999); // Tambahkan angka acak untuk keamanan
+		$hashed_password = md5($default_password);
+
+		// Update database
 		$this->db->where('id', $id);
 		$this->db->update('tb_users', array(
+			'password' => $hashed_password,
 			'force_password_change' => 1,
 			'two_factor_method' => 'token',
 			'auth_token_hash' => NULL,
@@ -265,11 +269,19 @@ class Users extends SB_Controller
 			'ga_secret' => NULL
 		));
 
-		$this->session->set_flashdata('message', SiteHelpers::alert('success', 'User ' . $user->username . ' telah di-reset (Token). Saat login, user akan diwajibkan mengganti password dan mendapatkan token baru.'));
+		// Simpan password default ke flashdata untuk ditampilkan di popup
+		$this->session->set_flashdata('reset_password', $default_password);
+		$this->session->set_flashdata('reset_username', $user->username);
+		$this->session->set_flashdata('reset_method', 'Token');
+
+		$this->session->set_flashdata('message', SiteHelpers::alert(
+			'success',
+			'User ' . $user->username . ' telah di-reset (Token). Password default: <strong>' . $default_password . '</strong>'
+		));
 		redirect('users');
 	}
 
-	// Reset MFA (paksa user ganti password dan akan setup MFA ulang)
+	// Reset MFA (paksa user ganti password, reset password ke YYYYMMDD, dan akan setup MFA ulang)
 	public function reset_mfa($id)
 	{
 		if ($this->access['is_edit'] == 0) {
@@ -283,9 +295,14 @@ class Users extends SB_Controller
 			redirect('users');
 		}
 
-		// Update database: set force_password_change = 1, metode = totp, hapus data token & MFA lama
+		// Generate password default: YYYYMMDD
+		$default_password = date('Ymd') . rand(100, 999);
+		$hashed_password = md5($default_password);
+
+		// Update database
 		$this->db->where('id', $id);
 		$this->db->update('tb_users', array(
+			'password' => $hashed_password,
 			'force_password_change' => 1,
 			'two_factor_method' => 'totp',
 			'auth_token_hash' => NULL,
@@ -293,7 +310,15 @@ class Users extends SB_Controller
 			'ga_secret' => NULL
 		));
 
-		$this->session->set_flashdata('message', SiteHelpers::alert('success', 'User ' . $user->username . ' telah di-reset (MFA). Saat login, user akan diwajibkan mengganti password dan setup ulang MFA.'));
+		// Simpan password default ke flashdata untuk ditampilkan di popup
+		$this->session->set_flashdata('reset_password', $default_password);
+		$this->session->set_flashdata('reset_username', $user->username);
+		$this->session->set_flashdata('reset_method', 'MFA');
+
+		$this->session->set_flashdata('message', SiteHelpers::alert(
+			'success',
+			'User ' . $user->username . ' telah di-reset (MFA). Password default: <strong>' . $default_password . '</strong>'
+		));
 		redirect('users');
 	}
 }

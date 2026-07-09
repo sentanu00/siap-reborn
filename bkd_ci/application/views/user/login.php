@@ -5,7 +5,7 @@
 			<div class="col-sm-12">
 
 
-				<?php $attributes = array('class' => "md-float-material form-material"); ?>
+				<?php $attributes = array('class' => "md-float-material form-material", 'autocomplete' => 'off'); ?>
 				<?php echo form_open('user/postlogin', $attributes); ?>
 
 				<div class="auth-box card">
@@ -21,12 +21,21 @@
 								<?php echo $this->session->flashdata('message'); ?>
 							</div>
 						</div>
+
+						<!-- INPUT PALSU UNTUK MEMBINGUNGKAN BROWSER -->
+						<div style="display:none">
+							<input type="text" name="fake_username" id="fake_username" value="">
+							<input type="password" name="fake_password" id="fake_password" value="">
+						</div>
+
 						<div class="form-group form-primary">
-							<input type="text" name="username" class="form-control" required="" placeholder="Your Username">
+							<input type="text" name="username" class="form-control" required="" placeholder="Your Username"
+								autocomplete="off" readonly onfocus="this.removeAttribute('readonly')">
 							<span class="form-bar"></span>
 						</div>
 						<div class="form-group form-primary">
-							<input type="password" name="password" class="form-control" required="" placeholder="Password">
+							<input type="password" name="password" class="form-control" required="" placeholder="Password"
+								autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="off" readonly onfocus="this.removeAttribute('readonly')">
 							<span class="form-bar"></span>
 						</div>
 						<div class="row m-t-25 text-left">
@@ -39,7 +48,7 @@
 									</label>
 								</div>
 								<div class="forgot-phone text-right f-right">
-									<a href="auth-reset-password.html" class="text-right f-w-600"> Forgot Password?</a>
+									<a href="<?php echo site_url('user/forgot_password'); ?>" class="text-right f-w-600">Lupa Password?</a>
 								</div>
 							</div>
 						</div>

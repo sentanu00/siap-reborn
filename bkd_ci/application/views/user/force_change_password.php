@@ -43,7 +43,6 @@
             width: 100%;
             padding: 10px;
             padding-right: 35px;
-            /* ruang untuk ikon mata */
             border: 1px solid #ccc;
             border-radius: 5px;
             box-sizing: border-box;
@@ -53,7 +52,6 @@
             position: absolute;
             right: 10px;
             top: 38px;
-            /* sesuaikan agar sejajar dengan input */
             cursor: pointer;
             user-select: none;
             font-size: 18px;
@@ -93,6 +91,29 @@
             color: #555;
             margin-top: 10px;
         }
+
+        /* Sembunyikan input palsu dengan cara yang lebih ekstrem */
+        .hidden-input {
+            position: absolute !important;
+            left: -9999px !important;
+            top: -9999px !important;
+            width: 1px !important;
+            height: 1px !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+        }
+
+        .email-container {
+            margin-bottom: 15px;
+        }
+
+        .email-container input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
     </style>
 </head>
 
@@ -116,22 +137,43 @@
             </div>
         <?php endif; ?>
 
-        <form action="<?php echo site_url('user/do_force_change_password'); ?>" method="post" id="passwordForm">
+        <!-- FIELD EMAIL DI LUAR FORM (agar tidak terdeteksi sebagai form login) -->
+        <div class="email-container">
+            <label>Update Email (Aktif dan Bisa Digunakan)</label>
+            <input type="text" id="email_field"
+                value="<?php echo $user->email; ?>"
+                autocomplete="off"
+                placeholder="Email aktif">
+            <small style="color: #888; font-size: 12px;"></small>
+        </div>
+
+        <!-- FORM UTAMA (HANYA PASSWORD) -->
+        <form action="<?php echo site_url('user/do_force_change_password'); ?>" method="post" id="passwordForm" autocomplete="off">
+
+            <!-- INPUT PALSU untuk membingungkan browser (sangat tersembunyi) -->
+            <input type="text" class="hidden-input" name="fake_username" value="" autocomplete="off">
+            <input type="password" class="hidden-input" name="fake_password" value="" autocomplete="off">
+
+            <!-- Hidden input untuk email (diisi oleh JS) -->
+            <input type="hidden" name="email" id="email_hidden" value="">
+
             <div class="form-group">
                 <label>Password Baru</label>
-                <input type="password" name="password" id="password" required>
+                <input type="password" name="password" id="password"
+                    autocomplete="new-password"
+                    readonly onfocus="this.removeAttribute('readonly')"
+                    required>
                 <span class="toggle-password" onclick="togglePassword('password')">👁️</span>
             </div>
             <div class="form-group">
                 <label>Konfirmasi Password Baru</label>
-                <input type="password" name="password_confirmation" id="confirm" required>
+                <input type="password" name="password_confirmation" id="confirm"
+                    autocomplete="new-password"
+                    readonly onfocus="this.removeAttribute('readonly')"
+                    required>
                 <span class="toggle-password" onclick="togglePassword('confirm')">👁️</span>
             </div>
-            <div class="form-group">
-                <label>Email</label>
-                <input type="email" name="email" id="email" class="form-control" value="<?php echo $user->email; ?>" required>
-                <!-- <small class="text-muted">Token keamanan akan dikirim ke email ini.</small> -->
-            </div>
+
             <div id="client-error" class="error" style="display:none;"></div>
             <button type="submit">Simpan Password</button>
         </form>
@@ -147,7 +189,14 @@
             }
         }
 
+        // Saat form akan disubmit, ambil nilai email dari field di luar form
         document.getElementById('passwordForm').addEventListener('submit', function(e) {
+            // Ambil nilai email dari field di luar form
+            var email = document.getElementById('email_field').value;
+            // Masukkan ke hidden input
+            document.getElementById('email_hidden').value = email;
+
+            // Validasi password (seperti sebelumnya)
             var pass = document.getElementById('password').value;
             var confirm = document.getElementById('confirm').value;
             var errorDiv = document.getElementById('client-error');
@@ -167,6 +216,17 @@
             } else {
                 errorDiv.style.display = 'none';
             }
+        });
+
+        // Kosongkan input password saat halaman dimuat
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('password').value = '';
+            document.getElementById('confirm').value = '';
+            // Hapus atribut readonly setelah beberapa saat (agar bisa diisi)
+            setTimeout(function() {
+                document.getElementById('password').removeAttribute('readonly');
+                document.getElementById('confirm').removeAttribute('readonly');
+            }, 100);
         });
     </script>
 </body>
