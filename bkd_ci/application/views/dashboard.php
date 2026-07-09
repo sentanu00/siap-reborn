@@ -108,10 +108,10 @@
           <!-- <option value="0">NON AKTIF</option>
     <option value="2">SEMUA</option> -->
         </select>
-        <div id="jnskelamin" style="height: 1px"></div>
+        <div id="jnskelamin" style="height: 235px"></div>
       </div>
       <div class="card-footer">
-        <h6 class="text-muted m-b-30 m-t-15">Berdasarkan Jenis Kelamin (PNS, CPNS, PPPK)</h6>
+        <h6 class="text-muted m-b-30 m-t-15">Berdasarkan Jenis Kelamin (PNS, CPNS, PPPK dan PPPK PW)</h6>
         <div class="row text-center">
           <div class="col-6 b-r-default">
             <h6 class="text-muted m-b-10">Perempuan</h6>

@@ -298,7 +298,7 @@ INNER JOIN status_pegawai d ON d.STATUS_PEGAWAI_ID=c.`STATUS_PEGAWAI` WHERE 0=0 
 			INNER JOIN status_pegawai e ON e.`STATUS_PEGAWAI_ID`=a.`STATUS_PEGAWAI`
 			WHERE e.`AKTIF_KERJA`=1 $wh GROUP BY d.PANGKAT_ID ORDER BY d.PANGKAT_ID) AS ccx
 			UNION
-			SELECT COUNT(*) AS total,'Perlu di cek kembali' FROM pegawai a 
+			SELECT COUNT(*) AS total,'PPPK PW' FROM pegawai a 
 			INNER JOIN status_pegawai e ON e.`STATUS_PEGAWAI_ID`=a.`STATUS_PEGAWAI`
 			WHERE e.`AKTIF_KERJA`=1 $wh AND a.PEGAWAI_ID NOT IN (SELECT PEGAWAI_ID FROM pangkat pp INNER JOIN pangkat_riwayat bb ON pp.`PANGKAT_ID`=bb.`PANGKAT_ID` WHERE bb.`FLAG_DATA_TERAKHIR`=1)
 			";

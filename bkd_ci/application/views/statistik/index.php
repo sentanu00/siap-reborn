@@ -60,7 +60,7 @@
       <div class="card">
         <div class="card-block bg-c-white">
           <h5>Pegawai Berdasarkan Jenis Kelamin</h5>
-          <span class="text-muted m-b-30 m-t-15">Berdasarkan Jenis Kelamin (PNS, CPNS, PPPK)</span><br><br>
+          <span class="text-muted m-b-30 m-t-15">Berdasarkan Jenis Kelamin (PNS, CPNS, PPPK dan PPPK PW)</span><br><br>
           <a href="<?php echo site_url('dashboard/byjeniskelaminexcel/1'); ?>" class="btn btn-primary">
             <font color="#000000"><i class="fa fa-file-excel-o"></i> Download Laporan</font>
           </a>
