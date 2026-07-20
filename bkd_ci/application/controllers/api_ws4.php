@@ -118,4 +118,58 @@ class Api_ws4 extends SB_Controller
 
         echo "\n=== SELESAI ===\n";
     }
+
+
+
+   public function update_data_terakhir_tbl_pegawai() {
+    $sql = "UPDATE pegawai p
+        SET 
+            PANGKAT_ID_TERAKHIR = (
+                SELECT pr.PANGKAT_ID
+                FROM pangkat_riwayat pr
+                WHERE pr.PEGAWAI_ID = p.PEGAWAI_ID
+                ORDER BY pr.TMT_PANGKAT DESC
+                LIMIT 1
+            ),
+            JABATAN_ID_TERAKHIR = (
+                SELECT jr.JABATAN_RIWAYAT_ID
+                FROM jabatan_riwayat jr
+                WHERE jr.PEGAWAI_ID = p.PEGAWAI_ID
+                ORDER BY jr.TMT_JABATAN DESC
+                LIMIT 1
+            ),
+            PENDIDIKAN_ID_TERAKHIR = (
+                SELECT pd.PENDIDIKAN_ID
+                FROM pendidikan_riwayat pd
+                WHERE pd.PEGAWAI_ID = p.PEGAWAI_ID
+                ORDER BY pd.TANGGAL_STTB DESC
+                LIMIT 1
+            ),
+            SATKER_INDUK_ID = (
+                SELECT s.SATKER_INDUK_ID  
+                FROM satker s 
+                WHERE s.SATKER_ID = p.SATKER_ID
+            )
+        WHERE p.STATUS_PEGAWAI IN ('2');";
+
+    // Mulai transaksi
+    $this->db->trans_start();
+
+    // Eksekusi query
+    $this->db->query($sql);
+
+    // Selesaikan transaksi
+    $this->db->trans_complete();
+
+    // Cek status transaksi
+    if ($this->db->trans_status() === FALSE) {
+        $error = $this->db->error();
+        echo "Gagal update data: " . $error['message'] . " (Kode error: " . $error['code'] . ")";
+    } else {
+        $affected = $this->db->affected_rows();
+        echo "Update data berhasil. Jumlah pegawai yang diupdate: " . $affected;
+    }
+}
+
+
 }
