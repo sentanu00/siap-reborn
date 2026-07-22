@@ -13,6 +13,10 @@ class Api_ws4 extends SB_Controller
         parent::__construct();
         // Mengatur tipe konten header sebagai application/json
         header('Content-Type: application/json');
+
+        $this->load->model('apimodel');
+
+        $this->api_mws_token = $this->apimodel->getApiMwsToken();
     }
 
 
@@ -125,7 +129,7 @@ class Api_ws4 extends SB_Controller
     $sql = "UPDATE pegawai p
         SET 
             PANGKAT_ID_TERAKHIR = (
-                SELECT pr.PANGKAT_ID
+                SELECT pr.pangkat_riwayat_id
                 FROM pangkat_riwayat pr
                 WHERE pr.PEGAWAI_ID = p.PEGAWAI_ID
                 ORDER BY pr.TMT_PANGKAT DESC
@@ -139,7 +143,7 @@ class Api_ws4 extends SB_Controller
                 LIMIT 1
             ),
             PENDIDIKAN_ID_TERAKHIR = (
-                SELECT pd.PENDIDIKAN_ID
+                SELECT pd.PENDIDIKAN_RIWAYAT_ID
                 FROM pendidikan_riwayat pd
                 WHERE pd.PEGAWAI_ID = p.PEGAWAI_ID
                 ORDER BY pd.TANGGAL_STTB DESC
@@ -171,5 +175,335 @@ class Api_ws4 extends SB_Controller
     }
 }
 
+    public function set_flag_data_utama()
+    {
+        $this->db->trans_start();
+
+        $this->db->query("
+            UPDATE siasnpegawaiid
+            SET flag_data_utama = 1, retry_count_data_utama = 0
+            WHERE flag_data_utama = 0 or flag_data_utama = 3 or retry_count_data_utama > 0
+        ");
+
+        $this->db->trans_complete();
+
+        if ($this->db->trans_status() === FALSE) {
+            $error = $this->db->error();
+            echo "Gagal: {$error['message']}";
+        } else {
+            echo "Berhasil mengubah data." . date('Y-m-d H:i:s');
+        }
+    }
+
+    public function sync_data_utama_batch($limit = 50,$batastolreansi = 50)
+    {
+
+    echo "================================ mulai ambil data utama ".date('Y-m-d H:i:s')." ================================\n \n ";
+        $token = $this->api_mws_token;
+
+    // echo "aja2";
+
+        $pegawai = $this->db
+            ->where('flag_data_utama',1)
+            ->where('retry_count_data_utama <', $batastolreansi)
+            ->order_by('id')
+            ->limit($limit)
+            ->get('siasnpegawaiid')
+            ->result();
+
+            // echo "permulaan - ".$p->nip;
+        // echo "<pre>";
+        // print_r($pegawai);
+        // die();
+
+        foreach($pegawai as $p){
+
+            $json = $this->get_data_utama($token,$p->nip); //ambil dari fungsi sebelumnya
+
+            $response = json_decode($json,true);
+
+            echo "\n sedang di eksekusi : ".$p->nip;
+            if(json_last_error()==JSON_ERROR_NONE
+                && isset($response['code'])
+                && $response['code']==1){
+                    // echo "bisa - ".$p->nip;
+            
+                // try {
+
+                    $save = $this->insertOrUpdateDataUtama($response,$p->pegawai_id); //ambil dari fungsi sebelumnya
+                //     var_dump($save);
+
+                // } catch (Throwable $e){
+
+                //     echo "<pre>";
+                //     echo $e->getMessage();
+                //     echo "<br>";
+                //     echo $e->getFile();
+                //     echo "<br>";
+                //     echo $e->getLine();
+                //     die();
+
+                // }
+                // echo "update insert - ".$p->nip;
+                if($save['success']){
+
+                    $this->db
+                        ->where('id',$p->id)
+                        ->update('siasnpegawaiid',[
+                            'flag_data_utama'=>0,
+                            'retry_count_data_utama'=>0
+                        ]);
+
+                }
+
+                echo " ==> sukses  ";
+
+            }elseif($json is null){
+                    $this->db
+                    ->where('id',$p->id)
+                    ->update('siasnpegawaiid',[
+                       'flag_data_utama'=>3,
+                       'retry_count_data_utama'=>$retry
+                    ]);
+
+                    echo " ==> gagal json kosong ".$retry ."/".$batastolreansi ." => errornya : ".$json;
+            }else{
+                // echo "else1 - ".$p->nip;
+            
+
+                $retry = $p->retry_count_data_utama+1;
+
+                if($retry>=$batastolreansi){
+            
+
+                    $this->db
+                        ->where('id',$p->id)
+                        ->update('siasnpegawaiid',[
+                            'flag_data_utama'=>3,
+                            'retry_count_data_utama'=>$retry
+                        ]);
+
+                        echo " ==> gagal dengan limit : ".$retry ."/".$batastolreansi ." => errornya : ".$json;
+
+                }else{
+
+                    // echo "belum batas toleransi - ".$p->nip;
+
+                    $this->db
+                        ->where('id',$p->id)
+                        ->update('siasnpegawaiid',[
+                            'retry_count_data_utama'=>$retry
+                        ]);
+
+
+                        echo " ==> gagal dengan limit : ".$retry ."/".$batastolreansi ." => errornya : ".$json;
+
+                }
+
+            }
+
+        }
+
+    echo "\n \n ================================ selesai ambil data utama ".date('Y-m-d H:i:s')." ================================";
+
+    }
+
+    public function get_data_utama($api_mws_token, $nip_baru)
+    {
+        // $api_mws_token = $this->session->userdata('token_apimws');
+        // $sso_token = $this->session->userdata('token_sso');
+
+
+        $sso_token = "bearer eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJBUWNPM0V3MVBmQV9MQ0FtY2J6YnRLUEhtcWhLS1dRbnZ1VDl0RUs3akc4In0.eyJleHAiOjE3MzE5NTQ4MzUsImlhdCI6MTczMTkxMTYzNSwianRpIjoiMzcyZTliZTctZmNhYS00NjFhLWE0OTYtMGUxN2ZmMzI4MDUwIiwiaXNzIjoiaHR0cHM6Ly9zc28tc2lhc24uYmtuLmdvLmlkL2F1dGgvcmVhbG1zL3B1YmxpYy1zaWFzbiIsImF1ZCI6ImFjY291bnQiLCJzdWIiOiIxNzhkOWQ4OC1iOGRlLTRjYWEtYmQ1OS05NDg0NjdlZDJiOTYiLCJ0eXAiOiJCZWFyZXIiLCJhenAiOiJrYWJwcm9ib2xpbmdnb3dzIiwic2Vzc2lvbl9zdGF0ZSI6Ijg2NjFkZjkxLTBjNzMtNDk2Zi05N2YxLTM3MmJkZmYzNTBmNiIsImFjciI6IjEiLCJhbGxvd2VkLW9yaWdpbnMiOlsiaHR0cHM6Ly9kZXYtY2x1c3Rlci5wcm9ib2xpbmdnb2thYi5nby5pZCIsImh0dHA6Ly8xMjcuMC4wLjE6MzAwMC8qIiwiaHR0cDovLzEyNy4wLjAuMTozMDAwIiwiaHR0cDovL2xvY2FsaG9zdDozMDAwLyoiLCJodHRwOi8vbG9jYWxob3N0OjMwMDAiLCJodHRwczovL2Rldi1jbHVzdGVyLnByb2JvbGluZ2dva2FiLmdvLmlkLyoiXSwicmVhbG1fYWNjZXNzIjp7InJvbGVzIjpbInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW1hamFhbjpvcGVyYXRvciIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW5jYW5hYW46aW5zdGFuc2ktb3BlcmF0b3ItaW5mb2phYiIsInJvbGU6c2lhc24taW5zdGFuc2k6cGk6b3BlcmF0b3IiLCJyb2xlOnNpYXNuLWluc3RhbnNpOnBlcmVuY2FuYWFuOmluc3RhbnNpLW1vbml0b3ItcGVyZW5jYW5hYW4ta2VwZWdhd2FpYW4iLCJyb2xlOnNpYXNuLWluc3RhbnNpOnBlbmdhZGFhbjphcHByb3ZhbCIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVuZ2FkYWFuOm9wZXJhdG9yLXNrcG5zIiwicm9sZTpzaWFzbi1pbnN0YW5zaTprcDphcHByb3ZhbCIsInJvbGU6c2lhc24taW5zdGFuc2k6a3A6b3BlcmF0b3IiLCJyb2xlOmRhc2hib2FyZC1rZWJpamFrYW46aW5zdGFuc2kiLCJyb2xlOm1hbmFqZW1lbi13czpkZXZlbG9wZXIiLCJvZmZsaW5lX2FjY2VzcyIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW5jYW5hYW46aW5zdGFuc2ktb3BlcmF0b3ItcGVtZW51aGFuLWtlYi1wZWdhd2FpIiwidW1hX2F1dGhvcml6YXRpb24iLCJyb2xlOnNpYXNuLWluc3RhbnNpOnNrazphcHByb3ZhbCIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW5jYW5hYW46aW5zdGFuc2ktb3BlcmF0b3ItZXZhamFiIiwicm9sZTpzaWFzbi1pbnN0YW5zaTpza2s6b3BlcmF0b3IiLCJyb2xlOnNpYXNuLWluc3RhbnNpOnBlcmVtYWphYW46YXBwcm92YWwiLCJyb2xlOnNpYXNuLWluc3RhbnNpOnBlcmVuY2FuYWFuOmluc3RhbnNpLW9wZXJhdG9yLXNvdGsiLCJyb2xlOmRhc2hib2FyZC1vcGVyYXNpb25hbDppbnN0YW5zaSIsInJvbGU6ZGlzcGFrYXRpOmluc3RhbnNpOm9wZXJhdG9yIiwicm9sZTpzaWFzbi1pbnN0YW5zaTpwZW1iZXJoZW50aWFuOm9wZXJhdG9yX2l6aW5fcHBwayIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVuZ2FkYWFuOm9wZXJhdG9yIiwicm9sZTpzaWFzbi1pbnN0YW5zaTpwZW1iZXJoZW50aWFuOm9wZXJhdG9yIiwicm9sZTpzaWFzbi1pbnN0YW5zaTpwaTphcHByb3ZhbCIsInJvbGU6c2lhc24taW5zdGFuc2k6aXBhc246bW9uaXRvcmluZyIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW5jYW5hYW46aW5zdGFuc2ktb3BlcmF0b3Itc3RhbmRhci1rb21wLWphYiIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVtYmVyaGVudGlhbjphcHByb3ZhbCIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW5jYW5hYW46aW5zdGFuc2ktcGVuZXRhcGFuLXNvdGsiLCJyb2xlOnNpYXNuLWluc3RhbnNpOnByb2ZpbGFzbjp2aWV3cHJvZmlsIiwicm9sZTpkYXNoYm9hcmQtb3BlcmFzaW9uYWw6aW5zdGFuc2ktcGltcGluYW4iLCJyb2xlOnNpYXNuLWluc3RhbnNpOmFkbWluOmFkbWluIiwicm9sZTpzaWFzbi1pbnN0YW5zaTpwZXJlbmNhbmFhbjppbnN0YW5zaS12YWxpZGF0b3Itc3RhbmRhci1rb21wLWphYiJdfSwicmVzb3VyY2VfYWNjZXNzIjp7ImFjY291bnQiOnsicm9sZXMiOlsibWFuYWdlLWFjY291bnQiLCJtYW5hZ2UtYWNjb3VudC1saW5rcyIsInZpZXctcHJvZmlsZSJdfX0sInNjb3BlIjoiZW1haWwgcHJvZmlsZSIsImVtYWlsX3ZlcmlmaWVkIjpmYWxzZSwibmFtZSI6IlNSSSBLVVNUQU5USSIsInByZWZlcnJlZF91c2VybmFtZSI6IjE5ODMwNzA0MjAxMDAxMjAxMiIsImdpdmVuX25hbWUiOiJTUkkiLCJmYW1pbHlfbmFtZSI6IktVU1RBTlRJIiwiZW1haWwiOiJrdXN0YW50aTQ3QGdtYWlsLmNvbSJ9.L4spM6cVggKdzQAS8jw99mzy_bz-J5HZ128QnHhWV65pzlWkSp286wzAjoWDfcaIM8PTo70k0PeRG0ZdTMQrKsJ3-w_50SAvDUjDQnWhLNnVnKsg6Et50ifrE1k6AMLA5BrPwIC8TpjbWaB7hTQ3xk9sz8KgejGA9e4mPzaV53tKuLa-r9LCYJ2tQNP2-XxYZtizHs9gI2B59YEVJkmR0ne-IIFImKo-oicnr-ePO1FFFPrOGQWXxqwavyDT6f93zAjMGN7Tjwghvlpvj563aT1yFaEGN1b_eQR2Un5pBgbiI54NP7mx7PIdrTYY-QIfbv1rine6ZqtVQhtcJVTEkA";
+        $api_mws_token = "Bearer " . $api_mws_token;
+        $curl = curl_init();
+
+        curl_setopt_array($curl, array(
+            CURLOPT_URL => 'https://apimws.bkn.go.id:8243/apisiasn/1.0/pns/data-utama/' . $nip_baru,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_ENCODING => '',
+            CURLOPT_MAXREDIRS => 10,
+            CURLOPT_TIMEOUT => 0,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+            CURLOPT_CUSTOMREQUEST => 'GET',
+            CURLOPT_HTTPHEADER => array(
+                'accept: application/json',
+                'Auth: ' . $sso_token,
+                'Authorization: ' . $api_mws_token,
+                'Cookie: ff8d625df24f2272ecde05bd53b814bc=ce158eaac3b25204bfaa39e480fc50f7; pdns=1091068938.13088.0000'
+            ),
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYHOST => false,
+        ));
+
+        $response = curl_exec($curl);
+
+        curl_close($curl);
+        // $hasil['data']['sso_token'] = $sso_token;
+        // $hasil['data']['api_mws_token'] = $api_mws_token;
+        // $hasil['data']['return'] = $response;
+
+        // return $response;
+        return $response;
+    }
+
+    private function insertOrUpdateDataUtama($response_data, $pegawai_id)
+    {
+        $data = $response_data['data'];
+
+        // Format tanggal dari string ke format database
+        $formatDate = function ($date_str) {
+            if (empty($date_str) || $date_str == 'null') return null;
+            $date = DateTime::createFromFormat('d-m-Y', $date_str);
+            return $date ? $date->format('Y-m-d') : null;
+        };
+
+        // Format tahun lulus
+        $tahunLulus = null;
+        if (!empty($data['tahunLulus'])) {
+            $tahun = DateTime::createFromFormat('d-m-Y', $data['tahunLulus']);
+            $tahunLulus = $tahun ? $tahun->format('Y') : null;
+        }
+
+        // Prepare data untuk insert
+        $insert_data = array(
+            'id' => $data['id'],
+            'nipBaru' => $data['nipBaru'],
+            'nipLama' => $data['nipLama'],
+            'nik' => $data['nik'],
+            'nama' => $data['nama'],
+            'gelarBelakang' => $data['gelarBelakang'],
+            'gelarDepan' => $data['gelarDepan'],
+            'statusPegawai' => $data['statusPegawai'],
+            'jenisKelamin' => $data['jenisKelamin'],
+            'jenisPegawaiNama' => substr($data['jenisPegawaiNama'], 0, 10), // truncate to fit column
+            'tempatLahir' => substr($data['tempatLahir'], 0, 20),
+            'tglLahir' => $formatDate($data['tglLahir']),
+            'agama' => $data['agama'],
+            'alamat' => $data['alamat'],
+            'email' => substr($data['email'], 0, 50),
+            'emailGov' => substr($data['emailGov'], 0, 50),
+            'masaKerja' => $data['masaKerja'],
+            'mkBulan' => $data['mkBulan'],
+            'mkTahun' => $data['mkTahun'],
+            'noHp' => $data['noHp'],
+            'noTelp' => $data['noTelp'],
+            'statusPerkawinan' => $data['statusPerkawinan'],
+            'statusHidup' => $data['statusHidup'],
+            'tglMeninggal' => $formatDate($data['tglMeninggal']),
+            'agamaId' => $data['agamaId'],
+            'akteKelahiran' => $data['akteKelahiran'],
+            'akteMeninggal' => $data['akteMeninggal'],
+            'bahasa' => $data['bahasa'],
+            'bpjs' => $data['bpjs'],
+            'jenisKawinId' => $data['jenisKawinId'],
+            'jenisPegawaiId' => $data['jenisPegawaiId'],
+            'kanregId' => $data['kanregId'],
+            'kanregNama' => $data['kanregNama'],
+            'kartuAsn' => $data['kartuAsn'],
+            'kedudukanPnsId' => $data['kedudukanPnsId'],
+            'kedudukanPnsNama' => $data['kedudukanPnsNama'],
+            'kodePos' => $data['kodePos'],
+            'lokasiKerja' => $data['lokasiKerja'],
+            'lokasiKerjaId' => $data['lokasiKerjaId'],
+            'noAskes' => $data['noAskes'],
+            'noNpwp' => $data['noNpwp'],
+            'noSeriKarpeg' => $data['noSeriKarpeg'],
+            'noTaspen' => $data['noTaspen'],
+            'taspenId' => $data['taspenId'],
+            'taspenNama' => $data['taspenNama'],
+            'tempatLahirId' => $data['tempatLahirId'],
+            'tglNpwp' => $formatDate($data['tglNpwp']),
+            'tmtPns' => $formatDate($data['tmtPns']),
+            'nomorSkPns' => $data['nomorSkPns'],
+            'tglSkPns' => $formatDate($data['tglSkPns']),
+            'tglSttpl' => $formatDate($data['tglSttpl']),
+            'nomorSttpl' => $data['nomorSttpl'],
+            'tglSuratKeteranganDokter' => $formatDate($data['tglSuratKeteranganDokter']),
+            'noSuratKeteranganDokter' => $data['noSuratKeteranganDokter'],
+            'jenjang' => $data['jenjang'],
+            'pendidikanTerakhirNama' => substr($data['pendidikanTerakhirNama'], 0, 20),
+            'tkPendidikanTerakhir' => $data['tkPendidikanTerakhir'],
+            'tahunLulus' => $tahunLulus,
+            'pendidikanTerakhirId' => $data['pendidikanTerakhirId'],
+            'tkPendidikanTerakhirId' => $data['tkPendidikanTerakhirId'],
+            'jumlahIstriSuami' => $data['jumlahIstriSuami'],
+            'golRuangAkhir' => $data['golRuangAkhir'],
+            'golRuangAkhirId' => $data['golRuangAkhirId'],
+            'pangkatAkhir' => substr($data['pangkatAkhir'], 0, 20),
+            'tmtGolAkhir' => $formatDate($data['tmtGolAkhir']),
+            'golRuangAwal' => $data['golRuangAwal'],
+            'golRuangAwalId' => $data['golRuangAwalId'],
+            'jenisIdDokumenId' => $data['jenisIdDokumenId'],
+            'jenisIdDokumenNama' => $data['jenisIdDokumenNama'],
+            'kpknId' => $data['kpknId'],
+            'kpknNama' => $data['kpknNama'],
+            'kppnId' => $data['kppnId'],
+            'kppnNama' => $data['kppnNama'],
+            'ktuaId' => $data['ktuaId'],
+            'ktuaNama' => $data['ktuaNama'],
+            'nomorIdDocument' => $data['nomorIdDocument'],
+            'tmtJabatan' => $formatDate($data['tmtJabatan']),
+            'jabatanNama' => $data['jabatanNama'],
+            'jenisJabatan' => $data['jenisJabatan'],
+            'eselon' => $data['eselon'],
+            'unorNama' => $data['unorNama'],
+            'unorIndukNama' => $data['unorIndukNama'],
+            'instansiKerjaNama' => $data['instansiKerjaNama'],
+            'bupPensiun' => $data['bupPensiun'],
+            'tmtPensiun' => $formatDate($data['tmtPensiun']),
+            'eselonId' => $data['eselonId'],
+            'eselonLevel' => $data['eselonLevel'],
+            'instansiIndukId' => $data['instansiIndukId'],
+            'instansiIndukNama' => $data['instansiIndukNama'],
+            'instansiKerjaId' => $data['instansiKerjaId'],
+            'instansiKerjaKodeCepat' => $data['instansiKerjaKodeCepat'],
+            'jabatanAsn' => $data['jabatanAsn'],
+            'jabatanFungsionalId' => $data['jabatanFungsionalId'],
+            'jabatanFungsionalNama' => $data['jabatanFungsionalNama'],
+            'jabatanFungsionalUmumId' => $data['jabatanFungsionalUmumId'],
+            'jabatanFungsionalUmumNama' => $data['jabatanFungsionalUmumNama'],
+            'jabatanStrukturalId' => $data['jabatanStrukturalId'],
+            'jabatanStrukturalNama' => $data['jabatanStrukturalNama'],
+            'jenisJabatanId' => $data['jenisJabatanId'],
+            'satuanKerjaIndukId' => $data['satuanKerjaIndukId'],
+            'satuanKerjaIndukNama' => $data['satuanKerjaIndukNama'],
+            'satuanKerjaKerjaId' => $data['satuanKerjaKerjaId'],
+            'satuanKerjaKerjaNama' => $data['satuanKerjaKerjaNama'],
+            'tmtEselon' => $formatDate($data['tmtEselon']),
+            'unorId' => $data['unorId'],
+            'unorIndukId' => $data['unorIndukId'],
+            'gajiPokok' => $data['gajiPokok'],
+            'tmtCpns' => $formatDate($data['tmtCpns']),
+            'nomorSkCpns' => $data['nomorSkCpns'],
+            'tglSkCpns' => $formatDate($data['tglSkCpns']),
+            'noSpmt' => $data['noSpmt'],
+            'skck' => $data['skck'],
+            'tglSkck' => $formatDate($data['tglSkck']),
+            'noSuratKeteranganBebasNarkoba' => $data['noSuratKeteranganBebasNarkoba'],
+            'tglSuratKeteranganBebasNarkoba' => $formatDate($data['tglSuratKeteranganBebasNarkoba']),
+            'jumlahAnak' => $data['jumlahAnak'],
+            'status_singkron' => '1', // sukses
+            'sync_date' => date('Y-m-d H:i:s'),
+            'pegawai_id' => $pegawai_id
+        );
+
+        // Cek apakah data sudah ada
+        $this->db->where('id', $data['id']);
+        $existing = $this->db->get('data_utama')->row();
+
+        if ($existing) {
+            // Update data yang sudah ada
+            $this->db->where('id', $data['id']);
+            $result = $this->db->update('data_utama', $insert_data);
+            $action = 'updated';
+        } else {
+            // Insert data baru
+            $result = $this->db->insert('data_utama', $insert_data);
+            $action = 'inserted';
+        }
+        return array('success' => $result, 'action' => $action);
+    }
 
 }
