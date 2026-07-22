@@ -83,7 +83,7 @@
 					<div class="form-group  ">
 						<label for="ipt" class=" control-label "> UPLOAD SK <span class="asterix"> * </span></label>
 						<input type='file' class='form-control input-sm' accept="application/pdf" required id="FILE_PDF" name="FILE_PDF">
-							<!-- <input type="hidden" name="file_pdf_cek"  value="<?php echo $row['FILE_PDF']; ?>" /> -->
+							<input type="hidden" name="file_pdf_cek"  value="<?php echo $row['FILE_PDF']; ?>" /> 
 							<input type="hidden" name="FILE_PDF"  value="<?php echo $row['FILE_PDF']; ?>" />
 						
 							<?
