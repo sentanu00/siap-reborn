@@ -125,8 +125,9 @@ class Api_ws4 extends SB_Controller
 
 
 
-   public function update_data_terakhir_tbl_pegawai() {
-    $sql = "UPDATE pegawai p
+    public function update_data_terakhir_tbl_pegawai()
+    {
+        $sql = "UPDATE pegawai p
         SET 
             PANGKAT_ID_TERAKHIR = (
                 SELECT pr.pangkat_riwayat_id
@@ -156,34 +157,57 @@ class Api_ws4 extends SB_Controller
             )
         WHERE p.STATUS_PEGAWAI IN ('2');";
 
-    // Mulai transaksi
-    $this->db->trans_start();
+        // Mulai transaksi
+        $this->db->trans_start();
 
-    // Eksekusi query
-    $this->db->query($sql);
+        // Eksekusi query
+        $this->db->query($sql);
 
-    // Selesaikan transaksi
-    $this->db->trans_complete();
+        // Selesaikan transaksi
+        $this->db->trans_complete();
 
-    // Cek status transaksi
-    if ($this->db->trans_status() === FALSE) {
-        $error = $this->db->error();
-        echo "Gagal update data: " . $error['message'] . " (Kode error: " . $error['code'] . ")";
-    } else {
-        $affected = $this->db->affected_rows();
-        echo "Update data berhasil. Jumlah pegawai yang diupdate: " . $affected;
+        // Cek status transaksi
+        if ($this->db->trans_status() === FALSE) {
+            $error = $this->db->error();
+            echo "Gagal update data: " . $error['message'] . " (Kode error: " . $error['code'] . ")";
+        } else {
+            $affected = $this->db->affected_rows();
+            echo "Update data berhasil. Jumlah pegawai yang diupdate: " . $affected;
+        }
     }
-}
 
     public function set_flag_data_utama()
     {
         $this->db->trans_start();
 
+        // Tambahkan pegawai baru ke tabel siasnpegawaiid
+        $this->db->query("
+            INSERT INTO siasnpegawaiid (pegawai_id, nip)
+            SELECT
+                p.PEGAWAI_ID,
+                p.NIP_BARU
+            FROM pegawai p
+            WHERE p.STATUS_PEGAWAI IN ('1','2','10','18')
+            AND NOT EXISTS (
+                SELECT 1
+                FROM siasnpegawaiid s
+                WHERE s.pegawai_id = p.PEGAWAI_ID
+            )
+        ");
+
+        $inserted = $this->db->affected_rows();
+
+        // Set flag data utama
         $this->db->query("
             UPDATE siasnpegawaiid
-            SET flag_data_utama = 1, retry_count_data_utama = 0
-            WHERE flag_data_utama = 0 or flag_data_utama = 3 or retry_count_data_utama > 0
+            SET
+                flag_data_utama = 1,
+                retry_count_data_utama = 0
+            WHERE flag_data_utama IN (1,3)
+            OR retry_count_data_utama > 0
         ");
+
+        $updated = $this->db->affected_rows();
 
         $this->db->trans_complete();
 
@@ -191,121 +215,121 @@ class Api_ws4 extends SB_Controller
             $error = $this->db->error();
             echo "Gagal: {$error['message']}";
         } else {
-            echo "Berhasil mengubah data." . date('Y-m-d H:i:s');
+            echo "Berhasil. "
+                . "Pegawai baru ditambahkan: {$inserted}. "
+                . "Data yang di-set flag: {$updated}. "
+                . date('Y-m-d H:i:s');
         }
     }
 
-    public function sync_data_utama_batch($limit = 50,$batastolreansi = 50)
+    public function sync_data_utama_batch($limit = 50, $batastolreansi = 50)
     {
+        echo "================================ mulai ambil data utama " . date('Y-m-d H:i:s') . " ================================\n\n";
 
-    echo "================================ mulai ambil data utama ".date('Y-m-d H:i:s')." ================================\n \n ";
         $token = $this->api_mws_token;
 
-    // echo "aja2";
-
         $pegawai = $this->db
-            ->where('flag_data_utama',1)
+            ->where('flag_data_utama', 1)
             ->where('retry_count_data_utama <', $batastolreansi)
             ->order_by('id')
             ->limit($limit)
             ->get('siasnpegawaiid')
             ->result();
 
-            // echo "permulaan - ".$p->nip;
-        // echo "<pre>";
-        // print_r($pegawai);
-        // die();
+        foreach ($pegawai as $p) {
 
-        foreach($pegawai as $p){
+            echo "\nSedang diproses : {$p->nip}";
 
-            $json = $this->get_data_utama($token,$p->nip); //ambil dari fungsi sebelumnya
+            $json = $this->get_data_utama($token, $p->nip);
 
-            $response = json_decode($json,true);
+            $retry = $p->retry_count_data_utama + 1;
 
-            echo "\n sedang di eksekusi : ".$p->nip;
-            if(json_last_error()==JSON_ERROR_NONE
-                && isset($response['code'])
-                && $response['code']==1){
-                    // echo "bisa - ".$p->nip;
-            
-                // try {
+            /**
+             * 1. Response kosong
+             */
+            if (empty($json)) {
 
-                    $save = $this->insertOrUpdateDataUtama($response,$p->pegawai_id); //ambil dari fungsi sebelumnya
-                //     var_dump($save);
+                $this->db
+                    ->where('id', $p->id)
+                    ->update('siasnpegawaiid', array(
+                        'flag_data_utama'       => ($retry >= $batastolreansi ? 3 : 1),
+                        'retry_count_data_utama' => $retry
+                    ));
 
-                // } catch (Throwable $e){
+                echo " ==> Response kosong ({$retry}/{$batastolreansi})";
 
-                //     echo "<pre>";
-                //     echo $e->getMessage();
-                //     echo "<br>";
-                //     echo $e->getFile();
-                //     echo "<br>";
-                //     echo $e->getLine();
-                //     die();
-
-                // }
-                // echo "update insert - ".$p->nip;
-                if($save['success']){
-
-                    $this->db
-                        ->where('id',$p->id)
-                        ->update('siasnpegawaiid',[
-                            'flag_data_utama'=>0,
-                            'retry_count_data_utama'=>0
-                        ]);
-
-                }
-
-                echo " ==> sukses  ";
-
-            }elseif($json is null){
-                    $this->db
-                    ->where('id',$p->id)
-                    ->update('siasnpegawaiid',[
-                       'flag_data_utama'=>3,
-                       'retry_count_data_utama'=>$retry
-                    ]);
-
-                    echo " ==> gagal json kosong ".$retry ."/".$batastolreansi ." => errornya : ".$json;
-            }else{
-                // echo "else1 - ".$p->nip;
-            
-
-                $retry = $p->retry_count_data_utama+1;
-
-                if($retry>=$batastolreansi){
-            
-
-                    $this->db
-                        ->where('id',$p->id)
-                        ->update('siasnpegawaiid',[
-                            'flag_data_utama'=>3,
-                            'retry_count_data_utama'=>$retry
-                        ]);
-
-                        echo " ==> gagal dengan limit : ".$retry ."/".$batastolreansi ." => errornya : ".$json;
-
-                }else{
-
-                    // echo "belum batas toleransi - ".$p->nip;
-
-                    $this->db
-                        ->where('id',$p->id)
-                        ->update('siasnpegawaiid',[
-                            'retry_count_data_utama'=>$retry
-                        ]);
-
-
-                        echo " ==> gagal dengan limit : ".$retry ."/".$batastolreansi ." => errornya : ".$json;
-
-                }
-
+                continue;
             }
 
+            /**
+             * 2. Decode JSON
+             */
+            $response = json_decode($json, true);
+
+            if (json_last_error() != JSON_ERROR_NONE) {
+
+                $this->db
+                    ->where('id', $p->id)
+                    ->update('siasnpegawaiid', array(
+                        'flag_data_utama'       => ($retry >= $batastolreansi ? 3 : 1),
+                        'retry_count_data_utama' => $retry
+                    ));
+
+                echo " ==> JSON tidak valid ({$retry}/{$batastolreansi})";
+                echo "\nResponse : " . substr($json, 0, 200);
+
+                continue;
+            }
+
+            /**
+             * 3. Response sukses
+             */
+            if (isset($response['code']) && $response['code'] == 1) {
+
+                $save = $this->insertOrUpdateDataUtama($response, $p->pegawai_id);
+
+                if ($save['success']) {
+
+                    $this->db
+                        ->where('id', $p->id)
+                        ->update('siasnpegawaiid', array(
+                            'flag_data_utama'       => 0,
+                            'retry_count_data_utama' => 0
+                        ));
+
+                    echo " ==> SUKSES";
+                } else {
+
+                    $this->db
+                        ->where('id', $p->id)
+                        ->update('siasnpegawaiid', array(
+                            'flag_data_utama'       => ($retry >= $batastolreansi ? 3 : 1),
+                            'retry_count_data_utama' => $retry
+                        ));
+
+                    echo " ==> Gagal menyimpan data";
+                }
+
+                continue;
+            }
+
+            /**
+             * 4. Response gagal dari SIASN
+             */
+
+            $this->db
+                ->where('id', $p->id)
+                ->update('siasnpegawaiid', array(
+                    'flag_data_utama'       => ($retry >= $batastolreansi ? 3 : 1),
+                    'retry_count_data_utama' => $retry
+                ));
+
+            $pesan = isset($response['message']) ? $response['message'] : 'Unknown Error';
+
+            echo " ==> GAGAL ({$retry}/{$batastolreansi}) : {$pesan}";
         }
 
-    echo "\n \n ================================ selesai ambil data utama ".date('Y-m-d H:i:s')." ================================";
-
+        echo "\n\n================================ selesai ambil data utama " . date('Y-m-d H:i:s') . " ================================\n";
     }
 
     public function get_data_utama($api_mws_token, $nip_baru)
@@ -505,5 +529,4 @@ class Api_ws4 extends SB_Controller
         }
         return array('success' => $result, 'action' => $action);
     }
-
 }
