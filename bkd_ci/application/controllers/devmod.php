@@ -46,17 +46,22 @@ class Devmod extends SB_Controller
 	{
 		$monitoring = $this->model->getDashboardMonitoring();
 
-		// Ambil anomali pangkat
-		$anomaliPangkat = $this->model->getAnomaliPangkatFormatted();
+		$anomali = [
+			'pangkat' => $this->model->getAnomaliPangkatFormatted(),
+			'gelar'   => $this->model->getAnomaliGelarFormatted(),
+			// nanti tambahkan 'jabatan' => ...
+		];
 
-		// Tambahkan ke card pertama
+		// Hanya masukkan kategori yang tidak kosong
+		$anomali = array_filter($anomali, function ($items) {
+			return !empty($items);
+		});
+
 		if (!empty($monitoring[0])) {
-			$monitoring[0]['anomali'] = array_merge($monitoring[0]['anomali'], $anomaliPangkat);
+			$monitoring[0]['anomali'] = $anomali;
 		}
 
 		$this->data['monitoring'] = $monitoring;
-
-		// Sisanya tetap
 		$this->data['access'] = $this->access;
 		$this->data['content'] = $this->load->view('devmod/index', $this->data, true);
 		$this->load->view($this->layout, $this->data);
@@ -171,6 +176,84 @@ class Devmod extends SB_Controller
 				$row->golongan_siap,
 				$row->golongan_siasn
 			], '|'); // <-- Pemisah pipe
+		}
+
+		fclose($output);
+		exit;
+	}
+
+	public function download_anomali_gelar()
+	{
+		if (!$this->session->userdata('logged_in')) {
+			redirect('user/login', 301);
+		}
+
+		// Query detail dengan LEFT JOIN dan filter perbedaan
+		$sql = "SELECT 
+    p.nip_baru, 
+    p.NAMA, 
+    p.STATUS_PEGAWAI,
+    p.GELAR_DEPAN AS gelar_depan_siap, 
+    d.gelarDepan AS gelar_depan_siasn, 
+    CASE 
+	    WHEN COALESCE(TRIM(p.GELAR_DEPAN ), '') != COALESCE(TRIM(d.gelarDepan), '')
+    		THEN 'beda'
+    		ELSE 'sama'
+    	END as cek_gelar_depan,
+    p.GELAR_BELAKANG AS gelar_belakang_siap, 
+    d.gelarBelakang AS gelar_belakang_siasn,
+    CASE 
+	    WHEN COALESCE(TRIM(p.GELAR_BELAKANG), '') != COALESCE(TRIM(d.gelarBelakang), '')
+    		THEN 'beda'
+    		ELSE 'sama'
+    	END as cek_gelar_belakang
+    FROM pegawai p 
+    LEFT JOIN data_utama d ON p.NIP_BARU = d.nipBaru 
+    WHERE p.STATUS_PEGAWAI IN ('1','2','10','18') 
+    AND (COALESCE(TRIM(p.GELAR_DEPAN), '') != COALESCE(TRIM(d.gelarDepan), '') 
+        OR COALESCE(TRIM(p.GELAR_BELAKANG), '') != COALESCE(TRIM(d.gelarBelakang), ''))
+    GROUP BY p.NIP_BARU
+    ";
+
+		$data = $this->db->query($sql)->result();
+
+		if (empty($data)) {
+			$this->session->set_flashdata('error', 'Tidak ada data anomali gelar.');
+			redirect('devmod');
+			return;
+		}
+
+		$filename = 'detail_anomali_gelar_' . date('Ymd_His') . '.csv';
+		header('Content-Type: text/csv; charset=utf-8');
+		header('Content-Disposition: attachment; filename=' . $filename);
+
+		$output = fopen('php://output', 'w');
+		fputs($output, "\xEF\xBB\xBF");
+
+		fputcsv($output, [
+			'nip_baru',
+			'nama',
+			'status_pegawai',
+			'gelar_depan_siap',
+			'gelar_depan_siasn',
+			'cek_gelar_depan',
+			'gelar_belakang_siap',
+			'gelar_belakang_siasn',
+			'cek_gelar_belakang'
+		], '|');
+
+		foreach ($data as $row) {
+			fputcsv($output, [
+				$row->nip_baru,
+				$row->NAMA,
+				$row->STATUS_PEGAWAI,
+				$row->gelar_depan_siap,
+				$row->gelar_depan_siasn,
+				$row->cek_gelar_depan,
+				$row->gelar_belakang_siap,
+				$row->gelar_belakang_siasn,
+				$row->cek_gelar_belakang
+			], '|');
 		}
 
 		fclose($output);
