@@ -222,7 +222,7 @@ class Api_ws4 extends SB_Controller
         }
     }
 
-    public function sync_data_utama_batch($limit = 50, $batastolreansi = 50)
+    public function sync_data_utama_batch($limit = 50, $batastolreansi = 15)
     {
         echo "================================ mulai ambil data utama " . date('Y-m-d H:i:s') . " ================================\n\n";
 
@@ -230,6 +230,7 @@ class Api_ws4 extends SB_Controller
 
         $pegawai = $this->db
             ->where('flag_data_utama', 1)
+            ->where_in('statusPegawai', ['PNS', 'CPNS', 'PPPK', 'PPPK PARUH WAKTU'])
             ->where('retry_count_data_utama <', $batastolreansi)
             ->order_by('id')
             ->limit($limit)
@@ -528,5 +529,279 @@ class Api_ws4 extends SB_Controller
             $action = 'inserted';
         }
         return array('success' => $result, 'action' => $action);
+    }
+
+    public function coba()
+    {
+        echo "coba";
+    }
+
+
+    public function sync_rw_golongan_batch($limit = 50, $batastolreansi = 15)
+    {
+        echo "================================ mulai ambil rw golongan " . date('Y-m-d H:i:s') . " ================================\n\n";
+
+        $token = $this->api_mws_token;
+
+        $pegawai = $this->db
+            ->where('golongan', 1)
+            ->where_in('statusPegawai', ['PNS', 'CPNS', 'PPPK', 'PPPK PARUH WAKTU'])
+            ->where('retry_count_golongan <', $batastolreansi)
+            ->order_by('id')
+            ->limit($limit)
+            ->get('siasnpegawaiid')
+            ->result();
+
+        foreach ($pegawai as $p) {
+
+            echo "\nSedang diproses : {$p->nip}";
+
+            $json = $this->get_golongan($token, $p->nip);
+
+            $retry = $p->retry_count_golongan + 1;
+
+            /**
+             * 1. Response kosong
+             */
+            if (empty($json)) {
+                $this->db
+                    ->where('id', $p->id)
+                    ->update('siasnpegawaiid', array(
+                        'golongan'       => ($retry >= $batastolreansi ? 3 : 1),
+                        'retry_count_golongan' => $retry
+                    ));
+                echo " ==> Response kosong ({$retry}/{$batastolreansi})";
+                continue;
+            }
+
+            /**
+             * 2. Decode JSON
+             */
+            $response = json_decode($json, true);
+
+            if (json_last_error() != JSON_ERROR_NONE) {
+                $this->db
+                    ->where('id', $p->id)
+                    ->update('siasnpegawaiid', array(
+                        'golongan'       => ($retry >= $batastolreansi ? 3 : 1),
+                        'retry_count_golongan' => $retry
+                    ));
+                echo " ==> JSON tidak valid ({$retry}/{$batastolreansi})";
+                continue;
+            }
+
+            /**
+             * 3. Response sukses dari SIASN
+             */
+            if (isset($response['code']) && $response['code'] == 1) {
+
+                // Panggil fungsi sinkronisasi dan tangkap return value
+                $save = $this->SingkronGolonganBkn($p->pegawai_id);
+
+                if ($save['success']) {
+                    $this->db
+                        ->where('id', $p->id)
+                        ->update('siasnpegawaiid', array(
+                            'golongan'       => 0,
+                            'retry_count_golongan' => 0
+                        ));
+                    echo " ==> SUKSES (Insert: {$save['inserted']}, Update: {$save['updated']})";
+                } else {
+                    $this->db
+                        ->where('id', $p->id)
+                        ->update('siasnpegawaiid', array(
+                            'golongan'       => ($retry >= $batastolreansi ? 3 : 1),
+                            'retry_count_golongan' => $retry
+                        ));
+                    echo " ==> Gagal menyimpan data: {$save['message']}";
+                }
+                continue;
+            }
+
+            /**
+             * 4. Response gagal dari SIASN
+             */
+            $this->db
+                ->where('id', $p->id)
+                ->update('siasnpegawaiid', array(
+                    'golongan'       => ($retry >= $batastolreansi ? 3 : 1),
+                    'retry_count_golongan' => $retry
+                ));
+
+            $pesan = isset($response['message']) ? $response['message'] : 'Unknown Error';
+            echo " ==> GAGAL ({$retry}/{$batastolreansi}) : {$pesan}";
+        }
+
+        echo "\n\n================================ selesai ambil rw golongan " . date('Y-m-d H:i:s') . " ================================\n";
+    }
+
+    public function SingkronGolonganBkn($peg_id)
+    {
+        $result = [
+            'success' => false,
+            'message' => '',
+            'total' => 0,
+            'inserted' => 0,
+            'updated' => 0
+        ];
+
+        if (empty($peg_id)) {
+            $result['message'] = 'Parameter pegawai_id wajib diisi.';
+            return $result;
+        }
+
+        // Cek data pegawai
+        $data_peg = $this->db->get_where('pegawai', ['pegawai_id' => $peg_id])->row();
+        if (!$data_peg) {
+            $result['message'] = 'Pegawai tidak ditemukan.';
+            return $result;
+        }
+
+        // Panggil web service SIASN
+        $golonganData = $this->get_golongan($this->api_mws_token, $data_peg->NIP_BARU);
+        $data = json_decode($golonganData, true);
+
+        if (!isset($data['data']) || empty($data['data'])) {
+            $result['message'] = $data['message'] ?? $data['description'] ?? 'Tidak ada data riwayat golongan dari SIASN.';
+            return $result;
+        }
+
+        $total = 0;
+        $inserted = 0;
+        $updated = 0;
+
+        foreach ($data['data'] as $golongan) {
+            $total++;
+
+            $siasn_id           = $golongan['id'];
+            $pangkat_id         = $golongan['golonganId'];
+            $tmt                = date('Y-m-d', strtotime($golongan['tmtGolongan']));
+            $nipBaru            = $golongan['nipBaru'];
+            $no_nota            = $golongan['noPertekBkn'] ?? '';
+            $tgl_nota           = !empty($golongan['tglPertekBkn']) ? date('Y-m-d', strtotime($golongan['tglPertekBkn'])) : null;
+            $no_sk              = $golongan['skNomor'] ?? '';
+            $tgl_sk             = !empty($golongan['skTanggal']) ? date('Y-m-d', strtotime($golongan['skTanggal'])) : null;
+            $mk_tahun           = $golongan['masaKerjaGolonganTahun'] ?? 0;
+            $mk_bulan           = $golongan['masaKerjaGolonganBulan'] ?? 0;
+            $jumlah_kredit_utama    = $golongan['jumlahKreditUtama'] ?? 0;
+            $jumlah_kredit_tambahan = $golongan['jumlahKreditTambahan'] ?? 0;
+            $jenis_kp_id        = $golongan['jenisKPId'] ?? null;
+            $jenis_kp_nama      = $golongan['jenisKPNama'] ?? '';
+            $idPns              = $golongan['idPns'] ?? '';
+            // Ambil dok_uri jika ada
+            $dok_uri = '';
+            if (isset($golongan['path']) && is_array($golongan['path']) && !empty($golongan['path'])) {
+                // Ambil dok_uri dari path pertama atau sesuai struktur
+                $firstPath = reset($golongan['path']);
+                $dok_uri = $firstPath['dok_uri'] ?? '';
+            }
+
+            // Cek existing
+            $existing = $this->db->get_where('pangkat_riwayat', [
+                'PANGKAT_ID' => $pangkat_id,
+                'PEGAWAI_ID' => $peg_id
+            ])->row();
+
+            if ($existing) {
+                // UPDATE
+                $update_data = [
+                    'PANGKAT_ID'            => $pangkat_id,
+                    'NO_NOTA'               => $no_nota,
+                    'TANGGAL_NOTA'          => $tgl_nota,
+                    'NO_SK'                 => $no_sk,
+                    'TANGGAL_SK'            => $tgl_sk,
+                    'TMT_PANGKAT'           => $tmt,
+                    'MASA_KERJA_TAHUN'      => $mk_tahun,
+                    'MASA_KERJA_BULAN'      => $mk_bulan,
+                    'JUMLAHKREDITUTAMA'     => $jumlah_kredit_utama,
+                    'JUMLAHKREDITTAMBAHAN'  => $jumlah_kredit_tambahan,
+                    'JENISKPID'             => $jenis_kp_id,
+                    'JENISKPNAMA'           => $jenis_kp_nama,
+                    'SIASN_PANGKAT_ID'      => $siasn_id,
+                    'SIASN_IDPNS'           => $idPns,
+                    'NIPBARU'               => $nipBaru,
+                    'DOK_URI'               => $dok_uri,
+                    'KETERANGAN'            => "UPDATE BY WS SIASN",
+                    'TANGGAL_UPDATE'        => date('Y-m-d'),
+                    'LAST_UPDATE_DATE'      => date('Y-m-d')
+                ];
+                $this->db->where('PANGKAT_ID', $pangkat_id)
+                    ->where('PEGAWAI_ID', $peg_id)
+                    ->update('pangkat_riwayat', $update_data);
+                $updated++;
+            } else {
+                // INSERT
+                $insert_data = [
+                    'PEGAWAI_ID'            => $peg_id,
+                    'PANGKAT_ID'            => $pangkat_id,
+                    'NO_NOTA'               => $no_nota,
+                    'TANGGAL_NOTA'          => $tgl_nota,
+                    'NO_SK'                 => $no_sk,
+                    'TANGGAL_SK'            => $tgl_sk,
+                    'TMT_PANGKAT'           => $tmt,
+                    'MASA_KERJA_TAHUN'      => $mk_tahun,
+                    'MASA_KERJA_BULAN'      => $mk_bulan,
+                    'JUMLAHKREDITUTAMA'     => $jumlah_kredit_utama,
+                    'JUMLAHKREDITTAMBAHAN'  => $jumlah_kredit_tambahan,
+                    'JENISKPID'             => $jenis_kp_id,
+                    'JENISKPNAMA'           => $jenis_kp_nama,
+                    'SIASN_PANGKAT_ID'      => $siasn_id,
+                    'SIASN_IDPNS'           => $idPns,
+                    'NIPBARU'               => $nipBaru,
+                    'DOK_URI'               => $dok_uri,
+                    'KETERANGAN'            => "INSERT BY WS SIASN",
+                    'LAST_CREATE_DATE'      => date('Y-m-d')
+                ];
+                $this->db->insert('pangkat_riwayat', $insert_data);
+                $inserted++;
+            }
+        }
+
+        $result['success'] = true;
+        $result['message'] = "Sinkronisasi selesai. Total data: $total, Insert: $inserted, Update: $updated";
+        $result['total'] = $total;
+        $result['inserted'] = $inserted;
+        $result['updated'] = $updated;
+
+        return $result;
+    }
+
+
+    public function get_golongan($api_mws_token, $nip_baru)
+    {
+
+
+        $sso_token = "bearer eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJBUWNPM0V3MVBmQV9MQ0FtY2J6YnRLUEhtcWhLS1dRbnZ1VDl0RUs3akc4In0.eyJleHAiOjE3MzE5NTQ4MzUsImlhdCI6MTczMTkxMTYzNSwianRpIjoiMzcyZTliZTctZmNhYS00NjFhLWE0OTYtMGUxN2ZmMzI4MDUwIiwiaXNzIjoiaHR0cHM6Ly9zc28tc2lhc24uYmtuLmdvLmlkL2F1dGgvcmVhbG1zL3B1YmxpYy1zaWFzbiIsImF1ZCI6ImFjY291bnQiLCJzdWIiOiIxNzhkOWQ4OC1iOGRlLTRjYWEtYmQ1OS05NDg0NjdlZDJiOTYiLCJ0eXAiOiJCZWFyZXIiLCJhenAiOiJrYWJwcm9ib2xpbmdnb3dzIiwic2Vzc2lvbl9zdGF0ZSI6Ijg2NjFkZjkxLTBjNzMtNDk2Zi05N2YxLTM3MmJkZmYzNTBmNiIsImFjciI6IjEiLCJhbGxvd2VkLW9yaWdpbnMiOlsiaHR0cHM6Ly9kZXYtY2x1c3Rlci5wcm9ib2xpbmdnb2thYi5nby5pZCIsImh0dHA6Ly8xMjcuMC4wLjE6MzAwMC8qIiwiaHR0cDovLzEyNy4wLjAuMTozMDAwIiwiaHR0cDovL2xvY2FsaG9zdDozMDAwLyoiLCJodHRwOi8vbG9jYWxob3N0OjMwMDAiLCJodHRwczovL2Rldi1jbHVzdGVyLnByb2JvbGluZ2dva2FiLmdvLmlkLyoiXSwicmVhbG1fYWNjZXNzIjp7InJvbGVzIjpbInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW1hamFhbjpvcGVyYXRvciIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW5jYW5hYW46aW5zdGFuc2ktb3BlcmF0b3ItaW5mb2phYiIsInJvbGU6c2lhc24taW5zdGFuc2k6cGk6b3BlcmF0b3IiLCJyb2xlOnNpYXNuLWluc3RhbnNpOnBlcmVuY2FuYWFuOmluc3RhbnNpLW1vbml0b3ItcGVyZW5jYW5hYW4ta2VwZWdhd2FpYW4iLCJyb2xlOnNpYXNuLWluc3RhbnNpOnBlbmdhZGFhbjphcHByb3ZhbCIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVuZ2FkYWFuOm9wZXJhdG9yLXNrcG5zIiwicm9sZTpzaWFzbi1pbnN0YW5zaTprcDphcHByb3ZhbCIsInJvbGU6c2lhc24taW5zdGFuc2k6a3A6b3BlcmF0b3IiLCJyb2xlOmRhc2hib2FyZC1rZWJpamFrYW46aW5zdGFuc2kiLCJyb2xlOm1hbmFqZW1lbi13czpkZXZlbG9wZXIiLCJvZmZsaW5lX2FjY2VzcyIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW5jYW5hYW46aW5zdGFuc2ktb3BlcmF0b3ItcGVtZW51aGFuLWtlYi1wZWdhd2FpIiwidW1hX2F1dGhvcml6YXRpb24iLCJyb2xlOnNpYXNuLWluc3RhbnNpOnNrazphcHByb3ZhbCIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW5jYW5hYW46aW5zdGFuc2ktb3BlcmF0b3ItZXZhamFiIiwicm9sZTpzaWFzbi1pbnN0YW5zaTpza2s6b3BlcmF0b3IiLCJyb2xlOnNpYXNuLWluc3RhbnNpOnBlcmVtYWphYW46YXBwcm92YWwiLCJyb2xlOnNpYXNuLWluc3RhbnNpOnBlcmVuY2FuYWFuOmluc3RhbnNpLW9wZXJhdG9yLXNvdGsiLCJyb2xlOmRhc2hib2FyZC1vcGVyYXNpb25hbDppbnN0YW5zaSIsInJvbGU6ZGlzcGFrYXRpOmluc3RhbnNpOm9wZXJhdG9yIiwicm9sZTpzaWFzbi1pbnN0YW5zaTpwZW1iZXJoZW50aWFuOm9wZXJhdG9yX2l6aW5fcHBwayIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVuZ2FkYWFuOm9wZXJhdG9yIiwicm9sZTpzaWFzbi1pbnN0YW5zaTpwZW1iZXJoZW50aWFuOm9wZXJhdG9yIiwicm9sZTpzaWFzbi1pbnN0YW5zaTpwaTphcHByb3ZhbCIsInJvbGU6c2lhc24taW5zdGFuc2k6aXBhc246bW9uaXRvcmluZyIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW5jYW5hYW46aW5zdGFuc2ktb3BlcmF0b3Itc3RhbmRhci1rb21wLWphYiIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVtYmVyaGVudGlhbjphcHByb3ZhbCIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW5jYW5hYW46aW5zdGFuc2ktcGVuZXRhcGFuLXNvdGsiLCJyb2xlOnNpYXNuLWluc3RhbnNpOnByb2ZpbGFzbjp2aWV3cHJvZmlsIiwicm9sZTpkYXNoYm9hcmQtb3BlcmFzaW9uYWw6aW5zdGFuc2ktcGltcGluYW4iLCJyb2xlOnNpYXNuLWluc3RhbnNpOmFkbWluOmFkbWluIiwicm9sZTpzaWFzbi1pbnN0YW5zaTpwZXJlbmNhbmFhbjppbnN0YW5zaS12YWxpZGF0b3Itc3RhbmRhci1rb21wLWphYiJdfSwicmVzb3VyY2VfYWNjZXNzIjp7ImFjY291bnQiOnsicm9sZXMiOlsibWFuYWdlLWFjY291bnQiLCJtYW5hZ2UtYWNjb3VudC1saW5rcyIsInZpZXctcHJvZmlsZSJdfX0sInNjb3BlIjoiZW1haWwgcHJvZmlsZSIsImVtYWlsX3ZlcmlmaWVkIjpmYWxzZSwibmFtZSI6IlNSSSBLVVNUQU5USSIsInByZWZlcnJlZF91c2VybmFtZSI6IjE5ODMwNzA0MjAxMDAxMjAxMiIsImdpdmVuX25hbWUiOiJTUkkiLCJmYW1pbHlfbmFtZSI6IktVU1RBTlRJIiwiZW1haWwiOiJrdXN0YW50aTQ3QGdtYWlsLmNvbSJ9.L4spM6cVggKdzQAS8jw99mzy_bz-J5HZ128QnHhWV65pzlWkSp286wzAjoWDfcaIM8PTo70k0PeRG0ZdTMQrKsJ3-w_50SAvDUjDQnWhLNnVnKsg6Et50ifrE1k6AMLA5BrPwIC8TpjbWaB7hTQ3xk9sz8KgejGA9e4mPzaV53tKuLa-r9LCYJ2tQNP2-XxYZtizHs9gI2B59YEVJkmR0ne-IIFImKo-oicnr-ePO1FFFPrOGQWXxqwavyDT6f93zAjMGN7Tjwghvlpvj563aT1yFaEGN1b_eQR2Un5pBgbiI54NP7mx7PIdrTYY-QIfbv1rine6ZqtVQhtcJVTEkA";
+        $api_mws_token = "Bearer " . $api_mws_token;
+        $curl = curl_init();
+
+        curl_setopt_array($curl, array(
+            CURLOPT_URL => 'https://apimws.bkn.go.id:8243/apisiasn/1.0/pns/rw-golongan/' . $nip_baru,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_ENCODING => '',
+            CURLOPT_MAXREDIRS => 10,
+            CURLOPT_TIMEOUT => 0,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+            CURLOPT_CUSTOMREQUEST => 'GET',
+            CURLOPT_HTTPHEADER => array(
+                'accept: application/json',
+                'Auth: bearer eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJBUWNPM0V3MVBmQV9MQ0FtY2J6YnRLUEhtcWhLS1dRbnZ1VDl0RUs3akc4In0.eyJleHAiOjE3MzE5NTQ4MzUsImlhdCI6MTczMTkxMTYzNSwianRpIjoiMzcyZTliZTctZmNhYS00NjFhLWE0OTYtMGUxN2ZmMzI4MDUwIiwiaXNzIjoiaHR0cHM6Ly9zc28tc2lhc24uYmtuLmdvLmlkL2F1dGgvcmVhbG1zL3B1YmxpYy1zaWFzbiIsImF1ZCI6ImFjY291bnQiLCJzdWIiOiIxNzhkOWQ4OC1iOGRlLTRjYWEtYmQ1OS05NDg0NjdlZDJiOTYiLCJ0eXAiOiJCZWFyZXIiLCJhenAiOiJrYWJwcm9ib2xpbmdnb3dzIiwic2Vzc2lvbl9zdGF0ZSI6Ijg2NjFkZjkxLTBjNzMtNDk2Zi05N2YxLTM3MmJkZmYzNTBmNiIsImFjciI6IjEiLCJhbGxvd2VkLW9yaWdpbnMiOlsiaHR0cHM6Ly9kZXYtY2x1c3Rlci5wcm9ib2xpbmdnb2thYi5nby5pZCIsImh0dHA6Ly8xMjcuMC4wLjE6MzAwMC8qIiwiaHR0cDovLzEyNy4wLjAuMTozMDAwIiwiaHR0cDovL2xvY2FsaG9zdDozMDAwLyoiLCJodHRwOi8vbG9jYWxob3N0OjMwMDAiLCJodHRwczovL2Rldi1jbHVzdGVyLnByb2JvbGluZ2dva2FiLmdvLmlkLyoiXSwicmVhbG1fYWNjZXNzIjp7InJvbGVzIjpbInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW1hamFhbjpvcGVyYXRvciIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW5jYW5hYW46aW5zdGFuc2ktb3BlcmF0b3ItaW5mb2phYiIsInJvbGU6c2lhc24taW5zdGFuc2k6cGk6b3BlcmF0b3IiLCJyb2xlOnNpYXNuLWluc3RhbnNpOnBlcmVuY2FuYWFuOmluc3RhbnNpLW1vbml0b3ItcGVyZW5jYW5hYW4ta2VwZWdhd2FpYW4iLCJyb2xlOnNpYXNuLWluc3RhbnNpOnBlbmdhZGFhbjphcHByb3ZhbCIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVuZ2FkYWFuOm9wZXJhdG9yLXNrcG5zIiwicm9sZTpzaWFzbi1pbnN0YW5zaTprcDphcHByb3ZhbCIsInJvbGU6c2lhc24taW5zdGFuc2k6a3A6b3BlcmF0b3IiLCJyb2xlOmRhc2hib2FyZC1rZWJpamFrYW46aW5zdGFuc2kiLCJyb2xlOm1hbmFqZW1lbi13czpkZXZlbG9wZXIiLCJvZmZsaW5lX2FjY2VzcyIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW5jYW5hYW46aW5zdGFuc2ktb3BlcmF0b3ItcGVtZW51aGFuLWtlYi1wZWdhd2FpIiwidW1hX2F1dGhvcml6YXRpb24iLCJyb2xlOnNpYXNuLWluc3RhbnNpOnNrazphcHByb3ZhbCIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW5jYW5hYW46aW5zdGFuc2ktb3BlcmF0b3ItZXZhamFiIiwicm9sZTpzaWFzbi1pbnN0YW5zaTpza2s6b3BlcmF0b3IiLCJyb2xlOnNpYXNuLWluc3RhbnNpOnBlcmVtYWphYW46YXBwcm92YWwiLCJyb2xlOnNpYXNuLWluc3RhbnNpOnBlcmVuY2FuYWFuOmluc3RhbnNpLW9wZXJhdG9yLXNvdGsiLCJyb2xlOmRhc2hib2FyZC1vcGVyYXNpb25hbDppbnN0YW5zaSIsInJvbGU6ZGlzcGFrYXRpOmluc3RhbnNpOm9wZXJhdG9yIiwicm9sZTpzaWFzbi1pbnN0YW5zaTpwZW1iZXJoZW50aWFuOm9wZXJhdG9yX2l6aW5fcHBwayIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVuZ2FkYWFuOm9wZXJhdG9yIiwicm9sZTpzaWFzbi1pbnN0YW5zaTpwZW1iZXJoZW50aWFuOm9wZXJhdG9yIiwicm9sZTpzaWFzbi1pbnN0YW5zaTpwaTphcHByb3ZhbCIsInJvbGU6c2lhc24taW5zdGFuc2k6aXBhc246bW9uaXRvcmluZyIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW5jYW5hYW46aW5zdGFuc2ktb3BlcmF0b3Itc3RhbmRhci1rb21wLWphYiIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVtYmVyaGVudGlhbjphcHByb3ZhbCIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW5jYW5hYW46aW5zdGFuc2ktcGVuZXRhcGFuLXNvdGsiLCJyb2xlOnNpYXNuLWluc3RhbnNpOnByb2ZpbGFzbjp2aWV3cHJvZmlsIiwicm9sZTpkYXNoYm9hcmQtb3BlcmFzaW9uYWw6aW5zdGFuc2ktcGltcGluYW4iLCJyb2xlOnNpYXNuLWluc3RhbnNpOmFkbWluOmFkbWluIiwicm9sZTpzaWFzbi1pbnN0YW5zaTpwZXJlbmNhbmFhbjppbnN0YW5zaS12YWxpZGF0b3Itc3RhbmRhci1rb21wLWphYiJdfSwicmVzb3VyY2VfYWNjZXNzIjp7ImFjY291bnQiOnsicm9sZXMiOlsibWFuYWdlLWFjY291bnQiLCJtYW5hZ2UtYWNjb3VudC1saW5rcyIsInZpZXctcHJvZmlsZSJdfX0sInNjb3BlIjoiZW1haWwgcHJvZmlsZSIsImVtYWlsX3ZlcmlmaWVkIjpmYWxzZSwibmFtZSI6IlNSSSBLVVNUQU5USSIsInByZWZlcnJlZF91c2VybmFtZSI6IjE5ODMwNzA0MjAxMDAxMjAxMiIsImdpdmVuX25hbWUiOiJTUkkiLCJmYW1pbHlfbmFtZSI6IktVU1RBTlRJIiwiZW1haWwiOiJrdXN0YW50aTQ3QGdtYWlsLmNvbSJ9.L4spM6cVggKdzQAS8jw99mzy_bz-J5HZ128QnHhWV65pzlWkSp286wzAjoWDfcaIM8PTo70k0PeRG0ZdTMQrKsJ3-w_50SAvDUjDQnWhLNnVnKsg6Et50ifrE1k6AMLA5BrPwIC8TpjbWaB7hTQ3xk9sz8KgejGA9e4mPzaV53tKuLa-r9LCYJ2tQNP2-XxYZtizHs9gI2B59YEVJkmR0ne-IIFImKo-oicnr-ePO1FFFPrOGQWXxqwavyDT6f93zAjMGN7Tjwghvlpvj563aT1yFaEGN1b_eQR2Un5pBgbiI54NP7mx7PIdrTYY-QIfbv1rine6ZqtVQhtcJVTEkA',
+                'Authorization: ' . $api_mws_token,
+                'Cookie: ff8d625df24f2272ecde05bd53b814bc=ce158eaac3b25204bfaa39e480fc50f7; pdns=1091068938.13088.0000'
+            ),
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYHOST => false,
+        ));
+
+        $response = curl_exec($curl);
+
+        curl_close($curl);
+        // $hasil['data']['sso_token'] = $sso_token;
+        // $hasil['data']['api_mws_token'] = $api_mws_token;
+        // $hasil['data']['return'] = $response;
+
+        return $response;
+        // return $hasil;
     }
 }

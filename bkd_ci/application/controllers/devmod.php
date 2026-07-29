@@ -45,15 +45,25 @@ class Devmod extends SB_Controller
 	public function index()
 	{
 		$monitoring = $this->model->getDashboardMonitoring();
+		$monitoringRwGolongan = $this->model->getDashboardRwGolongan();
 
 		$anomali = [
-			'pangkat' => $this->model->getAnomaliPangkatFormatted(),
+			// 'pangkat' => $this->model->getAnomaliPangkatFormatted(),
 			'gelar'   => $this->model->getAnomaliGelarFormatted(),
+			// nanti tambahkan 'jabatan' => ...
+		];
+		$anomalipangkat = [
+			'pangkat' => $this->model->getAnomaliPangkatFormatted(),
+			// 'gelar'   => $this->model->getAnomaliGelarFormatted(),
 			// nanti tambahkan 'jabatan' => ...
 		];
 
 		// Hanya masukkan kategori yang tidak kosong
+
 		$anomali = array_filter($anomali, function ($items) {
+			return !empty($items);
+		});
+		$anomalipangkat = array_filter($anomalipangkat, function ($items) {
 			return !empty($items);
 		});
 
@@ -61,7 +71,12 @@ class Devmod extends SB_Controller
 			$monitoring[0]['anomali'] = $anomali;
 		}
 
+		if (!empty($monitoringRwGolongan[0])) {
+			$monitoringRwGolongan[0]['anomali'] = $anomalipangkat;
+		}
+
 		$this->data['monitoring'] = $monitoring;
+		$this->data['monitoringRwGolongan'] = $monitoringRwGolongan;
 		$this->data['access'] = $this->access;
 		$this->data['content'] = $this->load->view('devmod/index', $this->data, true);
 		$this->load->view($this->layout, $this->data);

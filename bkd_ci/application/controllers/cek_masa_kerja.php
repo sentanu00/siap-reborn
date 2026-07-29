@@ -189,190 +189,244 @@ class Cek_masa_kerja extends SB_Controller
     }
 
 
-
-
-    public function SingkronGolonganBkn()
+    public function cekMasaKerjaOtomatis($nip)
     {
-        // Ambil pegawai_id dari GET (atau bisa juga dari POST)
-        $peg_id = $this->input->get('pegawai_id');
-        if (empty($peg_id)) {
-            echo json_encode(['status' => 'error', 'message' => 'Parameter pegawai_id wajib diisi.']);
-            return;
-        }
-        // echo "\n peg_id : ".$peg_id;
+        header('Content-Type: text/plain; charset=utf-8');
 
-        // Cek data pegawai
-        $data_peg = $this->db->get_where('pegawai', ['pegawai_id' => $peg_id])->row();
-        if (!$data_peg) {
-            echo json_encode(['status' => 'error', 'message' => 'Pegawai tidak ditemukan.']);
+        // $nip = $this->input->get('nip');
+        if (empty($nip)) {
+            echo "ERROR: Parameter 'nip' wajib diisi.\n";
+            echo "Contoh: ?nip=197107182007011010";
             return;
         }
 
-        // echo "\n data_peg->NIP_BARU : ".$data_peg->NIP_BARU;
+        $sql = "
+            SELECT 
+                p.NIP_BARU, 
+                pr.PANGKAT_RIWAYAT_ID, 
+                pr.PEGAWAI_ID, 
+                pr.PANGKAT_ID, 
+                p2.KODE as PANGKAT_NAMA, 
+                pr.TMT_PANGKAT, 
+                pr.MASA_KERJA_TAHUN, 
+                pr.MASA_KERJA_BULAN
+            FROM pegawai p 
+            JOIN pangkat_riwayat pr ON p.PEGAWAI_ID = pr.PEGAWAI_ID 
+            JOIN pangkat p2 ON pr.PANGKAT_ID = p2.PANGKAT_ID 
+            WHERE p.NIP_BARU = ? 
+            ORDER BY pr.TMT_PANGKAT ASC
+        ";
 
-        // Panggil web service SIASN untuk mendapatkan riwayat golongan
-        $golonganData = $this->get_golongan($this->api_mws_token, $data_peg->NIP_BARU);
-        // echo "\n golonganData : ".$golonganData;
-        
-        $data = json_decode($golonganData, true);
+        $query = $this->db->query($sql, [$nip]);
+        $rows = $query->result_array();
 
-        // echo "\n data['data'] : ".$data['data'];
-
-        // Cek apakah response sukses dan ada data
-        if (!isset($data['data']) || empty($data['data'])) {
-            echo json_encode(['status' => 'error', 'message' => $data['message'].' '.$data['description'] ?? 'Tidak ada data riwayat golongan dari SIASN atau terjadi kesalahan.']);
+        if (empty($rows)) {
+            echo "Tidak ditemukan data untuk NIP: $nip";
             return;
         }
 
-        $total = 0;
-        $inserted = 0;
-        $updated = 0;
-
-        foreach ($data['data'] as $golongan) {
-            
-            // echo "\n Golongan : ". $golongan['nipBaru']." - ". $golongan['golongan'];
-            $total++;
-
-            // Ambil nilai dari SIASN
-            $siasn_id           = $golongan['id'];                    // ID unik riwayat dari SIASN
-            $pangkat_id         = $golongan['golonganId'];
-            $tmt                = date('Y-m-d', strtotime($golongan['tmtGolongan']));
-            $nipBaru            = $golongan['nipBaru'];
-            $no_nota            = $golongan['noPertekBkn'];
-            $tgl_nota           = !empty($golongan['tglPertekBkn']) ? date('Y-m-d', strtotime($golongan['tglPertekBkn'])) : null;
-            $no_sk              = $golongan['skNomor'];
-            $tgl_sk             = !empty($golongan['skTanggal']) ? date('Y-m-d', strtotime($golongan['skTanggal'])) : null;
-            $mk_tahun           = $golongan['masaKerjaGolonganTahun'];
-            $mk_bulan           = $golongan['masaKerjaGolonganBulan'];
-            $jumlah_kredit_utama    = $golongan['jumlahKreditUtama'];
-            $jumlah_kredit_tambahan = $golongan['jumlahKreditTambahan'];
-            $jenis_kp_id        = $golongan['jenisKPId'];
-            $jenis_kp_nama      = $golongan['jenisKPNama'];
-            $idPns              = $golongan['idPns'];
-            $dok_uri              = $golongan['path']['858']['dok_uri'];
-            // echo "\n dok_uri : ". $dok_uri;
-
-            // Cek apakah data dengan SIASN_PANGKAT_ID dan PEGAWAI_ID sudah ada
-            $existing = $this->db->get_where('pangkat_riwayat', [
-                // 'SIASN_PANGKAT_ID' => $siasn_id,
-                'PANGKAT_ID' => $pangkat_id,
-                'PEGAWAI_ID'        => $peg_id
-            ])->row();
-
-            // echo "\n 2";
-            if ($existing) {
-                // UPDATE data yang ada
-                $update_data = [
-                    'PANGKAT_ID'            => $pangkat_id,
-                    'NO_NOTA'               => $no_nota,
-                    'TANGGAL_NOTA'          => $tgl_nota,
-                    'NO_SK'                 => $no_sk,
-                    'TANGGAL_SK'            => $tgl_sk,
-                    'TMT_PANGKAT'           => $tmt,
-                    'MASA_KERJA_TAHUN'      => $mk_tahun,
-                    'MASA_KERJA_BULAN'      => $mk_bulan,
-                    'JUMLAHKREDITUTAMA'     => $jumlah_kredit_utama,
-                    'JUMLAHKREDITTAMBAHAN'  => $jumlah_kredit_tambahan,
-                    'JENISKPID'             => $jenis_kp_id,
-                    'JENISKPNAMA'           => $jenis_kp_nama,
-                    'SIASN_IDPNS'           => $idPns,
-                    'NIPBARU'               => $nipBaru,
-                    'DOK_URI'               => $dok_uri,
-                    'KETERANGAN'            => "UPDATE BY WS SIASN",
-                    'TANGGAL_UPDATE'        => date('Y-m-d'),
-                    'LAST_UPDATE_DATE'      => date('Y-m-d')
-                ];
-                $this->db->where('PANGKAT_ID', $pangkat_id)
-                        ->where('PEGAWAI_ID', $peg_id)
-                        ->update('pangkat_riwayat', $update_data);
-                $updated++;
-
-            // echo "\n 3";
-            } else {
-
-            // echo "\n 4";
-                // INSERT data baru
-                $insert_data = [
-                    'PEGAWAI_ID'            => $peg_id,
-                    'PANGKAT_ID'            => $pangkat_id,
-                    'NO_NOTA'               => $no_nota,
-                    'TANGGAL_NOTA'          => $tgl_nota,
-                    'NO_SK'                 => $no_sk,
-                    'TANGGAL_SK'            => $tgl_sk,
-                    'TMT_PANGKAT'           => $tmt,
-                    'MASA_KERJA_TAHUN'      => $mk_tahun,
-                    'MASA_KERJA_BULAN'      => $mk_bulan,
-                    'JUMLAHKREDITUTAMA'     => $jumlah_kredit_utama,
-                    'JUMLAHKREDITTAMBAHAN'  => $jumlah_kredit_tambahan,
-                    'JENISKPID'             => $jenis_kp_id,
-                    'JENISKPNAMA'           => $jenis_kp_nama,
-                    'SIASN_PANGKAT_ID'     => $siasn_id,
-                    'SIASN_IDPNS'           => $idPns,
-                    'NIPBARU'               => $nipBaru,
-                    'DOK_URI'               => $dok_uri,
-                    'KETERANGAN'            => "INSERT BY WS SIASN",
-                    'LAST_CREATE_DATE'      => date('Y-m-d')
-                ];
-                $this->db->insert('pangkat_riwayat', $insert_data);
-                $inserted++;
-
-            // echo "\n 4";
-            }
-
-
+        $riwayat = [];
+        foreach ($rows as $row) {
+            $riwayat[] = [
+                'tmt'           => $row['TMT_PANGKAT'],
+                'pangkat'       => $row['PANGKAT_ID'],
+                'pangkat_nama'  => $row['PANGKAT_NAMA'],
+                'mk_tahun'      => (int)($row['MASA_KERJA_TAHUN'] ?? 0),
+                'mk_bulan'      => (int)($row['MASA_KERJA_BULAN'] ?? 0)
+            ];
         }
 
+        echo "=========================================\n";
+        echo "PENGECEKAN MASA KERJA PNS\n";
+        echo "NIP: $nip\n";
+        echo "=========================================\n\n";
 
-            // echo "\n 7";
-        // Kirim response JSON
-        echo json_encode([
-            'status'    => 'success',
-            'message'   => "Sinkronisasi selesai. Total data: $total, Insert: $inserted, Update: $updated",
-            'total'     => $total,
-            'inserted'  => $inserted,
-            'updated'   => $updated
-        ]);
+        $hasil = $this->prosesCek($riwayat);
 
-            // echo "\n 8";
+        foreach ($hasil['detail'] as $baris) {
+            echo $baris . "\n";
+        }
     }
 
+    /**
+     * Hitung ulang masa kerja dan kembalikan detail per langkah
+     * @param array $riwayat - array dengan key: tmt, pangkat, pangkat_nama, mk_tahun, mk_bulan, pangkat_riwayat_id
+     * @return array [
+     *   'langkah' => [
+     *       'pangkat_riwayat_id' => ...,
+     *       'pangkat_awal' => ...,
+     *       'pangkat_akhir' => ...,
+     *       'tmt_awal' => ...,
+     *       'tmt_akhir' => ...,
+     *       'mk_hitung' => int (total bulan),
+     *       'mk_tercatat' => int (total bulan),
+     *       'selisih' => int,
+     *       'sesuai' => bool
+     *   ],
+     *   'semua_sesuai' => bool
+     * ]
+     */
+    private function hitungMasaKerjaDetail($riwayat)
+    {
+        $result = ['langkah' => [], 'semua_sesuai' => true];
+        if (empty($riwayat)) {
+            return $result;
+        }
 
-    public function get_golongan($api_mws_token, $nip_baru)
-	{
+        $prev = $riwayat[0];
+        $prevMK = $prev['mk_tahun'] * 12 + $prev['mk_bulan'];
+        $semuaSesuai = true;
 
+        for ($i = 1; $i < count($riwayat); $i++) {
+            $curr = $riwayat[$i];
 
-        $sso_token = "bearer eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJBUWNPM0V3MVBmQV9MQ0FtY2J6YnRLUEhtcWhLS1dRbnZ1VDl0RUs3akc4In0.eyJleHAiOjE3MzE5NTQ4MzUsImlhdCI6MTczMTkxMTYzNSwianRpIjoiMzcyZTliZTctZmNhYS00NjFhLWE0OTYtMGUxN2ZmMzI4MDUwIiwiaXNzIjoiaHR0cHM6Ly9zc28tc2lhc24uYmtuLmdvLmlkL2F1dGgvcmVhbG1zL3B1YmxpYy1zaWFzbiIsImF1ZCI6ImFjY291bnQiLCJzdWIiOiIxNzhkOWQ4OC1iOGRlLTRjYWEtYmQ1OS05NDg0NjdlZDJiOTYiLCJ0eXAiOiJCZWFyZXIiLCJhenAiOiJrYWJwcm9ib2xpbmdnb3dzIiwic2Vzc2lvbl9zdGF0ZSI6Ijg2NjFkZjkxLTBjNzMtNDk2Zi05N2YxLTM3MmJkZmYzNTBmNiIsImFjciI6IjEiLCJhbGxvd2VkLW9yaWdpbnMiOlsiaHR0cHM6Ly9kZXYtY2x1c3Rlci5wcm9ib2xpbmdnb2thYi5nby5pZCIsImh0dHA6Ly8xMjcuMC4wLjE6MzAwMC8qIiwiaHR0cDovLzEyNy4wLjAuMTozMDAwIiwiaHR0cDovL2xvY2FsaG9zdDozMDAwLyoiLCJodHRwOi8vbG9jYWxob3N0OjMwMDAiLCJodHRwczovL2Rldi1jbHVzdGVyLnByb2JvbGluZ2dva2FiLmdvLmlkLyoiXSwicmVhbG1fYWNjZXNzIjp7InJvbGVzIjpbInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW1hamFhbjpvcGVyYXRvciIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW5jYW5hYW46aW5zdGFuc2ktb3BlcmF0b3ItaW5mb2phYiIsInJvbGU6c2lhc24taW5zdGFuc2k6cGk6b3BlcmF0b3IiLCJyb2xlOnNpYXNuLWluc3RhbnNpOnBlcmVuY2FuYWFuOmluc3RhbnNpLW1vbml0b3ItcGVyZW5jYW5hYW4ta2VwZWdhd2FpYW4iLCJyb2xlOnNpYXNuLWluc3RhbnNpOnBlbmdhZGFhbjphcHByb3ZhbCIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVuZ2FkYWFuOm9wZXJhdG9yLXNrcG5zIiwicm9sZTpzaWFzbi1pbnN0YW5zaTprcDphcHByb3ZhbCIsInJvbGU6c2lhc24taW5zdGFuc2k6a3A6b3BlcmF0b3IiLCJyb2xlOmRhc2hib2FyZC1rZWJpamFrYW46aW5zdGFuc2kiLCJyb2xlOm1hbmFqZW1lbi13czpkZXZlbG9wZXIiLCJvZmZsaW5lX2FjY2VzcyIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW5jYW5hYW46aW5zdGFuc2ktb3BlcmF0b3ItcGVtZW51aGFuLWtlYi1wZWdhd2FpIiwidW1hX2F1dGhvcml6YXRpb24iLCJyb2xlOnNpYXNuLWluc3RhbnNpOnNrazphcHByb3ZhbCIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW5jYW5hYW46aW5zdGFuc2ktb3BlcmF0b3ItZXZhamFiIiwicm9sZTpzaWFzbi1pbnN0YW5zaTpza2s6b3BlcmF0b3IiLCJyb2xlOnNpYXNuLWluc3RhbnNpOnBlcmVtYWphYW46YXBwcm92YWwiLCJyb2xlOnNpYXNuLWluc3RhbnNpOnBlcmVuY2FuYWFuOmluc3RhbnNpLW9wZXJhdG9yLXNvdGsiLCJyb2xlOmRhc2hib2FyZC1vcGVyYXNpb25hbDppbnN0YW5zaSIsInJvbGU6ZGlzcGFrYXRpOmluc3RhbnNpOm9wZXJhdG9yIiwicm9sZTpzaWFzbi1pbnN0YW5zaTpwZW1iZXJoZW50aWFuOm9wZXJhdG9yX2l6aW5fcHBwayIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVuZ2FkYWFuOm9wZXJhdG9yIiwicm9sZTpzaWFzbi1pbnN0YW5zaTpwZW1iZXJoZW50aWFuOm9wZXJhdG9yIiwicm9sZTpzaWFzbi1pbnN0YW5zaTpwaTphcHByb3ZhbCIsInJvbGU6c2lhc24taW5zdGFuc2k6aXBhc246bW9uaXRvcmluZyIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW5jYW5hYW46aW5zdGFuc2ktb3BlcmF0b3Itc3RhbmRhci1rb21wLWphYiIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVtYmVyaGVudGlhbjphcHByb3ZhbCIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW5jYW5hYW46aW5zdGFuc2ktcGVuZXRhcGFuLXNvdGsiLCJyb2xlOnNpYXNuLWluc3RhbnNpOnByb2ZpbGFzbjp2aWV3cHJvZmlsIiwicm9sZTpkYXNoYm9hcmQtb3BlcmFzaW9uYWw6aW5zdGFuc2ktcGltcGluYW4iLCJyb2xlOnNpYXNuLWluc3RhbnNpOmFkbWluOmFkbWluIiwicm9sZTpzaWFzbi1pbnN0YW5zaTpwZXJlbmNhbmFhbjppbnN0YW5zaS12YWxpZGF0b3Itc3RhbmRhci1rb21wLWphYiJdfSwicmVzb3VyY2VfYWNjZXNzIjp7ImFjY291bnQiOnsicm9sZXMiOlsibWFuYWdlLWFjY291bnQiLCJtYW5hZ2UtYWNjb3VudC1saW5rcyIsInZpZXctcHJvZmlsZSJdfX0sInNjb3BlIjoiZW1haWwgcHJvZmlsZSIsImVtYWlsX3ZlcmlmaWVkIjpmYWxzZSwibmFtZSI6IlNSSSBLVVNUQU5USSIsInByZWZlcnJlZF91c2VybmFtZSI6IjE5ODMwNzA0MjAxMDAxMjAxMiIsImdpdmVuX25hbWUiOiJTUkkiLCJmYW1pbHlfbmFtZSI6IktVU1RBTlRJIiwiZW1haWwiOiJrdXN0YW50aTQ3QGdtYWlsLmNvbSJ9.L4spM6cVggKdzQAS8jw99mzy_bz-J5HZ128QnHhWV65pzlWkSp286wzAjoWDfcaIM8PTo70k0PeRG0ZdTMQrKsJ3-w_50SAvDUjDQnWhLNnVnKsg6Et50ifrE1k6AMLA5BrPwIC8TpjbWaB7hTQ3xk9sz8KgejGA9e4mPzaV53tKuLa-r9LCYJ2tQNP2-XxYZtizHs9gI2B59YEVJkmR0ne-IIFImKo-oicnr-ePO1FFFPrOGQWXxqwavyDT6f93zAjMGN7Tjwghvlpvj563aT1yFaEGN1b_eQR2Un5pBgbiI54NP7mx7PIdrTYY-QIfbv1rine6ZqtVQhtcJVTEkA";
-        $api_mws_token = "Bearer " . $api_mws_token;
-        $curl = curl_init();
+            $selisihWaktu = $this->selisihBulan($prev['tmt'], $curr['tmt']);
+            $potongan = $this->getPotongan($prev['pangkat'], $curr['pangkat']);
+            $mkBaru = $prevMK + $selisihWaktu - $potongan;
+            $mkTercatat = $curr['mk_tahun'] * 12 + $curr['mk_bulan'];
+            $selisihMK = $mkBaru - $mkTercatat;
+            $sesuai = ($selisihMK == 0);
 
-		curl_setopt_array($curl, array(
-			CURLOPT_URL => 'https://apimws.bkn.go.id:8243/apisiasn/1.0/pns/rw-golongan/' . $nip_baru,
-			CURLOPT_RETURNTRANSFER => true,
-			CURLOPT_ENCODING => '',
-			CURLOPT_MAXREDIRS => 10,
-			CURLOPT_TIMEOUT => 0,
-			CURLOPT_FOLLOWLOCATION => true,
-			CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-			CURLOPT_CUSTOMREQUEST => 'GET',
-			CURLOPT_HTTPHEADER => array(
-				'accept: application/json',
-				'Auth: bearer eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJBUWNPM0V3MVBmQV9MQ0FtY2J6YnRLUEhtcWhLS1dRbnZ1VDl0RUs3akc4In0.eyJleHAiOjE3MzE5NTQ4MzUsImlhdCI6MTczMTkxMTYzNSwianRpIjoiMzcyZTliZTctZmNhYS00NjFhLWE0OTYtMGUxN2ZmMzI4MDUwIiwiaXNzIjoiaHR0cHM6Ly9zc28tc2lhc24uYmtuLmdvLmlkL2F1dGgvcmVhbG1zL3B1YmxpYy1zaWFzbiIsImF1ZCI6ImFjY291bnQiLCJzdWIiOiIxNzhkOWQ4OC1iOGRlLTRjYWEtYmQ1OS05NDg0NjdlZDJiOTYiLCJ0eXAiOiJCZWFyZXIiLCJhenAiOiJrYWJwcm9ib2xpbmdnb3dzIiwic2Vzc2lvbl9zdGF0ZSI6Ijg2NjFkZjkxLTBjNzMtNDk2Zi05N2YxLTM3MmJkZmYzNTBmNiIsImFjciI6IjEiLCJhbGxvd2VkLW9yaWdpbnMiOlsiaHR0cHM6Ly9kZXYtY2x1c3Rlci5wcm9ib2xpbmdnb2thYi5nby5pZCIsImh0dHA6Ly8xMjcuMC4wLjE6MzAwMC8qIiwiaHR0cDovLzEyNy4wLjAuMTozMDAwIiwiaHR0cDovL2xvY2FsaG9zdDozMDAwLyoiLCJodHRwOi8vbG9jYWxob3N0OjMwMDAiLCJodHRwczovL2Rldi1jbHVzdGVyLnByb2JvbGluZ2dva2FiLmdvLmlkLyoiXSwicmVhbG1fYWNjZXNzIjp7InJvbGVzIjpbInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW1hamFhbjpvcGVyYXRvciIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW5jYW5hYW46aW5zdGFuc2ktb3BlcmF0b3ItaW5mb2phYiIsInJvbGU6c2lhc24taW5zdGFuc2k6cGk6b3BlcmF0b3IiLCJyb2xlOnNpYXNuLWluc3RhbnNpOnBlcmVuY2FuYWFuOmluc3RhbnNpLW1vbml0b3ItcGVyZW5jYW5hYW4ta2VwZWdhd2FpYW4iLCJyb2xlOnNpYXNuLWluc3RhbnNpOnBlbmdhZGFhbjphcHByb3ZhbCIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVuZ2FkYWFuOm9wZXJhdG9yLXNrcG5zIiwicm9sZTpzaWFzbi1pbnN0YW5zaTprcDphcHByb3ZhbCIsInJvbGU6c2lhc24taW5zdGFuc2k6a3A6b3BlcmF0b3IiLCJyb2xlOmRhc2hib2FyZC1rZWJpamFrYW46aW5zdGFuc2kiLCJyb2xlOm1hbmFqZW1lbi13czpkZXZlbG9wZXIiLCJvZmZsaW5lX2FjY2VzcyIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW5jYW5hYW46aW5zdGFuc2ktb3BlcmF0b3ItcGVtZW51aGFuLWtlYi1wZWdhd2FpIiwidW1hX2F1dGhvcml6YXRpb24iLCJyb2xlOnNpYXNuLWluc3RhbnNpOnNrazphcHByb3ZhbCIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW5jYW5hYW46aW5zdGFuc2ktb3BlcmF0b3ItZXZhamFiIiwicm9sZTpzaWFzbi1pbnN0YW5zaTpza2s6b3BlcmF0b3IiLCJyb2xlOnNpYXNuLWluc3RhbnNpOnBlcmVtYWphYW46YXBwcm92YWwiLCJyb2xlOnNpYXNuLWluc3RhbnNpOnBlcmVuY2FuYWFuOmluc3RhbnNpLW9wZXJhdG9yLXNvdGsiLCJyb2xlOmRhc2hib2FyZC1vcGVyYXNpb25hbDppbnN0YW5zaSIsInJvbGU6ZGlzcGFrYXRpOmluc3RhbnNpOm9wZXJhdG9yIiwicm9sZTpzaWFzbi1pbnN0YW5zaTpwZW1iZXJoZW50aWFuOm9wZXJhdG9yX2l6aW5fcHBwayIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVuZ2FkYWFuOm9wZXJhdG9yIiwicm9sZTpzaWFzbi1pbnN0YW5zaTpwZW1iZXJoZW50aWFuOm9wZXJhdG9yIiwicm9sZTpzaWFzbi1pbnN0YW5zaTpwaTphcHByb3ZhbCIsInJvbGU6c2lhc24taW5zdGFuc2k6aXBhc246bW9uaXRvcmluZyIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW5jYW5hYW46aW5zdGFuc2ktb3BlcmF0b3Itc3RhbmRhci1rb21wLWphYiIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVtYmVyaGVudGlhbjphcHByb3ZhbCIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW5jYW5hYW46aW5zdGFuc2ktcGVuZXRhcGFuLXNvdGsiLCJyb2xlOnNpYXNuLWluc3RhbnNpOnByb2ZpbGFzbjp2aWV3cHJvZmlsIiwicm9sZTpkYXNoYm9hcmQtb3BlcmFzaW9uYWw6aW5zdGFuc2ktcGltcGluYW4iLCJyb2xlOnNpYXNuLWluc3RhbnNpOmFkbWluOmFkbWluIiwicm9sZTpzaWFzbi1pbnN0YW5zaTpwZXJlbmNhbmFhbjppbnN0YW5zaS12YWxpZGF0b3Itc3RhbmRhci1rb21wLWphYiJdfSwicmVzb3VyY2VfYWNjZXNzIjp7ImFjY291bnQiOnsicm9sZXMiOlsibWFuYWdlLWFjY291bnQiLCJtYW5hZ2UtYWNjb3VudC1saW5rcyIsInZpZXctcHJvZmlsZSJdfX0sInNjb3BlIjoiZW1haWwgcHJvZmlsZSIsImVtYWlsX3ZlcmlmaWVkIjpmYWxzZSwibmFtZSI6IlNSSSBLVVNUQU5USSIsInByZWZlcnJlZF91c2VybmFtZSI6IjE5ODMwNzA0MjAxMDAxMjAxMiIsImdpdmVuX25hbWUiOiJTUkkiLCJmYW1pbHlfbmFtZSI6IktVU1RBTlRJIiwiZW1haWwiOiJrdXN0YW50aTQ3QGdtYWlsLmNvbSJ9.L4spM6cVggKdzQAS8jw99mzy_bz-J5HZ128QnHhWV65pzlWkSp286wzAjoWDfcaIM8PTo70k0PeRG0ZdTMQrKsJ3-w_50SAvDUjDQnWhLNnVnKsg6Et50ifrE1k6AMLA5BrPwIC8TpjbWaB7hTQ3xk9sz8KgejGA9e4mPzaV53tKuLa-r9LCYJ2tQNP2-XxYZtizHs9gI2B59YEVJkmR0ne-IIFImKo-oicnr-ePO1FFFPrOGQWXxqwavyDT6f93zAjMGN7Tjwghvlpvj563aT1yFaEGN1b_eQR2Un5pBgbiI54NP7mx7PIdrTYY-QIfbv1rine6ZqtVQhtcJVTEkA',
-				'Authorization: ' . $api_mws_token,
-				'Cookie: ff8d625df24f2272ecde05bd53b814bc=ce158eaac3b25204bfaa39e480fc50f7; pdns=1091068938.13088.0000'
-			),
-			CURLOPT_SSL_VERIFYPEER => false,
-			CURLOPT_SSL_VERIFYHOST => false,
-		));
+            $result['langkah'][] = [
+                'pangkat_riwayat_id' => $curr['pangkat_riwayat_id'], // tambahkan ini
+                'pangkat_awal'       => $prev['pangkat_nama'],
+                'pangkat_akhir'      => $curr['pangkat_nama'],
+                'tmt_awal'           => $prev['tmt'],
+                'tmt_akhir'          => $curr['tmt'],
+                'mk_hitung'          => $mkBaru,
+                'mk_tercatat'        => $mkTercatat,
+                'selisih'            => $selisihMK,
+                'sesuai'             => $sesuai
+            ];
 
-		$response = curl_exec($curl);
+            if (!$sesuai) $semuaSesuai = false;
 
-		curl_close($curl);
-		// $hasil['data']['sso_token'] = $sso_token;
-		// $hasil['data']['api_mws_token'] = $api_mws_token;
-		// $hasil['data']['return'] = $response;
+            $prev = $curr;
+            $prevMK = $mkBaru;
+        }
 
-		return $response;
-		// return $hasil;
-	}
+        $result['semua_sesuai'] = $semuaSesuai;
+        return $result;
+    }
 
+    public function cekMasaKerjaBatch($limit = 100)
+    {
+        header('Content-Type: text/plain; charset=utf-8');
+        echo "=========================================\n";
+        echo "PROSES CEK MASA KERJA BATCH\n";
+        echo "Dimulai : " . date('Y-m-d H:i:s') . "\n";
+        echo "=========================================\n\n";
+
+        // 1. Ambil pegawai yang perlu dicek
+        $query = $this->db
+            ->select('s.*, p.NIP_BARU')
+            ->from('siasnpegawaiid s')
+            ->join('pegawai p', 's.pegawai_id = p.PEGAWAI_ID')
+            ->where('s.golongan', 0)
+            ->where_in('s.statusPegawai', ['PNS', 'CPNS'])
+            ->order_by('s.id')
+            ->limit($limit)
+            ->get();
+
+        $rows = $query->result();
+        $total = count($rows);
+
+        if ($total == 0) {
+            echo "Tidak ada pegawai yang perlu dicek.\n";
+            return;
+        }
+
+        echo "Total pegawai yang akan diproses: $total\n\n";
+
+        $processed = 0;
+        $updated = 0;
+        $error = 0;
+
+        foreach ($rows as $row) {
+            $nip = $row->NIP_BARU;
+            $pegawai_id = $row->pegawai_id;
+
+            echo "Proses NIP: $nip ... ";
+
+            // 2. Ambil riwayat pangkat dari tabel (sertakan PANGKAT_RIWAYAT_ID)
+            $sql = "
+            SELECT 
+                pr.PANGKAT_RIWAYAT_ID, 
+                pr.PEGAWAI_ID, 
+                pr.PANGKAT_ID, 
+                p2.KODE as PANGKAT_NAMA, 
+                pr.TMT_PANGKAT, 
+                pr.MASA_KERJA_TAHUN, 
+                pr.MASA_KERJA_BULAN
+            FROM pangkat_riwayat pr
+            JOIN pangkat p2 ON pr.PANGKAT_ID = p2.PANGKAT_ID
+            WHERE pr.PEGAWAI_ID = ?
+            ORDER BY pr.TMT_PANGKAT ASC
+        ";
+
+            $riwayatDb = $this->db->query($sql, [$pegawai_id])->result_array();
+
+            if (empty($riwayatDb)) {
+                echo "TIDAK ADA RIWAYAT\n";
+                $this->db->where('id', $row->id)->update('siasnpegawaiid', ['golongan' => 4]);
+                $error++;
+                continue;
+            }
+
+            // Format riwayat (tambahkan pangkat_riwayat_id)
+            $riwayat = [];
+            foreach ($riwayatDb as $r) {
+                $riwayat[] = [
+                    'pangkat_riwayat_id' => $r['PANGKAT_RIWAYAT_ID'],
+                    'tmt'           => $r['TMT_PANGKAT'],
+                    'pangkat'       => $r['PANGKAT_ID'],
+                    'pangkat_nama'  => $r['PANGKAT_NAMA'],
+                    'mk_tahun'      => (int)($r['MASA_KERJA_TAHUN'] ?? 0),
+                    'mk_bulan'      => (int)($r['MASA_KERJA_BULAN'] ?? 0)
+                ];
+            }
+
+            // 3. Hitung ulang
+            $hasil = $this->hitungMasaKerjaDetail($riwayat);
+
+            // 4. Update kolom hasil_hitung untuk setiap langkah (baris ke-1 dan seterusnya)
+            $adaSelisih = false;
+            foreach ($hasil['langkah'] as $langkah) {
+                $mk_tahun = floor($langkah['mk_hitung'] / 12);
+                $mk_bulan = $langkah['mk_hitung'] % 12;
+                $keterangan = $langkah['sesuai'] ? 'Sesuai' : 'Selisih';
+
+                if (!$langkah['sesuai']) {
+                    $adaSelisih = true;
+                }
+
+                $this->db->where('PANGKAT_RIWAYAT_ID', $langkah['pangkat_riwayat_id'])
+                    ->update('pangkat_riwayat', [
+                        'HASIL_HITUNG_MASA_KERJA_TAHUN' => $mk_tahun,
+                        'HASIL_HITUNG_MASA_KERJA_BULAN' => $mk_bulan,
+                        'HASIL_HITUNG_KETERANGAN'       => $keterangan
+                    ]);
+            }
+
+            // 5. Update status di siasnpegawaiid menjadi 4 (sudah dicek)
+            $this->db->where('id', $row->id)->update('siasnpegawaiid', ['golongan' => 4]);
+
+            if ($adaSelisih) {
+                echo "SELISIH DITEMUKAN\n";
+                $updated++;
+            } else {
+                echo "OK (semua sesuai)\n";
+            }
+
+            $processed++;
+        }
+
+        echo "\n=========================================\n";
+        echo "SELESAI\n";
+        echo "Diproses : $processed\n";
+        echo "Ada selisih : $updated\n";
+        echo "Error    : $error\n";
+        echo "Waktu    : " . date('Y-m-d H:i:s') . "\n";
+        echo "=========================================\n";
+    }
 }

@@ -212,7 +212,7 @@
 							<span class="pull-right-container"><i class="fa fa-angle-right pull-right"></i></span>
 						</a></li>
 					<li class="treeview"><a href="javascript:changepages('tim_kerja')">
-							<span>Tim Kerja</span>
+							<span>Riwayat Penugasan</span>
 							<span class="pull-right-container"><i class="fa fa-angle-right pull-right"></i></span>
 						</a></li>
 
@@ -264,10 +264,10 @@
 								<span class="pull-right-container"><i class="fa fa-angle-right pull-right"></i></span>
 							</a></li>
 
-						<li class="treeview"><a href="javascript:changepages('tambahanmk/add')">
+						<!-- <li class="treeview"><a href="javascript:changepages('tambahanmk/add')">
 								<span>Tambahan Masa Kerja</span>
 								<span class="pull-right-container"><i class="fa fa-angle-right pull-right"></i></span>
-							</a></li>
+							</a></li> -->
 					<?php endif; ?>
 					<li class="treeview"><a href="javascript:changepages('hukuman')">
 							<span>Hukuman</span>

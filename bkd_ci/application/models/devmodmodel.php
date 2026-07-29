@@ -46,7 +46,7 @@ class Devmodmodel extends SB_Model
                 SUM(CASE WHEN flag_data_utama = 3 THEN 1 ELSE 0 END) * 100 / COUNT(*),
                 2
             ) AS persen_gagal
-        FROM siasnpegawaiid
+        FROM siasnpegawaiid where statusPegawai in ('PNS', 'CPNS','PPPK','PPPK PARUH WAKTU')
     ")->row();
     }
 
@@ -404,5 +404,67 @@ class Devmodmodel extends SB_Model
     ";
 
         return $this->db->query($sql)->result();
+    }
+
+
+    //----------------------------------------------------
+
+    public function getProgressRwGolongan()
+    {
+        return $this->db->query("
+        SELECT
+            COUNT(*) AS total,
+
+            SUM(CASE WHEN s.golongan = 1 THEN 1 ELSE 0 END) AS antrian,
+
+            SUM(CASE WHEN s.golongan = 0 THEN 1 ELSE 0 END) AS selesai,
+
+            SUM(CASE WHEN s.golongan = 3 THEN 1 ELSE 0 END) AS gagal,
+
+            ROUND(
+                SUM(CASE WHEN s.golongan = 1 THEN 1 ELSE 0 END) * 100 / COUNT(*),
+                2
+            ) AS persen_antrian,
+
+            ROUND(
+                SUM(CASE WHEN s.golongan = 0 THEN 1 ELSE 0 END) * 100 / COUNT(*),
+                2
+            ) AS persen_selesai,
+
+            ROUND(
+                SUM(CASE WHEN s.golongan = 3 THEN 1 ELSE 0 END) * 100 / COUNT(*),
+                2
+            ) AS persen_gagal
+
+        FROM siasnpegawaiid s
+
+        JOIN pegawai p
+            ON p.PEGAWAI_ID = s.pegawai_id
+
+        WHERE
+            p.STATUS_PEGAWAI = '2'
+    ")->row();
+    }
+
+    public function getDashboardRwGolongan()
+    {
+        $dashboard = array();
+
+        $p = $this->getProgressRwGolongan();
+
+        $dashboard[] = array(
+            'judul'             => 'Sinkronisasi Rw Golongan PNS',
+            'icon'              => 'fa-users',
+            'total'             => $p->total,
+            'sukses'            => $p->selesai,   // <- ubah dari $p->sukses menjadi $p->selesai
+            'antrian'           => $p->antrian,
+            'gagal'             => $p->gagal,
+            'persen_sukses'     => $p->persen_selesai, // <- ubah dari $p->persen_sukses menjadi $p->persen_selesai
+            'persen_antrian'    => $p->persen_antrian,
+            'persen_gagal'      => $p->persen_gagal,
+            'anomali' => array()
+        );
+
+        return $dashboard;
     }
 }

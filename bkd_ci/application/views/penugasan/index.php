@@ -6,8 +6,9 @@
        <div class="col-lg-8">
          <div class="page-header-title">
            <div class="d-inline">
-             <h4><?php echo $pageTitle; ?></h4>
-             <span>data tabel <?php echo $pageTitle; ?></span>
+             <h4><?php echo "Riwayat Penugasan"; ?></h4>
+             <span>data tabel <?php echo "Riwayat Penugasan";
+                              ?></span>
            </div>
          </div>
        </div>

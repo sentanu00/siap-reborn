@@ -27,4 +27,11 @@
 
   <?php } ?>
 
+  <!-- TAMBAHKAN: Monitoring Rw Golongan -->
+  <?php foreach ($monitoringRwGolongan as $item) { ?>
+
+    <?php $this->load->view('devmod/monitoring_card', $item); ?>
+
+  <?php } ?>
+
 </div>
