@@ -419,6 +419,8 @@ class Devmodmodel extends SB_Model
 
             SUM(CASE WHEN s.golongan = 0 THEN 1 ELSE 0 END) AS selesai,
 
+            SUM(CASE WHEN s.golongan = 4 THEN 1 ELSE 0 END) AS cek_masakerja,
+
             SUM(CASE WHEN s.golongan = 3 THEN 1 ELSE 0 END) AS gagal,
 
             ROUND(
@@ -435,6 +437,12 @@ class Devmodmodel extends SB_Model
                 SUM(CASE WHEN s.golongan = 3 THEN 1 ELSE 0 END) * 100 / COUNT(*),
                 2
             ) AS persen_gagal
+             ,
+
+            ROUND(
+                SUM(CASE WHEN s.golongan = 4 THEN 1 ELSE 0 END) * 100 / COUNT(*),
+                2
+            ) AS persen_cekMK
 
         FROM siasnpegawaiid s
 
@@ -442,7 +450,7 @@ class Devmodmodel extends SB_Model
             ON p.PEGAWAI_ID = s.pegawai_id
 
         WHERE
-            p.STATUS_PEGAWAI = '2'
+            p.STATUS_PEGAWAI in ('1', '2')
     ")->row();
     }
 
@@ -456,15 +464,137 @@ class Devmodmodel extends SB_Model
             'judul'             => 'Sinkronisasi Rw Golongan PNS',
             'icon'              => 'fa-users',
             'total'             => $p->total,
+            'cek_masakerja'            => $p->cek_masakerja,
             'sukses'            => $p->selesai,   // <- ubah dari $p->sukses menjadi $p->selesai
             'antrian'           => $p->antrian,
             'gagal'             => $p->gagal,
             'persen_sukses'     => $p->persen_selesai, // <- ubah dari $p->persen_sukses menjadi $p->persen_selesai
             'persen_antrian'    => $p->persen_antrian,
+            'persen_cekMK'      => $p->persen_cekMK,
             'persen_gagal'      => $p->persen_gagal,
             'anomali' => array()
         );
 
         return $dashboard;
+    }
+
+
+    /**
+     * Agregasi anomali masa kerja berdasarkan HASIL_HITUNG_KETERANGAN
+     * Menggunakan CTE yang sama dengan query download (konsisten)
+     */
+    public function getAnomaliMasaKerja()
+    {
+        $sql = "
+        WITH pangkat_rank AS (
+            SELECT
+                pr.*,
+                pa.KODE AS pangkat,
+                ROW_NUMBER() OVER (
+                    PARTITION BY pr.PEGAWAI_ID
+                    ORDER BY pr.TMT_PANGKAT DESC
+                ) AS rn_akhir
+            FROM pangkat_riwayat pr
+            JOIN pangkat pa
+                ON pa.PANGKAT_ID = pr.PANGKAT_ID
+        )
+        SELECT
+            COALESCE(pr_akhir.HASIL_HITUNG_KETERANGAN, 'NULL') AS HASIL_HITUNG_KETERANGAN,
+            COUNT(*) AS jumlah
+        FROM pegawai p
+        LEFT JOIN pangkat_rank pr_akhir
+            ON pr_akhir.PEGAWAI_ID = p.PEGAWAI_ID
+           AND pr_akhir.rn_akhir = 1
+        WHERE p.STATUS_PEGAWAI IN ('1','2')
+        GROUP BY COALESCE(pr_akhir.HASIL_HITUNG_KETERANGAN, 'NULL')
+        ORDER BY 
+            CASE COALESCE(pr_akhir.HASIL_HITUNG_KETERANGAN, 'NULL')
+                WHEN 'Selisih' THEN 1
+                WHEN 'Sesuai' THEN 2
+                WHEN 'Sesuai (hanya 1 riwayat)' THEN 3
+                ELSE 4
+            END
+    ";
+        return $this->db->query($sql)->result();
+    }
+
+    /**
+     * Format anomali masa kerja untuk dashboard
+     */
+    public function getAnomaliMasaKerjaFormatted()
+    {
+        $raw = $this->getAnomaliMasaKerja();
+        $anomali = [];
+
+        foreach ($raw as $row) {
+            $label = $row->HASIL_HITUNG_KETERANGAN ?: 'NULL (belum dicek)';
+            $anomali[] = [
+                'nama'   => $label,
+                'jumlah' => (int)$row->jumlah,
+                'url'    => '#',
+            ];
+        }
+
+        return $anomali;
+    }
+
+    /**
+     * Detail anomali masa kerja untuk download CSV
+     */
+    public function getDetailAnomaliMasaKerja()
+    {
+        $sql = "
+        WITH pangkat_rank AS (
+            SELECT
+                pr.*,
+                pa.KODE AS pangkat,
+                ROW_NUMBER() OVER (
+                    PARTITION BY pr.PEGAWAI_ID
+                    ORDER BY pr.TMT_PANGKAT ASC
+                ) AS rn_awal,
+                ROW_NUMBER() OVER (
+                    PARTITION BY pr.PEGAWAI_ID
+                    ORDER BY pr.TMT_PANGKAT DESC
+                ) AS rn_akhir
+            FROM pangkat_riwayat pr
+            JOIN pangkat pa
+                ON pa.PANGKAT_ID = pr.PANGKAT_ID
+        )
+        SELECT
+            p.NIP_BARU,
+            p.NAMA,
+            jr.NAMA AS jabatan,
+            s1.NAMA AS satker,
+            s2.NAMA AS satker_induk,
+            pawal.PANGKAT AS pangkat_awal,
+            pawal.TMT_PANGKAT AS tmt_awal,
+            pawal.MASA_KERJA_TAHUN AS MK_TAHUN_AWAL,
+            pawal.MASA_KERJA_BULAN AS MK_BULAN_AWAL,
+            pakhir.PANGKAT AS pangkat_akhir,
+            pakhir.TMT_PANGKAT AS tmt_akhir,
+            pakhir.MASA_KERJA_TAHUN AS MK_TAHUN_AKHIR,
+            pakhir.MASA_KERJA_BULAN AS MK_BULAN_AKHIR,
+            pakhir.HASIL_HITUNG_MASA_KERJA_TAHUN AS HITUNG_TAHUN,
+            pakhir.HASIL_HITUNG_MASA_KERJA_BULAN AS HITUNG_BULAN,
+            pakhir.HASIL_HITUNG_KETERANGAN,
+            pakhir.SELISIH_HASIL_HITUNG_
+        FROM pegawai p
+        LEFT JOIN pangkat_rank pawal
+            ON pawal.PEGAWAI_ID = p.PEGAWAI_ID
+           AND pawal.rn_awal = 1
+        LEFT JOIN pangkat_rank pakhir
+            ON pakhir.PEGAWAI_ID = p.PEGAWAI_ID
+           AND pakhir.rn_akhir = 1
+        JOIN satker s1
+            ON s1.SATKER_ID = p.SATKER_ID
+        JOIN satker s2
+            ON s2.SATKER_ID = s1.SATKER_INDUK_ID
+        JOIN jabatan_riwayat jr
+            ON jr.JABATAN_RIWAYAT_ID = p.JABATAN_ID_TERAKHIR
+        WHERE p.STATUS_PEGAWAI IN ('1','2')
+        ORDER BY pakhir.HASIL_HITUNG_KETERANGAN DESC
+    ";
+
+        return $this->db->query($sql)->result();
     }
 }

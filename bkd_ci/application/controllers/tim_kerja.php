@@ -19,7 +19,8 @@ class Tim_kerja extends SB_Controller
 		$this->info = $this->model->makeInfo($this->module);
 		$this->access = $this->model->validAccess($this->info['id']);
 		$this->data = array_merge($this->data, array(
-			'pageTitle'	=> 	$this->info['title'],
+			// 'pageTitle'	=> 	$this->info['title'],
+			'pageTitle'	=> 	"Riwayat Tim Kerja",
 			'pageNote'	=>  $this->info['note'],
 			'pageModule'	=> 'tim_kerja',
 		));

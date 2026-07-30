@@ -81,14 +81,16 @@
 					<!-- <div class="form-group row hidethis " style="display:none;">
 						<label for="Created At" class=" control-label col-md-4 text-left"> Created At </label>
 						<div class="col-md-8">
-							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['created_at']; ?>' name='created_at' /> <br />
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php //echo $row['created_at']; 
+																									?>' name='created_at' /> <br />
 							<i> <small></small></i>
 						</div>
 					</div>
 					<div class="form-group row hidethis " style="display:none;">
 						<label for="Updated At" class=" control-label col-md-4 text-left"> Updated At </label>
 						<div class="col-md-8">
-							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['updated_at']; ?>' name='updated_at' /> <br />
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php // echo $row['updated_at']; 
+																									?>' name='updated_at' /> <br />
 							<i> <small></small></i>
 						</div>
 					</div> -->

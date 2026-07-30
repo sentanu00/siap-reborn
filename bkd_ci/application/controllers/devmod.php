@@ -47,32 +47,38 @@ class Devmod extends SB_Controller
 		$monitoring = $this->model->getDashboardMonitoring();
 		$monitoringRwGolongan = $this->model->getDashboardRwGolongan();
 
+		// Anomali gelar (untuk monitoring data utama)
 		$anomali = [
-			// 'pangkat' => $this->model->getAnomaliPangkatFormatted(),
-			'gelar'   => $this->model->getAnomaliGelarFormatted(),
-			// nanti tambahkan 'jabatan' => ...
+			'gelar' => $this->model->getAnomaliGelarFormatted(),
 		];
-		$anomalipangkat = [
-			'pangkat' => $this->model->getAnomaliPangkatFormatted(),
-			// 'gelar'   => $this->model->getAnomaliGelarFormatted(),
-			// nanti tambahkan 'jabatan' => ...
-		];
-
-		// Hanya masukkan kategori yang tidak kosong
-
 		$anomali = array_filter($anomali, function ($items) {
 			return !empty($items);
 		});
-		$anomalipangkat = array_filter($anomalipangkat, function ($items) {
-			return !empty($items);
-		});
-
 		if (!empty($monitoring[0])) {
 			$monitoring[0]['anomali'] = $anomali;
 		}
 
+		// ====== ANOMALI UNTUK RW GOLONGAN ======
+		$anomalipangkat = [
+			'pangkat' => $this->model->getAnomaliPangkatFormatted(),
+		];
+		$anomalipangkat = array_filter($anomalipangkat, function ($items) {
+			return !empty($items);
+		});
+
+		// Tambahkan anomali masa kerja
+		$anomaliMasaKerja = [
+			'masa_kerja' => $this->model->getAnomaliMasaKerjaFormatted(),
+		];
+		$anomaliMasaKerja = array_filter($anomaliMasaKerja, function ($items) {
+			return !empty($items);
+		});
+
+		// Gabungkan anomali pangkat dan masa kerja
+		$anomaliRwGolongan = array_merge($anomalipangkat, $anomaliMasaKerja);
+
 		if (!empty($monitoringRwGolongan[0])) {
-			$monitoringRwGolongan[0]['anomali'] = $anomalipangkat;
+			$monitoringRwGolongan[0]['anomali'] = $anomaliRwGolongan;
 		}
 
 		$this->data['monitoring'] = $monitoring;
@@ -211,6 +217,74 @@ class Devmod extends SB_Controller
 				$row->gelar_belakang_siap,
 				$row->gelar_belakang_siasn,
 				$row->cek_gelar_belakang
+			], '|');
+		}
+
+		fclose($output);
+		exit;
+	}
+
+	public function download_anomali_masa_kerja()
+	{
+		if (!$this->session->userdata('logged_in')) {
+			redirect('user/login', 301);
+		}
+
+		$data = $this->model->getDetailAnomaliMasaKerja();
+
+		if (empty($data)) {
+			$this->session->set_flashdata('error', 'Tidak ada data anomali masa kerja untuk didownload.');
+			redirect('devmod');
+			return;
+		}
+
+		$filename = 'detail_anomali_masa_kerja_' . date('Ymd_His') . '.csv';
+
+		header('Content-Type: text/csv; charset=utf-8');
+		header('Content-Disposition: attachment; filename=' . $filename);
+
+		$output = fopen('php://output', 'w');
+		fputs($output, "\xEF\xBB\xBF"); // BOM UTF-8
+
+		fputcsv($output, [
+			'NIP Baru',
+			'Nama',
+			'Jabatan',
+			'Satker',
+			'Satker Induk',
+			'Pangkat Awal',
+			'TMT Awal',
+			'MK Awal (Tahun)',
+			'MK Awal (Bulan)',
+			'Pangkat Akhir',
+			'TMT Akhir',
+			'MK Akhir (Tahun)',
+			'MK Akhir (Bulan)',
+			'Hasil Hitung (Tahun)',
+			'Hasil Hitung (Bulan)',
+			'Keterangan',
+			'Selisih'
+		], '|');
+
+		foreach ($data as $row) {
+			fputcsv($output, [
+				$row->NIP_BARU,
+				$row->NAMA,
+				$row->jabatan,
+				$row->satker,
+				$row->satker_induk,
+				$row->pangkat_awal,
+				$row->tmt_awal,
+				$row->MK_TAHUN_AWAL,
+				$row->MK_BULAN_AWAL,
+				$row->pangkat_akhir,
+				$row->tmt_akhir,
+				$row->MK_TAHUN_AKHIR,
+				$row->MK_BULAN_AKHIR,
+				$row->HITUNG_TAHUN,
+				$row->HITUNG_BULAN,
+				$row->HASIL_HITUNG_KETERANGAN,
+				$row->SELISIH_HASIL_HITUNG_
 			], '|');
 		}
 
