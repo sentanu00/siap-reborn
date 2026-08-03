@@ -201,6 +201,106 @@ class Cek_masa_kerja extends SB_Controller
         return $result;
     }
 
+    /**
+     * Perbaiki data duplikat di tabel pangkat_riwayat
+     * Mengisi field HASIL_HITUNG_* yang NULL dengan nilai dari baris lain yang sudah terisi
+     * dengan kombinasi PEGAWAI_ID, PANGKAT_ID, TMT_PANGKAT yang sama
+     */
+    public function fixDuplicateHasilHitung()
+    {
+        header('Content-Type: text/plain; charset=utf-8');
+        echo "=========================================\n";
+        echo "PERBAIKAN DATA DUPLIKAT HASIL HITUNG\n";
+        echo "Dimulai : " . date('Y-m-d H:i:s') . "\n";
+        echo "=========================================\n\n";
+
+        // Cari data yang NULL
+        $sql_null = "
+        SELECT 
+            pr.PEGAWAI_ID,
+            pr.PANGKAT_ID,
+            pr.TMT_PANGKAT,
+            COUNT(*) AS total_duplikat
+        FROM pangkat_riwayat pr
+        JOIN pegawai p ON p.PEGAWAI_ID = pr.PEGAWAI_ID 
+        WHERE p.STATUS_PEGAWAI IN ('1','2')
+        and pr.SELISIH_HASIL_HITUNG_  IS NULL
+        GROUP BY pr.PEGAWAI_ID, pr.PANGKAT_ID, pr.TMT_PANGKAT
+        HAVING COUNT(*) > 1
+    ";
+
+        $null_groups = $this->db->query($sql_null)->result();
+
+        if (empty($null_groups)) {
+            echo "Tidak ditemukan data duplikat dengan HASIL_HITUNG_* yang NULL.\n";
+            echo "=========================================\n";
+            echo "SELESAI\n";
+            echo "Waktu    : " . date('Y-m-d H:i:s') . "\n";
+            echo "=========================================\n";
+            return;
+        }
+
+        echo "Ditemukan " . count($null_groups) . " kelompok data yang perlu diperbaiki.\n\n";
+
+        $total_affected = 0;
+
+        foreach ($null_groups as $group) {
+            // echo "Proses PEGAWAI_ID: {$group->PEGAWAI_ID}, PANGKAT_ID: {$group->PANGKAT_ID}, TMT: {$group->TMT_PANGKAT} ... ";
+
+            // Ambil nilai dari salah satu baris yang sudah terisi (ambil yang paling update)
+            $source_sql = "
+            SELECT 
+                HASIL_HITUNG_MASA_KERJA_TAHUN,
+                HASIL_HITUNG_MASA_KERJA_BULAN,
+                HASIL_HITUNG_KETERANGAN,
+                SELISIH_HASIL_HITUNG_
+            FROM pangkat_riwayat
+            WHERE PEGAWAI_ID = ?
+              AND PANGKAT_ID = ?
+              AND TMT_PANGKAT = ?
+              AND HASIL_HITUNG_MASA_KERJA_TAHUN IS NOT NULL
+            LIMIT 1
+        ";
+
+            $source = $this->db->query($source_sql, [
+                $group->PEGAWAI_ID,
+                $group->PANGKAT_ID,
+                $group->TMT_PANGKAT
+            ])->row();
+
+            if (!$source) {
+                // echo "SKIP - tidak ada sumber data yang terisi\n";
+                continue;
+            }
+
+            // Update data yang NULL dengan nilai dari source
+            $update_data = [
+                'HASIL_HITUNG_MASA_KERJA_TAHUN' => $source->HASIL_HITUNG_MASA_KERJA_TAHUN,
+                'HASIL_HITUNG_MASA_KERJA_BULAN' => $source->HASIL_HITUNG_MASA_KERJA_BULAN,
+                'HASIL_HITUNG_KETERANGAN'       => $source->HASIL_HITUNG_KETERANGAN,
+                'SELISIH_HASIL_HITUNG_'         => $source->SELISIH_HASIL_HITUNG_
+            ];
+
+            $this->db
+                ->where('PEGAWAI_ID', $group->PEGAWAI_ID)
+                ->where('PANGKAT_ID', $group->PANGKAT_ID)
+                ->where('TMT_PANGKAT', $group->TMT_PANGKAT)
+                ->where('HASIL_HITUNG_MASA_KERJA_TAHUN IS NULL', null, false)
+                ->update('pangkat_riwayat', $update_data);
+
+            $affected = $this->db->affected_rows();
+            $total_affected += $affected;
+
+            // echo "OK (diupdate: $affected baris)\n";
+        }
+
+        echo "\n=========================================\n";
+        echo "SELESAI\n";
+        echo "Total baris yang diperbaiki: $total_affected\n";
+        echo "Waktu    : " . date('Y-m-d H:i:s') . "\n";
+        echo "=========================================\n";
+    }
+
     public function cekMasaKerjaBatch($limit = 1000)
     {
         header('Content-Type: text/plain; charset=utf-8');
@@ -224,6 +324,10 @@ class Cek_masa_kerja extends SB_Controller
 
         if ($total == 0) {
             echo "Tidak ada pegawai yang perlu dicek.\n";
+            echo "Memeriksa data duplikat untuk perbaikan...\n\n";
+
+            // Panggil fungsi perbaikan data duplikat
+            $this->fixDuplicateHasilHitung();
             return;
         }
 

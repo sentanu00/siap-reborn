@@ -50,6 +50,7 @@ class Devmod extends SB_Controller
 		// Anomali gelar (untuk monitoring data utama)
 		$anomali = [
 			'gelar' => $this->model->getAnomaliGelarFormatted(),
+			'jabatan_unor' => $this->model->getAnomaliRwJabatanFormatted(),
 		];
 		$anomali = array_filter($anomali, function ($items) {
 			return !empty($items);
@@ -145,6 +146,133 @@ class Devmod extends SB_Controller
 		fclose($output);
 		exit;
 	}
+
+	public function download_anomali_jabatan_unor()
+	{
+		if (!$this->session->userdata('logged_in')) {
+			redirect('user/login', 301);
+		}
+
+		// Query detail dengan status_pegawai dan LEFT JOIN
+		$sql = "
+        SELECT 
+    t.*,
+    CASE 
+        WHEN t.perbandingan_ketiga_unor = 'Berbeda' 
+          OR t.perbandingan_jenis_jabatan = 'Berbeda' 
+          OR t.perbandingan_jfu = 'Berbeda' 
+          OR t.perbandingan_jfT = 'Berbeda' 
+        THEN 'Berbeda' 
+        ELSE 'Sama' 
+    END AS hasil_akhir
+FROM (
+    SELECT 
+        p.NIP_BARU,
+        p.NAMA,
+        sp.NAMA as status_pegawai,
+        s.SATKER_ID_SAPK AS unor_id_pegawai_siap,
+        jr.UNOR_ID_SAPK AS unor_id_siap,
+        du.unorId AS unor_id_siasn,
+        CASE 
+            WHEN COALESCE(jr.UNOR_ID_SAPK, '') = COALESCE(du.unorId, '') 
+             AND COALESCE(jr.UNOR_ID_SAPK, '') = COALESCE(s.SATKER_ID_SAPK, '')
+            THEN 'Sama' 
+            ELSE 'Berbeda' 
+        END AS perbandingan_ketiga_unor,
+        jr.JENIS_JABATAN_SAPK AS jenis_jabatan_siap,
+        du.jenisJabatanId AS jenis_jabatan_siasn,
+        CASE 
+            WHEN COALESCE(jr.JENIS_JABATAN_SAPK, '') = COALESCE(du.jenisJabatanId, '') 
+            THEN 'Sama' 
+            ELSE 'Berbeda' 
+        END AS perbandingan_jenis_jabatan,
+        jr.JFU_ID_SAPK AS jfu_siap,
+        du.jabatanFungsionalUmumId AS jfu_siasn,
+        CASE 
+            WHEN COALESCE(jr.JFU_ID_SAPK, '') = COALESCE(du.jabatanFungsionalUmumId, '') 
+            THEN 'Sama' 
+            ELSE 'Berbeda' 
+        END AS perbandingan_jfu,
+        jr.JFT_ID_SAPK AS jfT_siap,
+        du.jabatanFungsionalId AS jfT_siasn,
+        CASE 
+            WHEN COALESCE(jr.JFT_ID_SAPK, '') = COALESCE(du.jabatanFungsionalId, '') 
+            THEN 'Sama' 
+            ELSE 'Berbeda' 
+        END AS perbandingan_jfT    
+    FROM pegawai p 
+    JOIN status_pegawai sp on p.STATUS_PEGAWAI  = sp.STATUS_PEGAWAI_ID 
+    JOIN satker s ON p.SATKER_ID = s.SATKER_ID 
+    JOIN data_utama du ON p.NIP_BARU = du.nipBaru 
+    LEFT JOIN jabatan_riwayat jr ON p.JABATAN_ID_TERAKHIR = jr.JABATAN_RIWAYAT_ID 
+    WHERE p.STATUS_PEGAWAI IN ('1','2','10','18')
+    GROUP BY p.PEGAWAI_ID
+) t
+ORDER BY hasil_akhir, t.status_pegawai, t.perbandingan_ketiga_unor, t.perbandingan_jenis_jabatan, t.perbandingan_jfu, t.perbandingan_jfT
+    ";
+
+		$data = $this->db->query($sql)->result();
+
+		if (empty($data)) {
+			$this->session->set_flashdata('error', 'Tidak ada data anomali riwayat jabatan.');
+			redirect('devmod');
+			return;
+		}
+
+		$filename = 'detail_anomali_riwayat_jabatan_' . date('Ymd_His') . '.csv';
+		header('Content-Type: text/csv; charset=utf-8');
+		header('Content-Disposition: attachment; filename=' . $filename);
+
+		$output = fopen('php://output', 'w');
+		fputs($output, "\xEF\xBB\xBF"); // BOM UTF-8
+
+		// Header dengan tambahan status_pegawai
+		fputcsv($output, [
+			'NIP Baru',
+			'Nama',
+			'Status Pegawai',
+			'UNOR ID SIAP (Pegawai)',
+			'UNOR ID SIAP (Jabatan)',
+			'UNOR ID SIASN',
+			'Perbandingan UNOR',
+			'Jenis Jabatan SIAP',
+			'Jenis Jabatan SIASN',
+			'Perbandingan Jenis Jabatan',
+			'JFU SIAP',
+			'JFU SIASN',
+			'Perbandingan JFU',
+			'JFT SIAP',
+			'JFT SIASN',
+			'Perbandingan JFT',
+			'Hasil Akhir'
+		], '|');
+
+		foreach ($data as $row) {
+			fputcsv($output, [
+				$row->NIP_BARU,
+				$row->NAMA,
+				$row->status_pegawai,
+				$row->unor_id_pegawai_siap,
+				$row->unor_id_siap,
+				$row->unor_id_siasn,
+				$row->perbandingan_ketiga_unor,
+				$row->jenis_jabatan_siap,
+				$row->jenis_jabatan_siasn,
+				$row->perbandingan_jenis_jabatan,
+				$row->jfu_siap,
+				$row->jfu_siasn,
+				$row->perbandingan_jfu,
+				$row->jfT_siap,
+				$row->jfT_siasn,
+				$row->perbandingan_jfT,
+				$row->hasil_akhir
+			], '|');
+		}
+
+		fclose($output);
+		exit;
+	}
+
 
 	public function download_anomali_gelar()
 	{

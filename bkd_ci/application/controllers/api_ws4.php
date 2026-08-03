@@ -203,7 +203,7 @@ class Api_ws4 extends SB_Controller
             SET
                 flag_data_utama = 1,
                 retry_count_data_utama = 0
-            WHERE flag_data_utama IN (1,3)
+            WHERE flag_data_utama IN (1,3,0)
             OR retry_count_data_utama > 0
         ");
 
@@ -803,5 +803,33 @@ class Api_ws4 extends SB_Controller
 
         return $response;
         // return $hasil;
+    }
+
+
+    public function resetAntrianGolongan()
+    {
+        header('Content-Type: text/plain; charset=utf-8');
+        echo "=========================================\n";
+        echo "RESET ANTRIAN GOLONGAN\n";
+        echo "Dimulai : " . date('Y-m-d H:i:s') . "\n";
+        echo "=========================================\n\n";
+
+        // Query update
+        $this->db
+            ->where_in('statusPegawai', ['PNS', 'CPNS'])
+            ->update('siasnpegawaiid', [
+                'golongan' => 1,
+                'retry_count_golongan' => 0
+            ]);
+
+        $affected_rows = $this->db->affected_rows();
+
+        echo "Update berhasil.\n";
+        echo "Jumlah baris yang diupdate: " . number_format($affected_rows) . "\n";
+        echo "Status pegawai yang direset: PNS, CPNS\n";
+        echo "=========================================\n";
+        echo "SELESAI\n";
+        echo "Waktu    : " . date('Y-m-d H:i:s') . "\n";
+        echo "=========================================\n";
     }
 }

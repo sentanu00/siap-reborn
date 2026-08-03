@@ -506,6 +506,7 @@ class Devmodmodel extends SB_Model
             ON pr_akhir.PEGAWAI_ID = p.PEGAWAI_ID
            AND pr_akhir.rn_akhir = 1
         WHERE p.STATUS_PEGAWAI IN ('1','2')
+        AND pr_akhir.HASIL_HITUNG_KETERANGAN in ('Selisih')
         GROUP BY COALESCE(pr_akhir.HASIL_HITUNG_KETERANGAN, 'NULL')
         ORDER BY 
             CASE COALESCE(pr_akhir.HASIL_HITUNG_KETERANGAN, 'NULL')
@@ -596,5 +597,69 @@ class Devmodmodel extends SB_Model
     ";
 
         return $this->db->query($sql)->result();
+    }
+
+
+    /**
+     * Agregasi anomali riwayat jabatan per status pegawai
+     */
+    public function getAnomaliRwJabatan()
+    {
+        $sql = "
+        SELECT 
+            CASE p.STATUS_PEGAWAI
+                WHEN '1' THEN 'CPNS'
+                WHEN '2' THEN 'PNS'
+                WHEN '10' THEN 'PPPK'
+                WHEN '18' THEN 'PPPK Paruh Waktu'
+                ELSE 'Lainnya'
+            END AS status_pegawai_label,
+            COUNT(*) AS total,
+            SUM(
+                CASE 
+                    WHEN (COALESCE(jr.UNOR_ID_SAPK, '') != COALESCE(du.unorId, '') 
+                          OR COALESCE(jr.UNOR_ID_SAPK, '') != COALESCE(s.SATKER_ID_SAPK, ''))
+                          OR (COALESCE(jr.JENIS_JABATAN_SAPK, '') != COALESCE(du.jenisJabatanId, ''))
+                          OR (COALESCE(jr.JFU_ID_SAPK, '') != COALESCE(du.jabatanFungsionalUmumId, ''))
+                          OR (COALESCE(jr.JFT_ID_SAPK, '') != COALESCE(du.jabatanFungsionalId, ''))
+                    THEN 1 ELSE 0 
+                END
+            ) AS berbeda,
+            SUM(
+                CASE 
+                    WHEN (COALESCE(jr.UNOR_ID_SAPK, '') = COALESCE(du.unorId, '') 
+                          AND COALESCE(jr.UNOR_ID_SAPK, '') = COALESCE(s.SATKER_ID_SAPK, ''))
+                          AND (COALESCE(jr.JENIS_JABATAN_SAPK, '') = COALESCE(du.jenisJabatanId, ''))
+                          AND (COALESCE(jr.JFU_ID_SAPK, '') = COALESCE(du.jabatanFungsionalUmumId, ''))
+                          AND (COALESCE(jr.JFT_ID_SAPK, '') = COALESCE(du.jabatanFungsionalId, ''))
+                    THEN 1 ELSE 0 
+                END
+            ) AS sama
+        FROM pegawai p 
+        JOIN satker s ON p.SATKER_ID = s.SATKER_ID 
+        JOIN data_utama du ON p.NIP_BARU = du.nipBaru 
+        LEFT JOIN jabatan_riwayat jr ON p.JABATAN_ID_TERAKHIR = jr.JABATAN_RIWAYAT_ID 
+        WHERE p.STATUS_PEGAWAI IN ('1','2','10','18')
+        GROUP BY p.STATUS_PEGAWAI
+        ORDER BY p.STATUS_PEGAWAI
+    ";
+
+        return $this->db->query($sql)->result();
+    }
+
+    public function getAnomaliRwJabatanFormatted()
+    {
+        $rows = $this->getAnomaliRwJabatan();
+        $anomali = [];
+        foreach ($rows as $row) {
+            if ($row->berbeda > 0) {
+                $anomali[] = [
+                    'nama'   => 'Riwayat Jabatan tidak sesuai (' . $row->status_pegawai_label . ')',
+                    'jumlah' => $row->berbeda,
+                    'url'    => '#',
+                ];
+            }
+        }
+        return $anomali;
     }
 }
