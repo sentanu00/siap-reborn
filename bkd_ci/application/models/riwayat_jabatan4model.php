@@ -20,7 +20,7 @@ class Riwayat_jabatan4model extends SB_Model
 	public static function queryWhere()
 	{
 
-		return "  WHERE jabatan_riwayat.JABATAN_RIWAYAT_ID IS NOT NULL   ";
+		return "  WHERE jabatan_riwayat.flag_tayang = '1' and jabatan_riwayat.JABATAN_RIWAYAT_ID IS NOT NULL   ";
 	}
 
 	public static function queryGroup()

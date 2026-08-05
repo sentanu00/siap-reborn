@@ -139,7 +139,7 @@ class Api_ws4 extends SB_Controller
             JABATAN_ID_TERAKHIR = (
                 SELECT jr.JABATAN_RIWAYAT_ID
                 FROM jabatan_riwayat jr
-                WHERE jr.PEGAWAI_ID = p.PEGAWAI_ID
+                WHERE jr.PEGAWAI_ID = p.PEGAWAI_ID and jr.flag_tayang = 1 
                 ORDER BY jr.TMT_JABATAN DESC
                 LIMIT 1
             ),
@@ -831,5 +831,65 @@ class Api_ws4 extends SB_Controller
         echo "SELESAI\n";
         echo "Waktu    : " . date('Y-m-d H:i:s') . "\n";
         echo "=========================================\n";
+    }
+
+    public function update_flag_tayang_jabatan()
+    {
+        // Mulai transaksi
+        $this->db->trans_start();
+
+        // 1. Ambil daftar JABATAN_RIWAYAT_ID yang akan diupdate (belum tayang, tanggal_tayang >= NOW())
+        $now = date('Y-m-d H:i:s'); // WIB jika timezone sudah diset
+        $sql_select = "SELECT JABATAN_RIWAYAT_ID 
+                FROM jabatan_riwayat 
+                WHERE flag_tayang = 0 
+                AND tanggal_tayang IS NOT NULL 
+                AND tanggal_tayang <= '$now'";
+        $query = $this->db->query($sql_select);
+        $rows = $query->result();
+
+        $affected_jabatan = 0;
+        $affected_post = 0;
+
+        if (!empty($rows)) {
+            // Kumpulkan ID
+            $ids = array_column($rows, 'JABATAN_RIWAYAT_ID');
+
+            // 2. Update flag_tayang di jabatan_riwayat
+            $this->db->where_in('JABATAN_RIWAYAT_ID', $ids);
+            $this->db->where('flag_tayang', 0);
+            $this->db->set('flag_tayang', 1);
+            $this->db->update('jabatan_riwayat');
+            $affected_jabatan = $this->db->affected_rows();
+
+            // 3. Update flag_eksekusi di post_data_siap untuk table_name='jabatan_riwayat' dan id_table di $ids
+            $this->db->where('table_name', 'jabatan_riwayat');
+            $this->db->where_in('id_table', $ids);
+            $this->db->where('flag_eksekusi', 0);
+            $this->db->set('flag_eksekusi', 1);
+            $this->db->update('post_data_siap');
+            $affected_post = $this->db->affected_rows();
+        }
+
+        // Selesaikan transaksi
+        $this->db->trans_complete();
+
+        // Buat pesan log dan echo
+        $timestamp = date('Y-m-d H:i:s');
+
+        if ($affected_jabatan > 0 || $affected_post > 0) {
+            $msg = "$timestamp - ✅ Updated $affected_jabatan row(s) in jabatan_riwayat (flag_tayang=1) and $affected_post row(s) in post_data_siap (flag_eksekusi=1).";
+        } else {
+            $msg = "$timestamp - ℹ️ No rows need to be updated (no eligible jabatan_riwayat or already processed).";
+        }
+
+        // Log ke file (CodeIgniter log)
+        log_message('info', $msg);
+
+        // Tampilkan output (untuk cron / CLI)
+        echo $msg . "\n";
+
+        // (Opsional) simpan log terpisah
+        // file_put_contents('/path/to/logs/cron.log', $msg . PHP_EOL, FILE_APPEND);
     }
 }

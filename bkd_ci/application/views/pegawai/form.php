@@ -142,6 +142,15 @@
 								<span>Riwayat Jabatan</span>
 								<span class="pull-right-container"><i class="fa fa-angle-right pull-right"></i></span>
 							</a></li>
+						<?php if ($this->session->userdata('gid') == 1) : ?>
+
+							<li class="treeview"><a href="javascript:changepages('riwayat_pelantikan')">
+									<span>Riwayat Pelantikan</span>
+									<span class="pull-right-container"><i class="fa fa-angle-right pull-right"></i></span>
+								</a></li>
+						<?php else : ?>
+
+						<?php endif; ?>
 						<li class="treeview"><a href="javascript:changepages('riwayatgaji')">
 								<span>Riwayat Gaji</span>
 								<span class="pull-right-container"><i class="fa fa-angle-right pull-right"></i></span>

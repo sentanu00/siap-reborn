@@ -1,0 +1,934 @@
+<div class="row">
+	<div class="col-md-12">
+
+
+
+		<?php echo $this->session->flashdata('message'); ?>
+		<ul class="parsley-error-list">
+			<?php echo $this->session->flashdata('errors'); ?>
+		</ul>
+		<form action="<?php echo site_url('riwayat_pelantikan/save/' . $row['JABATAN_RIWAYAT_ID']); ?>" class='form-horizontal'
+			parsley-validate='true' novalidate='true' method="post" enctype="multipart/form-data">
+
+			<div class="row">
+				<div class="col-md-6">
+
+					<div class="form-group row hidethis " style="display:none;">
+						<label for="JABATAN RIWAYAT ID" class=" control-label col-md-4 text-left"> JABATAN RIWAYAT ID </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['JABATAN_RIWAYAT_ID']; ?>' name='JABATAN_RIWAYAT_ID' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+
+					<div class="form-group row hidethis " style="display:none;">
+						<label for="PEGAWAI ID" class=" control-label col-md-4 text-left"> PEGAWAI ID </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $PEGAWAI_ID; ?>' name='PEGAWAI_ID' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="Jenis Diklat" class=" control-label col-md-4 text-left"> JENIS MUTASI <span class="asterix"> * </span></label>
+						<div class="col-md-8">
+							<select name='jenisMutasiId' rows='5' id='jenisMutasiId' code='{$jenisMutasiId}'
+								class='form-control input-sm select2 ' style='width: 100%;' required>
+
+								<?php
+								$jenisMutasiLabel = [
+									'MJ' => 'Mutasi Jabatan',
+									'MU' => 'Mutasi Penempatan',
+								];
+
+								if (!empty($row['jenisMutasiId'])): ?>
+									<option value="<?= $row['jenisMutasiId'] ?>" selected>
+										<?= $jenisMutasiLabel[$row['jenisMutasiId']] ?? '-' ?>
+									</option>
+
+								<?php endif; ?>
+
+							</select> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+
+
+					<div class="form-group row  ">
+						<label for="Jenis Diklat" class=" control-label col-md-4 text-left"> JENIS JABATAN <span class="asterix"> * </span></label>
+						<div class="col-md-8">
+							<select name='JENIS_JABATAN_SAPK' rows='5' id='JENIS_JABATAN_SAPK' code='{$JENIS_JABATAN_SAPK}'
+								class='form-control input-sm select2 ' style='width: 100%;' required>
+
+								<?php
+								$jenisJabatanLabel = [
+									'1' => 'Struktural (Pejabat Eselon)',
+									'2' => 'Fungsional',
+									'4' => 'Pelaksana',
+								];
+
+								if (!empty($row['JENIS_JABATAN_SAPK'])): ?>
+									<option value="<?= $row['JENIS_JABATAN_SAPK'] ?>" selected>
+										<?= $jenisJabatanLabel[$row['JENIS_JABATAN_SAPK']] ?? '-' ?>
+									</option>
+
+								<?php endif; ?>
+
+							</select> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+
+					<div class="form-group row hidethis " style="display:none;">
+						<label for="JENIS PENUGASAN ID" class=" control-label col-md-4 text-left"> JENIS PENUGASAN ID </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo "D"; ?>' name='jenisPenugasanId' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+
+					<div class="form-group row  ">
+						<label for="SATKER_ID" class=" control-label col-md-4 text-left">SATUAN KERJA <span class="asterix"> * </span></label>
+						<div class="col-md-8">
+							<select name='SATKER_ID' rows='5' id='SATKER_ID' code='{$SATKER_ID}'
+								class='form-control input-sm select2 ' style='width: 100%;' required>
+
+								<?php
+
+								if (!empty($row['SATKER_ID'])): ?>
+									<option value="<?= $row['SATKER_ID'] ?>" selected>
+										<?= $row['UNOR_NAMA_SAPK'] ?>
+									</option>
+
+								<?php endif; ?>
+
+							</select> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+
+
+					<div class="form-group row jft-wrapper">
+						<label for="JFT ID SAPK" class=" control-label col-md-4 text-left">JABATAN FUNGSIONAL <span class="asterix"> * </span></label>
+						<div class="col-md-8">
+							<select name='JFT_ID_SAPK' rows='5' id='JFT_ID_SAPK' code='{$JFT_ID_SAPK}'
+								class='form-control input-sm select2 ' style='width: 100%;'>
+
+								<?php
+
+								if (!empty($row['JFT_ID_SAPK'])): ?>
+									<option value="<?= $row['JFT_ID_SAPK'] ?>" selected>
+										<?= $row['JFT_NAMA_SAPK'] ?>
+									</option>
+
+								<?php endif; ?>
+
+							</select> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+
+					<div class="form-group row hidethis " style="display:none;">
+						<label for="JFT NAMA SAPK" class=" control-label col-md-4 text-left"> JFT NAMA SAPK </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['JFT_NAMA_SAPK']; ?>' name='JFT_NAMA_SAPK' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+
+					<div class="form-group row hidethis " style="display:none;">
+						<label for="kel_jabatan_id" class=" control-label col-md-4 text-left"> kel_jabatan_id </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['kel_jabatan_id']; ?>' name='kel_jabatan_id' id="kel_jabatan_id" /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+
+
+
+					<!-- batas atas------------------------------------ -->
+					<div class="form-group row jft-wrapper">
+						<label for="subJabatanId" class=" control-label col-md-4 text-left"> SUB JABATAN FUNGSIONAL <span class="asterix"> * </span></label>
+						<div class="col-md-8">
+							<select name='subJabatanId' rows='5' id='subJabatanId' code='{$subJabatanId}'
+								class='form-control input-sm select2 ' style='width: 100%;'>
+
+								<?php
+
+								if (!empty($row['subJabatanId'])): ?>
+									<option value="<?= $row['subJabatanId'] ?>" selected>
+										<?= $row['subJabatanNama'] ?>
+									</option>
+
+								<?php endif; ?>
+
+							</select> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+
+
+					<div class="form-group row hidethis " style="display:none;">
+						<label for="subJabatanNama" class=" control-label col-md-4 text-left"> SUB JABATAN NAMA SAPK </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['subJabatanNama']; ?>' name='subJabatanNama' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+
+					<!-- batas bawah------------------------------------------ -->
+					<div class="form-group row jfu-wrapper">
+						<label for="JFU ID SAPK" class=" control-label col-md-4 text-left">JABATAN PELAKSANA <span class="asterix"> * </span></label>
+						<div class="col-md-8">
+							<select name='JFU_ID_SAPK' rows='5' id='JFU_ID_SAPK' code='{$JFU_ID_SAPK}'
+								class='form-control input-sm select2 ' style='width: 100%;'>
+
+								<?php
+
+								if (!empty($row['JFU_ID_SAPK'])): ?>
+									<option value="<?= $row['JFU_ID_SAPK'] ?>" selected>
+										<?= $row['JFU_NAMA_SAPK'] ?>
+									</option>
+
+								<?php endif; ?>
+
+							</select> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+
+					<div class="form-group row hidethis " style="display:none;">
+						<label for="JFU NAMA SAPK" class=" control-label col-md-4 text-left"> JFU NAMA SAPK </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['JFU_NAMA_SAPK']; ?>' name='JFU_NAMA_SAPK' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+
+					<div class="form-group row jst-wrapper">
+						<label for="NAMA" class=" control-label col-md-4 text-left"> JABATAN </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['NAMA']; ?>' name='NAMA' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+
+					<div class="form-group row hidethis " style="display:none;">
+						<label for="NAMA" class=" control-label col-md-4 text-left"> NAMA_KELAS_JABATAN </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['NAMA_KELAS_JABATAN']; ?>' name='NAMA_KELAS_JABATAN' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+
+					<div class="form-group row hidethis " style="display:none;">
+						<label for="KETERANGAN_BUP" class=" control-label col-md-4 text-left"> KETERANGAN_BUP </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['KETERANGAN_BUP']; ?>' name='KETERANGAN_BUP' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+
+					<div class="form-group row hidethis " style="display:none;">
+						<label for="KELAS_JABATAN_ID" class=" control-label col-md-4 text-left"> KELAS_JABATAN_ID </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['KELAS_JABATAN_ID']; ?>' name='KELAS_JABATAN_ID' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+
+					<div class="form-group row hidethis " style="display:none;">
+						<label for="KELAS_JABATAN" class=" control-label col-md-4 text-left"> KELAS_JABATAN </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['KELAS_JABATAN']; ?>' name='KELAS_JABATAN' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+
+
+					<!-- 
+					<div class="form-group row  ">
+						<label for="TMT ESELON" class=" control-label col-md-4 text-left"> TMT ESELON </label>
+						<div class="col-md-8">
+
+							<input type='date' class='form-control input-sm' placeholder='' value='<?php //echo $row['TMT_ESELON']; 
+																									?>' name='TMT_ESELON'
+								style='width:150px !important;' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div> -->
+
+					<div class="form-group row hidethis " style="display:none;">
+						<label for="ESELON_ID" class=" control-label col-md-4 text-left"> ESELON_ID <span class="asterix"> * </span></label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['ESELON_ID']; ?>' name='ESELON_ID' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+
+					<div class="form-group row jst-wrapper  ">
+						<label for="eselonNama" class=" control-label col-md-4 text-left"> ESELON <span class="asterix"> * </span></label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php
+
+																									if (!empty($row['eselonNama'])):
+																										echo $row['eselonNama'];
+																									else:
+																										$mapEselon = [
+																											11 => 'I.a',
+																											12 => 'I.b',
+																											21 => 'II.a',
+																											22 => 'II.b',
+																											31 => 'III.a',
+																											32 => 'III.b',
+																											41 => 'IV.a',
+																											42 => 'IV.b',
+																										];
+
+																										echo $mapEselon[$row['ESELON_ID']] ?? '-';
+																									endif
+
+																									//echo $row['ESELON']; 
+																									?>' name='eselonNama' required /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+
+				</div>
+
+				<div class="col-md-6">
+
+					<div class="form-group row  ">
+						<label for="NO SK" class=" control-label col-md-4 text-left"> NO SK <span class="asterix"> * </span></label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['NO_SK']; ?>' name='NO_SK' required /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="TMT JABATAN" class=" control-label col-md-4 text-left"> TMT JABATAN <span class="asterix"> * </span></label>
+						<div class="col-md-8">
+
+							<input type='date' class='form-control input-sm' placeholder='' value='<?php echo $row['TMT_JABATAN']; ?>' name='TMT_JABATAN'
+								style='width:150px !important;' required /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="TANGGAL SK" class=" control-label col-md-4 text-left"> TANGGAL SK <span class="asterix"> * </span></label>
+						<div class="col-md-8">
+
+							<input type='date' class='form-control input-sm' placeholder='' value='<?php echo $row['TANGGAL_SK']; ?>' name='TANGGAL_SK'
+								style='width:150px !important;' required /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+
+					<div class="form-group row  ">
+						<label for="TmtMutasi" class=" control-label col-md-4 text-left"> TMT Mutasi <span class="asterix"> * </span></label>
+						<div class="col-md-8">
+
+							<input type='date' class='form-control input-sm' placeholder='' value='<?php echo $row['tmtMutasi']; ?>' name='tmtMutasi'
+								style='width:150px !important;' required /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+
+					<div class="form-group row  ">
+						<label for="TANGGAL_PELANTIKAN" class=" control-label col-md-4 text-left"> TANGGAL PELANTIKAN <span class="asterix"> * </span></label>
+						<div class="col-md-8">
+
+							<input type='date' class='form-control input-sm' placeholder='' value='<?php echo $row['TANGGAL_PELANTIKAN']; ?>' name='TANGGAL_PELANTIKAN'
+								style='width:150px !important;' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<!-- TANGGAL_PELANTIKAN -->
+
+					<div class="form-group row hidethis " style="display:none;">
+						<label for="INSTANSI_KERJA_ID_SAPK" class=" control-label col-md-4 text-left"> INSTANSI_KERJA_ID_SAPK </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo 'A5EB03E23B3BF6A0E040640A040252AD'; ?>' name='INSTANSI_KERJA_ID_SAPK' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row hidethis " style="display:none;">
+						<label for="LAST_UPDATE_DATE" class=" control-label col-md-4 text-left"> LAST_UPDATE_DATE </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo date('d-m-Y'); ?>' name='LAST_UPDATE_DATE' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row hidethis " style="display:none;">
+						<label for="SATUAN_KERJA_ID_SAPK" class=" control-label col-md-4 text-left"> SATUAN_KERJA_ID_SAPK </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo 'A5EB03E24222F6A0E040640A040252AD'; ?>' name='SATUAN_KERJA_ID_SAPK' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row hidethis " style="display:none;">
+						<label for="INSTANSI_KERJA_NAMA_SAPK" class=" control-label col-md-4 text-left"> INSTANSI_KERJA_NAMA_SAPK </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo 'Pemerintah Kab. Probolinggo'; ?>' name='INSTANSI_KERJA_NAMA_SAPK' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row hidethis " style="display:none;">
+						<label for="SATUAN_KERJA_NAMA_SAPK" class=" control-label col-md-4 text-left"> SATUAN_KERJA_NAMA_SAPK </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo 'Pemerintah Kab. Probolinggo'; ?>' name='SATUAN_KERJA_NAMA_SAPK' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row hidethis " style="display:none;">
+						<label for="namaUnor" class=" control-label col-md-4 text-left"> NAMA_UNOR </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['namaUnor'];  ?>' name='namaUnor' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+
+
+					<div class="form-group row hidethis " style="display:none;">
+						<label for="UNOR_ID_SAPK" class=" control-label col-md-4 text-left"> UNOR_ID_SAPK </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['UNOR_ID_SAPK']; ?>' name='UNOR_ID_SAPK' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row hidethis " style="display:none;">
+						<label for="UNOR_NAMA_SAPK" class=" control-label col-md-4 text-left"> UNOR_NAMA_SAPK </label>
+						<div class="col-md-8">
+							<input type='text' class='form-control input-sm' placeholder='' value='<?php echo $row['UNOR_NAMA_SAPK']; ?>' name='UNOR_NAMA_SAPK' /> <br />
+							<i> <small></small></i>
+						</div>
+					</div>
+					<div class="form-group row  ">
+						<label for="FILE PDF" class=" control-label col-md-4 text-left"> Dokumen (PDF) </label>
+						<div class="col-md-8">
+							<!-- <input type='text' class='form-control input-sm' placeholder='' value='<?php //echo $row['FILE_PDF']; 
+																										?>' name='FILE_PDF' /> <br />
+							<i> <small></small></i> -->
+
+							<!-- rubah agar bisa terimafile pdf--------------- -->
+							<input
+								type="file"
+								class="form-control input-sm"
+								id="FILE_PDF"
+								name="FILE_PDF"
+								accept="application/pdf">
+
+							<input
+								type="hidden"
+								id="file_pdf_cek"
+								name="file_pdf_cek"
+								value="<?php echo $row['FILE_PDF']; ?>">
+							<?
+							if ($row['FILE_PDF'] != '') { //--------------------------------rubah di bawah ini---------------------------dan "id" ini juga --------------------------
+								echo '<br /><a href="javascript:SximoModal(\'' . site_url('riwayat_pelantikan/viewfile') . '/FILE_PDF/' . $row['JABATAN_RIWAYAT_ID'] . '\',\'View File\',1000)" class="btn btn-danger"><img src="' . base_url('/assets/icon/adadoc.png') . '" style="width:20px"> Preview File</a>';
+							}
+							?>
+							<!-- batas rubah-------------------------------- -->
+						</div>
+
+
+
+					</div>
+					<!-- ===== TAMBAHKAN DI SINI ===== -->
+					<div class="form-group row">
+						<label for="flag_tayang" class="control-label col-md-4 text-left">Status Tayang</label>
+						<div class="col-md-8">
+							<select name="flag_tayang" class="form-control input-sm" id="flag_tayang">
+								<option value="0" <?php echo (isset($row['flag_tayang']) && $row['flag_tayang'] == 0) ? 'selected' : ''; ?>>Belum Tayang</option>
+								<option value="1" <?php echo (isset($row['flag_tayang']) && $row['flag_tayang'] == 1) ? 'selected' : ''; ?>>Tayang</option>
+							</select>
+						</div>
+					</div>
+
+					<div class="form-group row">
+						<label for="tanggal_tayang" class="control-label col-md-4 text-left">Tanggal Tayang</label>
+						<div class="col-md-8">
+							<input type="datetime-local" class="form-control input-sm" name="tanggal_tayang"
+								value="<?php echo !empty($row['tanggal_tayang']) ? date('Y-m-d\TH:i', strtotime($row['tanggal_tayang'])) : ''; ?>"
+								id="tanggal_tayang" />
+						</div>
+					</div>
+					<!-- ===== AKHIR TAMBAHAN ===== -->
+
+				</div>
+
+
+			</div>
+
+			<div style="clear:both">
+				<hr />
+			</div>
+
+			<div class="toolbar-line text-center">
+				<?php if ($this->access['is_edit'] == 1 || $this->access['is_add'] == 1) { ?>
+					<!-- <input type="submit" name="submit" class="btn btn-primary btn-sm" value="<?php //echo $this->lang->line('core.sb_submit'); 
+																									?>" /> -->
+					<!-- rubah agar bisa terima file pdf -------------------------------------------------------hapus bagian ini onclick="return validateForm();" agar sigawai lancar -->
+					<input type="button" id="kirimdata" class="btn btn-primary btn-sm" value="<?php echo $this->lang->line('core.sb_submit'); ?>" />
+					<!-- batas rubah -->
+				<?php } ?>
+				<a href="javascript:cancelform()" class="btn btn-sm btn-warning"><?php echo $this->lang->line('core.sb_cancel'); ?> </a>
+			</div>
+
+		</form>
+
+	</div>
+</div>
+</section>
+
+<!-- tambahan fungsi pengecekan file ------------------------------- -->
+<script>
+	function validasiFilePDF() {
+		const fileBaru = document.getElementById('FILE_PDF').files.length;
+		const fileLama = document.getElementById('file_pdf_cek').value;
+
+		if (fileBaru === 0 && fileLama === '') {
+			alert('Wajib mengisi dokumen (PDF)');
+			return false;
+		}
+		return true;
+	}
+
+	function validasiUkuranFilePDF() {
+		const input = document.getElementById('FILE_PDF');
+
+		if (input.files.length > 0) {
+			const fileSize = input.files[0].size; // dalam byte
+			const maxSize = 1 * 1024 * 1024; // 1 MB
+
+			if (fileSize > maxSize) {
+				alert('Ukuran file tidak boleh lebih dari 1 MB');
+				input.value = ''; // reset file
+				return false;
+			}
+		}
+
+		return true;
+	}
+</script>
+<!-- batas tambahan fungsi pengecekan file ---------------------------- -->
+
+<script type="text/javascript">
+	$(document).on("keypress", 'form', function(e) {
+		var code = e.keyCode || e.which;
+		if (code == 13) {
+			e.preventDefault();
+			return false;
+		}
+	});
+
+	$('input').on('keyup', function(event) {
+		if (event.keyCode == 13) { // 13 is the keycode for enter button
+			$(this).next('input').focus();
+		}
+	});
+
+	$(document).ready(function() {
+
+		var frm = $('form');
+		// timpa yang lama jadi seperti ini --------------
+		$("#kirimdata").click(function() {
+
+			var form_data = new FormData(frm[0]);
+			// if (!frm.valid()) return false; ------------------matikan ini
+			if (!frm.parsley().validate()) return false; //------ganti jadi ini 
+
+			// validasi file DI SINI
+			if (!validasiFilePDF()) return false;
+			// validasi ukuran file
+			if (!validasiUkuranFilePDF()) return false;
+
+			$.ajax({
+				type: frm.attr('method'),
+				url: frm.attr('action'),
+				data: form_data,
+				cache: false,
+				processData: false,
+				contentType: false,
+				success: function(data) {
+					alert(data);
+					table.ajax.reload();
+					$('#form-ajax').html("");
+				}
+			});
+
+		});
+		// batas timpa yang lama -------------
+
+		function hideAndDisable(wrapper, resetValue = true) {
+			wrapper.hide();
+			wrapper.find('input, select').each(function() {
+				$(this).prop('required', false);
+
+				if (resetValue) {
+					$(this).val(null).trigger('change');
+				}
+			});
+		}
+
+		// function hideAndDisable(wrapper) {
+		// 	wrapper.hide();
+		// 	wrapper.find('input, select').each(function() {
+		// 		$(this).prop('required', false);
+		// 		$(this).val(null).trigger('change'); // reset select2
+		// 	});
+		// }
+
+		function showAndRequire(wrapper) {
+			wrapper.show();
+			wrapper.find('input, select').each(function() {
+				$(this).prop('required', true);
+			});
+		}
+
+		// function toggleJabatan() {
+		// 	let jenis = $('#JENIS_JABATAN_SAPK').val();
+
+		// 	let jft = $('.jft-wrapper');
+		// 	let jfu = $('.jfu-wrapper');
+		// 	let jst = $('.jst-wrapper');
+
+		// 	// reset semua
+		// 	hideAndDisable(jft);
+		// 	hideAndDisable(jfu);
+		// 	hideAndDisable(jst);
+
+		// 	if (jenis === '2') {
+		// 		// Fungsional
+		// 		showAndRequire(jft);
+
+		// 	} else if (jenis === '4') {
+		// 		// Pelaksana
+		// 		showAndRequire(jfu);
+
+		// 	} else if (jenis === '1') {
+		// 		// Struktural
+		// 		showAndRequire(jst);
+		// 	}
+		// }
+
+		function toggleJabatan(resetValue = true) {
+			let jenis = $('#JENIS_JABATAN_SAPK').val();
+
+			let jft = $('.jft-wrapper');
+			let jfu = $('.jfu-wrapper');
+			let jst = $('.jst-wrapper');
+
+			hideAndDisable(jft, resetValue);
+			hideAndDisable(jfu, resetValue);
+			hideAndDisable(jst, resetValue);
+
+			if (jenis === '2') {
+				showAndRequire(jft);
+			} else if (jenis === '4') {
+				showAndRequire(jfu);
+			} else if (jenis === '1') {
+				showAndRequire(jst);
+			}
+		}
+
+
+		// pertama kali load (edit mode)
+		toggleJabatan(false);
+
+
+		$('#JENIS_JABATAN_SAPK').select2({
+			placeholder: 'Pilih Jenis Jabatan',
+			allowClear: true,
+			minimumInputLength: 0, // 🔥 ini kuncinya
+			ajax: {
+				url: '<?= site_url("riwayat_pelantikan/autocomplete_jenis_jabatan") ?>',
+				dataType: 'json',
+				delay: 250,
+				data: function(params) {
+					return {
+						q: params.term // bisa undefined / kosong
+					};
+				},
+				processResults: function(data) {
+					return {
+						results: data
+					};
+				},
+				cache: true
+			}
+		});
+
+		$('#jenisMutasiId').select2({
+			placeholder: 'Pilih Jenis Jabatan',
+			allowClear: true,
+			minimumInputLength: 0, // 🔥 ini kuncinya
+			ajax: {
+				url: '<?= site_url("riwayat_pelantikan/autocomplete_jenis_mutasi") ?>',
+				dataType: 'json',
+				delay: 250,
+				data: function(params) {
+					return {
+						q: params.term // bisa undefined / kosong
+					};
+				},
+				processResults: function(data) {
+					return {
+						results: data
+					};
+				},
+				cache: true
+			}
+		});
+
+
+		$('#SATKER_ID').select2({
+			placeholder: 'Pilih Satker',
+			allowClear: true,
+			minimumInputLength: 0, // 🔥 ini kuncinya
+			ajax: {
+				url: '<?= site_url("riwayat_pelantikan/autocomplete_satker") ?>',
+				dataType: 'json',
+				delay: 250,
+				data: function(params) {
+					return {
+						q: params.term // bisa undefined / kosong
+					};
+				},
+				processResults: function(data) {
+					return {
+						results: data
+					};
+				},
+				cache: true
+			}
+		});
+		$('#SATKER_ID').on('select2:select', function(e) {
+			let data = e.params.data;
+			let jenis = $('#JENIS_JABATAN_SAPK').val();
+
+
+			// HANYA untuk Struktural
+			if (jenis === '1') {
+				const mapEselon = {
+					11: 'I.a',
+					12: 'I.b',
+					21: 'II.a',
+					22: 'II.b',
+					31: 'III.a',
+					32: 'III.b',
+					41: 'IV.a',
+					42: 'IV.b'
+				};
+
+				$('input[name="NAMA"]').val(data.NAMA_JABATAN);
+				$('input[name="ESELON_ID"]').val(data.ESELON_ID);
+				$('input[name="eselonNama"]').val(mapEselon[data.ESELON_ID] ?? '-');
+				$('input[name="NAMA_KELAS_JABATAN"]').val(data.NAMA_JABATAN);
+				$('input[name="KELAS_JABATAN_ID"]').val(data.id_jabatan_tpp);
+				$('input[name="KELAS_JABATAN"]').val(data.kelas_jabatan);
+				$('input[name="KETERANGAN_BUP"]').val(data.BUP_USIA);
+			}
+			$('input[name="UNOR_ID_SAPK"]').val(data.SATKER_ID_SAPK);
+			$('input[name="UNOR_NAMA_SAPK"]').val(data.hirarki_nama);
+			$('input[name="namaUnor"]').val(data.hirarki_nama);
+		});
+		$('#SATKER_ID').on('select2:clear', function() {
+			// HANYA untuk Struktural
+			if (jenis === '1') {
+				$('input[name="NAMA"]').val('');
+				$('input[name="NAMA_KELAS_JABATAN"]').val('');
+				$('input[name="KELAS_JABATAN_ID"]').val('');
+				$('input[name="KELAS_JABATAN"]').val('');
+				$('input[name="KETERANGAN_BUP"]').val('');
+				$('input[name="ESELON_ID"]').val('');
+				$('input[name="eselonNama"]').val('');
+			}
+			$('input[name="UNOR_ID_SAPK"]').val('');
+			$('input[name="UNOR_NAMA_SAPK"]').val('');
+			$('input[name="namaUnor"]').val('');
+		});
+
+
+		$(document).ready(function() {
+
+			function toggleJabatan() {
+				var jenis = $('#JENIS_JABATAN_SAPK').val();
+
+				// default hide semua
+				$('.jft-wrapper').hide();
+				$('.jfu-wrapper').hide();
+				$('.jst-wrapper').hide();
+
+				if (jenis === '2') {
+					// Fungsional
+					$('.jft-wrapper').show();
+
+					$('.jfu-wrapper').hide();
+					$('.jst-wrapper').hide();
+
+				} else if (jenis === '4') {
+					// Pelaksana
+					$('.jfu-wrapper').show();
+
+					$('.jft-wrapper').hide();
+					$('.jst-wrapper').hide();
+
+				} else if (jenis === '1') {
+					// Struktural
+					$('.jst-wrapper').show();
+
+					$('.jft-wrapper').hide();
+					$('.jfu-wrapper').hide();
+
+				}
+				// jenis 1 (Struktural) otomatis hide semua
+			}
+
+			// // saat halaman pertama kali dibuka (edit data)
+			// toggleJabatan();
+
+			// // saat dropdown diganti
+			// $('#JENIS_JABATAN_SAPK').on('change', function() {
+			// 	toggleJabatan();
+			// });
+
+			// 🔥 PENTING: jalankan SETELAH halaman siap
+			setTimeout(function() {
+				toggleJabatan();
+			}, 100);
+
+			// saat dropdown diganti user
+			$('#JENIS_JABATAN_SAPK').on('change select2:select', function() {
+				toggleJabatan(true);
+			});
+
+		});
+
+		$('#JFT_ID_SAPK').select2({
+			placeholder: 'Pilih Jabatan',
+			allowClear: true,
+			minimumInputLength: 0, // 🔥 ini kuncinya
+			ajax: {
+				url: '<?= site_url("riwayat_pelantikan/autocomplete_jenis_jft") ?>',
+				dataType: 'json',
+				delay: 250,
+				data: function(params) {
+					return {
+						q: params.term // bisa undefined / kosong
+					};
+				},
+				processResults: function(data) {
+					return {
+						results: data
+					};
+				},
+				cache: true
+			}
+		});
+		$('#JFT_ID_SAPK').on('select2:select', function(e) {
+			let data = e.params.data;
+			$('input[name="JFT_NAMA_SAPK"]').val(data.text);
+			$('input[name="NAMA"]').val(data.text);
+			$('input[name="NAMA_KELAS_JABATAN"]').val(data.text);
+			$('input[name="KELAS_JABATAN_ID"]').val(data.id_jabatan_tpp);
+			$('input[name="KELAS_JABATAN"]').val(data.kelas_jabatan);
+			$('input[name="KETERANGAN_BUP"]').val(data.BUP_USIA);
+			$('input[name="kel_jabatan_id"]').val(data.KEL_JABATAN_ID);
+		});
+
+		$('#JFT_ID_SAPK').on('select2:clear', function() {
+			$('input[name="JFT_NAMA_SAPK"]').val('');
+			$('input[name="NAMA"]').val('');
+			$('input[name="NAMA_KELAS_JABATAN"]').val('');
+			$('input[name="KELAS_JABATAN_ID"]').val('');
+			$('input[name="KELAS_JABATAN"]').val('');
+			$('input[name="KETERANGAN_BUP"]').val('');
+			$('input[name="kel_jabatan_id"]').val('');
+		});
+
+		$('#subJabatanId').select2({
+			placeholder: 'Pilih Jabatan',
+			allowClear: true,
+			minimumInputLength: 0, // 🔥 ini kuncinya
+			ajax: {
+				url: '<?= site_url("riwayat_pelantikan/autocomplete_sub_jft") ?>',
+				dataType: 'json',
+				delay: 250,
+				data: function(params) {
+					return {
+						q: params.term,
+						x: $('#kel_jabatan_id').val() // 🔥 ini kuncinya
+					};
+				},
+				processResults: function(data) {
+					return {
+						results: data
+					};
+				},
+				cache: true
+			}
+		});
+		$('#subJabatanId').on('select2:select', function(e) {
+			let data = e.params.data;
+			$('input[name="subJabatanNama"]').val(data.text);
+		});
+
+		$('#subJabatanId').on('select2:clear', function() {
+			$('input[name="subJabatanNama"]').val('');
+		});
+
+
+
+		$('#JFU_ID_SAPK').select2({
+			placeholder: 'Pilih Jabatan',
+			allowClear: true,
+			minimumInputLength: 0, // 🔥 ini kuncinya
+			ajax: {
+				url: '<?= site_url("riwayat_pelantikan/autocomplete_jenis_jfu") ?>',
+				dataType: 'json',
+				delay: 250,
+				data: function(params) {
+					return {
+						q: params.term // bisa undefined / kosong
+					};
+				},
+				processResults: function(data) {
+					return {
+						results: data
+					};
+				},
+				cache: true
+			}
+		});
+
+		$('#JFU_ID_SAPK').on('select2:select', function(e) {
+			let data = e.params.data;
+			$('input[name="JFU_NAMA_SAPK"]').val(data.text);
+			$('input[name="NAMA"]').val(data.text);
+			$('input[name="NAMA_KELAS_JABATAN"]').val(data.text);
+			$('input[name="KELAS_JABATAN_ID"]').val(data.id_jabatan_tpp);
+			$('input[name="KELAS_JABATAN"]').val(data.kelas_jabatan);
+			$('input[name="KETERANGAN_BUP"]').val(data.BUP_USIA);
+		});
+
+		$('#JFU_ID_SAPK').on('select2:clear', function() {
+			$('input[name="JFU_NAMA_SAPK"]').val('');
+			$('input[name="NAMA"]').val('');
+			$('input[name="NAMA_KELAS_JABATAN"]').val('');
+			$('input[name="KELAS_JABATAN_ID"]').val('');
+			$('input[name="KELAS_JABATAN"]').val('');
+			$('input[name="KETERANGAN_BUP"]').val('');
+		});
+
+
+
+		<?
+		if ($this->access['is_edit'] != 1 && $this->access['is_add'] != 1) {
+		?>
+			$('form input').attr('readonly', 'readonly');
+		<?
+		}
+		?>
+
+	});
+</script>
