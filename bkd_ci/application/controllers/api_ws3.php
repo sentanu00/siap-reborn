@@ -424,41 +424,28 @@ class Api_ws3 extends SB_Controller
             $this->db->where('s.JABATAN_RIWAYAT_ID', $id);
             $query = $this->db->get();
 
-            if ($query->num_rows() > 0) {
-                $result = $query->row();
+            if ($query->num_rows() == 0) return false;
+            $result = $query->row();
 
-                // TRACE: Cek nilai FILE_PDF dari database
-                echo "<h3>Debug Info:</h3>";
-                echo "FILE_PDF dari DB: " . $result->FILE_PDF . "<br>";
-                echo "FCPATH: " . FCPATH . "<br>";
-
-                $file2 = '';
-                if ($this->copyToTemp($result->FILE_PDF)) {
-                    // $file2 = "/var/www/html/bkd_ci/tmp_dokumen/" . basename($result->FILE_PDF);
-                    $file2 = FCPATH . "tmp_dokumen/" . basename($result->FILE_PDF);
-                    echo "File berhasil di-copy ke: " . $file2 . "<br>";
-                } else {
-                    echo "gagal copy<br>";
-                    exit();
-                }
-
-                // Cek apakah file ada
-                if (file_exists($file2)) {
-                    echo "File ditemukan!<br>";
-                } else {
-                    echo "File TIDAK ditemukan di: " . $file2 . "<br>";
-                    exit();
-                }
-
-                // Lanjutkan proses...
-                $id_ref_dokumen = '872';
-                $hasil = $this->post_file($getApiMwsToken, $result->RW_JABATAN_ID_SAPK, $id_ref_dokumen, $file2);
-                $responseArray = json_decode($hasil, true);
-                // echo $responseArray["message"];
-                $this->deleteAllTempFiles();
-                // exit();
-                return $responseArray;
+            // Panggil fungsi copyToTemp
+            if (!$this->copyToTemp($result->FILE_PDF)) {
+                // Catat error, update status, dan return
+                echo "Gagal menyalin file ke temp, kirim dibatalkan.<br>";
+                return ['message' => 'Gagal copy file ke temp'];
             }
+
+            $file2 = FCPATH . "tmp_dokumen/" . basename($result->FILE_PDF);
+            if (!file_exists($file2)) {
+                echo "File temp tidak ditemukan setelah copy!<br>";
+                return ['message' => 'File temp tidak ada'];
+            }
+
+            // Kirim ke SIASN
+            $id_ref_dokumen = '872';
+            $hasil = $this->post_file($getApiMwsToken, $result->RW_JABATAN_ID_SAPK, $id_ref_dokumen, $file2);
+            $responseArray = json_decode($hasil, true);
+            $this->deleteAllTempFiles();
+            return $responseArray;
         }
     }
 
@@ -538,82 +525,167 @@ class Api_ws3 extends SB_Controller
         // return $hasil;
     }
 
-    // copy file pdf dari yang  di tampilkan aplikasi siap ke folder tmp_dikumen sebelum dikirim ke siasn
+    // // copy file pdf dari yang  di tampilkan aplikasi siap ke folder tmp_dikumen sebelum dikirim ke siasn
+    // public function copyToTemp($source_path)
+    // {
+    //     // TRACE 1: Cek parameter input
+    //     echo "<pre>";
+    //     echo "=== TRACE COPY TOTEMP ===\n";
+    //     echo "Source path: " . $source_path . "\n";
+
+    //     // Tentukan lokasi folder temporary
+    //     $temp_path = FCPATH . "tmp_dokumen/";
+    //     echo "Temp path: " . $temp_path . "\n";
+
+    //     // Cek apakah folder temporary ada, jika tidak maka buat foldernya
+    //     if (!is_dir($temp_path)) {
+    //         echo "Folder temp tidak ditemukan, mencoba membuat...\n";
+    //         $mkdir_result = mkdir($temp_path, 0777, true);
+    //         echo "Hasil membuat folder: " . ($mkdir_result ? "BERHASIL" : "GAGAL") . "\n";
+    //         if (!$mkdir_result) {
+    //             echo "Error creating directory: " . error_get_last()['message'] . "\n";
+    //         }
+    //     } else {
+    //         echo "Folder temp sudah ada\n";
+    //     }
+
+    //     // Cek apakah folder bisa ditulisi
+    //     if (!is_writable($temp_path)) {
+    //         echo "ERROR: Folder temp tidak bisa ditulisi!\n";
+    //         echo "Permission: " . substr(sprintf('%o', fileperms($temp_path)), -4) . "\n";
+    //     }
+
+    //     // URL sumber file
+    //     $source_url = "https://siap-bkpsdm.probolinggokab.go.id/" . $source_path;
+    //     echo "Source URL: " . $source_url . "\n";
+
+    //     // Nama file untuk disimpan di folder temporary
+    //     $file_name = basename($source_url);
+    //     $destination_path = $temp_path . $file_name;
+    //     echo "Destination path: " . $destination_path . "\n";
+
+    //     // TRACE 2: Cek koneksi ke URL
+    //     echo "\n=== MENCoba KONEKSI KE URL ===\n";
+
+    //     // Coba dengan cURL (lebih informatif)
+    //     $ch = curl_init();
+    //     curl_setopt($ch, CURLOPT_URL, $source_url);
+    //     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    //     curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+    //     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    //     curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+    //     curl_setopt($ch, CURLOPT_NOBODY, true); // Cek header saja dulu
+    //     curl_exec($ch);
+    //     $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    //     $curl_error = curl_error($ch);
+    //     curl_close($ch);
+
+    //     echo "HTTP Response Code: " . $http_code . "\n";
+    //     if ($curl_error) {
+    //         echo "CURL Error: " . $curl_error . "\n";
+    //     }
+
+    //     if ($http_code != 200) {
+    //         echo "ERROR: File tidak bisa diakses! HTTP Code: " . $http_code . "\n";
+    //         echo "Coba akses manual: " . $source_url . "\n";
+    //         echo "</pre>";
+    //         return false;
+    //     }
+
+    //     // TRACE 3: Ambil konten file
+    //     echo "\n=== MENGAMBIL KONTEN FILE ===\n";
+
+    //     // Coba dengan file_get_contents
+    //     $file_content = @file_get_contents($source_url);
+    //     if ($file_content === false) {
+    //         echo "file_get_contents gagal, mencoba cURL...\n";
+
+    //         // Fallback dengan cURL untuk ambil konten
+    //         $ch = curl_init();
+    //         curl_setopt($ch, CURLOPT_URL, $source_url);
+    //         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    //         curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+    //         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    //         curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+    //         $file_content = curl_exec($ch);
+    //         $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    //         $curl_error = curl_error($ch);
+    //         curl_close($ch);
+
+    //         echo "cURL HTTP Code: " . $http_code . "\n";
+    //         if ($curl_error) {
+    //             echo "cURL Error: " . $curl_error . "\n";
+    //         }
+
+    //         if ($http_code != 200 || $file_content === false) {
+    //             echo "ERROR: Gagal mengambil konten file!\n";
+    //             echo "</pre>";
+    //             return false;
+    //         }
+
+    //         echo "Berhasil mengambil konten dengan cURL, size: " . strlen($file_content) . " bytes\n";
+    //     } else {
+    //         echo "Berhasil mengambil konten dengan file_get_contents, size: " . strlen($file_content) . " bytes\n";
+    //     }
+
+    //     // TRACE 4: Tulis file
+    //     echo "\n=== MENULIS FILE ===\n";
+    //     $result = file_put_contents($destination_path, $file_content);
+
+    //     if ($result === false) {
+    //         echo "ERROR: Gagal menulis file ke: $destination_path\n";
+    //         echo "Error terakhir: " . error_get_last()['message'] . "\n";
+    //         echo "Cek permission folder: " . $temp_path . "\n";
+    //         echo "</pre>";
+    //         error_log("Gagal menulis file ke folder temporary: $destination_path");
+    //         return false;
+    //     } else {
+    //         echo "SUKSES! File berhasil ditulis, size: " . $result . " bytes\n";
+    //         echo "File ada di: " . $destination_path . "\n";
+    //         echo "=== TRACE SELESAI ===\n";
+    //         echo "</pre>";
+    //         return true;
+    //     }
+    // }
+
+
     public function copyToTemp($source_path)
     {
-        // TRACE 1: Cek parameter input
-        echo "<pre>";
-        echo "=== TRACE COPY TOTEMP ===\n";
-        echo "Source path: " . $source_path . "\n";
-
-        // Tentukan lokasi folder temporary
-        $temp_path = FCPATH . "tmp_dokumen/";
-        echo "Temp path: " . $temp_path . "\n";
-
-        // Cek apakah folder temporary ada, jika tidak maka buat foldernya
-        if (!is_dir($temp_path)) {
-            echo "Folder temp tidak ditemukan, mencoba membuat...\n";
-            $mkdir_result = mkdir($temp_path, 0777, true);
-            echo "Hasil membuat folder: " . ($mkdir_result ? "BERHASIL" : "GAGAL") . "\n";
-            if (!$mkdir_result) {
-                echo "Error creating directory: " . error_get_last()['message'] . "\n";
+        // Tentukan folder temporary
+        $temp_dir = FCPATH . "tmp_dokumen/";
+        if (!is_dir($temp_dir)) {
+            if (!mkdir($temp_dir, 0777, true)) {
+                error_log("Gagal membuat folder temp: " . $temp_dir);
+                return false;
             }
-        } else {
-            echo "Folder temp sudah ada\n";
         }
 
-        // Cek apakah folder bisa ditulisi
-        if (!is_writable($temp_path)) {
-            echo "ERROR: Folder temp tidak bisa ditulisi!\n";
-            echo "Permission: " . substr(sprintf('%o', fileperms($temp_path)), -4) . "\n";
+        // Nama file
+        $file_name = basename($source_path);
+        $dest_path = $temp_dir . $file_name;
+
+        // Path lokal absolut (asumsi file ada di dalam FCPATH)
+        $local_source = FCPATH . $source_path; // contoh: /var/www/html/dokumen/.../file.pdf
+
+        // Cek apakah file ada di lokal
+        if (file_exists($local_source) && is_readable($local_source)) {
+            // Salin langsung dengan copy()
+            if (copy($local_source, $dest_path)) {
+                echo "File berhasil disalin dari lokal: $local_source<br>";
+                return true;
+            } else {
+                error_log("Gagal menyalin file dari $local_source ke $dest_path");
+                return false;
+            }
         }
 
-        // URL sumber file
+        // Jika file tidak ditemukan secara lokal, coba melalui HTTP (fallback)
         $source_url = "https://siap-bkpsdm.probolinggokab.go.id/" . $source_path;
-        echo "Source URL: " . $source_url . "\n";
+        echo "File lokal tidak ditemukan, mencoba HTTP: $source_url<br>";
 
-        // Nama file untuk disimpan di folder temporary
-        $file_name = basename($source_url);
-        $destination_path = $temp_path . $file_name;
-        echo "Destination path: " . $destination_path . "\n";
-
-        // TRACE 2: Cek koneksi ke URL
-        echo "\n=== MENCoba KONEKSI KE URL ===\n";
-
-        // Coba dengan cURL (lebih informatif)
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, $source_url);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 30);
-        curl_setopt($ch, CURLOPT_NOBODY, true); // Cek header saja dulu
-        curl_exec($ch);
-        $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $curl_error = curl_error($ch);
-        curl_close($ch);
-
-        echo "HTTP Response Code: " . $http_code . "\n";
-        if ($curl_error) {
-            echo "CURL Error: " . $curl_error . "\n";
-        }
-
-        if ($http_code != 200) {
-            echo "ERROR: File tidak bisa diakses! HTTP Code: " . $http_code . "\n";
-            echo "Coba akses manual: " . $source_url . "\n";
-            echo "</pre>";
-            return false;
-        }
-
-        // TRACE 3: Ambil konten file
-        echo "\n=== MENGAMBIL KONTEN FILE ===\n";
-
-        // Coba dengan file_get_contents
         $file_content = @file_get_contents($source_url);
         if ($file_content === false) {
-            echo "file_get_contents gagal, mencoba cURL...\n";
-
-            // Fallback dengan cURL untuk ambil konten
+            // Coba dengan cURL
             $ch = curl_init();
             curl_setopt($ch, CURLOPT_URL, $source_url);
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -622,43 +694,23 @@ class Api_ws3 extends SB_Controller
             curl_setopt($ch, CURLOPT_TIMEOUT, 30);
             $file_content = curl_exec($ch);
             $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            $curl_error = curl_error($ch);
             curl_close($ch);
 
-            echo "cURL HTTP Code: " . $http_code . "\n";
-            if ($curl_error) {
-                echo "cURL Error: " . $curl_error . "\n";
-            }
-
-            if ($http_code != 200 || $file_content === false) {
-                echo "ERROR: Gagal mengambil konten file!\n";
-                echo "</pre>";
+            if ($http_code != 200 || empty($file_content)) {
+                echo "ERROR: File tidak dapat diakses (HTTP $http_code)<br>";
+                error_log("Gagal mengambil file dari URL: $source_url, HTTP $http_code");
                 return false;
             }
-
-            echo "Berhasil mengambil konten dengan cURL, size: " . strlen($file_content) . " bytes\n";
-        } else {
-            echo "Berhasil mengambil konten dengan file_get_contents, size: " . strlen($file_content) . " bytes\n";
         }
 
-        // TRACE 4: Tulis file
-        echo "\n=== MENULIS FILE ===\n";
-        $result = file_put_contents($destination_path, $file_content);
-
-        if ($result === false) {
-            echo "ERROR: Gagal menulis file ke: $destination_path\n";
-            echo "Error terakhir: " . error_get_last()['message'] . "\n";
-            echo "Cek permission folder: " . $temp_path . "\n";
-            echo "</pre>";
-            error_log("Gagal menulis file ke folder temporary: $destination_path");
+        // Tulis ke temp
+        if (file_put_contents($dest_path, $file_content) === false) {
+            error_log("Gagal menulis file ke $dest_path");
             return false;
-        } else {
-            echo "SUKSES! File berhasil ditulis, size: " . $result . " bytes\n";
-            echo "File ada di: " . $destination_path . "\n";
-            echo "=== TRACE SELESAI ===\n";
-            echo "</pre>";
-            return true;
         }
+
+        echo "File berhasil diunduh dari HTTP dan disimpan ke temp<br>";
+        return true;
     }
 
     // hapus semua yang ada di tmp_dokumen

@@ -8,6 +8,8 @@ class Riwayatpangkat extends SB_Controller
 	public $per_page	= '10';
 	public $idx			= '';
 
+	private $api_mws_token;
+
 	function __construct()
 	{
 		parent::__construct();
@@ -15,6 +17,7 @@ class Riwayatpangkat extends SB_Controller
 		$this->load->model('riwayatpangkatmodel');
 		$this->model = $this->riwayatpangkatmodel;
 		$idx = $this->model->primaryKey;
+		$this->api_mws_token = $this->model->getApiMwsToken();
 
 		$this->info = $this->model->makeInfo($this->module);
 		$this->access = $this->model->validAccess($this->info['id']);
@@ -126,19 +129,16 @@ class Riwayatpangkat extends SB_Controller
 				$btn .= '<a class="dropdown-item waves-effect waves-light" href="#" onclick="ConfirmDelete(\'' . site_url('riwayatpangkat/destroy/') . '\',' . $dt->$idku . ')"><i class="ti-trash"></i> Delete</a>';
 			}
 			$btn .= '</div>';
+
+			// Di dalam loop foreach ($rows as $dt) { ... }
 			if ($dt->FILE_PDF != '') {
-				//ada dokumen upload pdf
 				$row[] = '<a href="javascript:SximoModal(\'' . site_url('riwayatpangkat/viewfile') . '/FILE_PDF/' . $dt->$idku . '\',\'View File\',1000)"><img src="' . base_url('/assets/icon/adadoc.png') . '" style="width:20px"></a>';
 			} else {
-				//
-				//$hsl = $this->getStatusdfs($pg,$dt->$idku,14);
-				//if($hsl === 0){
-				//tidak ada dokumen
-				$row[] = '<img src="' . base_url('/assets/icon/nodoc.png') . '" style="width:20px">';
-				//}else{
-				//ada dokumen integrasi
-				//	$row[] = '<a href="javascript:SximoModal(\'' . site_url('dfsview/riwayatpangkat') . '/' . $pg . '/' . $dt->$idku . '\',\'Data DFS\',1000)"><img src="'.base_url('/assets/icon/adadoc.png').'" style="width:20px"></a>';
-				//}
+				if (!empty($dt->DOK_URI)) {
+					$row[] = '<a href="javascript:SximoModal(\'' . site_url('riwayatpangkat/viewfile') . '/FILE_PDF/' . $dt->$idku . '\',\'View File\',1000)"><img src="' . base_url('/assets/icon/adadoc.png') . '" style="width:20px" title="Download dari SIASN"></a>';
+				} else {
+					$row[] = '<img src="' . base_url('/assets/icon/nodoc.png') . '" style="width:20px">';
+				}
 			}
 			$row[] = $btn;
 			$data[] = $row;
@@ -154,20 +154,21 @@ class Riwayatpangkat extends SB_Controller
 		echo json_encode($output);
 	}
 
-	function viewfile($col, $id)
-	{
-		$th = $this->db->query("SELECT $col FROM pangkat_riwayat WHERE PANGKAT_RIWAYAT_ID = '$id'")->row();
-		$ext = explode(".", $th->$col);
-		$maxext = count($ext);
-		$extn = $ext[$maxext - 1];
-		if ($extn == 'pdf') {
-			$urlberkas = base_url($th->$col);
-			echo '<iframe src="' . $urlberkas . '?time=' . date('ymdhis') . '" width="100%" height="600px"></iframe>';
-		} else {
-			$urlberkas = base_url($th->$col);
-			echo '<img src="' . $urlberkas . '?time=' . date('ymdhis') . '" style="max-width:100%">';
-		}
-	}
+	// function viewfile($col, $id)
+	// {
+	// 	$th = $this->db->query("SELECT $col FROM pangkat_riwayat WHERE PANGKAT_RIWAYAT_ID = '$id'")->row();
+	// 	$ext = explode(".", $th->$col);
+	// 	$maxext = count($ext);
+	// 	$extn = $ext[$maxext - 1];
+	// 	if ($extn == 'pdf') {
+	// 		$urlberkas = base_url($th->$col);
+	// 		echo '<iframe src="' . $urlberkas . '?time=' . date('ymdhis') . '" width="100%" height="600px"></iframe>';
+	// 	} else {
+	// 		$urlberkas = base_url($th->$col);
+	// 		echo '<img src="' . $urlberkas . '?time=' . date('ymdhis') . '" style="max-width:100%">';
+	// 	}
+	// }
+
 
 	/*
 	function viewfile($id)
@@ -462,5 +463,253 @@ class Riwayatpangkat extends SB_Controller
 			WHERE FLAG_DATA_TERAKHIR = 1 AND PEGAWAI_ID = ' . $pegawai_id . '
 		) AS j ON p.pegawai_id = j.PEGAWAI_ID
 		SET p.PANGKAT_ID_TERAKHIR = j.pangkat_riwayat_id');
+	}
+
+
+	/**
+	 * Download file dari SIASN berdasarkan DOK_URI
+	 * @param string $filePath - DOK_URI dari tabel
+	 * @param string $api_mws_token - token akses API
+	 * @return string|false - konten file atau false jika gagal
+	 */
+	private function downloadFromSiasn($filePath, $api_mws_token)
+	{
+		$url = 'https://apimws.bkn.go.id:8243/apisiasn/1.0/download-dok?filePath=' . urlencode($filePath);
+
+		$curl = curl_init();
+		curl_setopt_array($curl, [
+			CURLOPT_URL => $url,
+			CURLOPT_RETURNTRANSFER => true,
+			CURLOPT_ENCODING => '',
+			CURLOPT_MAXREDIRS => 10,
+			CURLOPT_TIMEOUT => 60,               // timeout lebih lama
+			CURLOPT_CONNECTTIMEOUT => 30,         // timeout koneksi
+			CURLOPT_FOLLOWLOCATION => true,
+			CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+			CURLOPT_CUSTOMREQUEST => 'GET',
+			CURLOPT_HTTPHEADER => [
+				'Accept: application/json',
+				'Authorization: Bearer ' . $api_mws_token,
+				'Auth: bearer eTEkA',            // sesuai contoh
+			],
+			// Opsi SSL
+			CURLOPT_SSL_VERIFYPEER => false,
+			CURLOPT_SSL_VERIFYHOST => false,
+			CURLOPT_SSLVERSION => CURL_SSLVERSION_TLSv1_2,  // paksa TLS 1.2
+			CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4,        // paksa IPv4
+			// Tambahan untuk debugging
+			CURLOPT_VERBOSE => true,
+			// Untuk menampilkan verbose ke file log (opsional)
+			// CURLOPT_STDERR => fopen('/tmp/curl_debug.log', 'w+'),
+		]);
+
+		$response = curl_exec($curl);
+		$httpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+		$curlError = curl_error($curl);
+		$curlErrno = curl_errno($curl);
+		curl_close($curl);
+
+		// Log detail
+		error_log("SIASN download: HTTP $httpCode, CURL errno $curlErrno, URL: $url");
+		if ($curlError) {
+			error_log("SIASN download CURL error: $curlError");
+		}
+
+		if ($httpCode == 200 && empty($curlError)) {
+			// Cek apakah response JSON (error)
+			$json = json_decode($response, true);
+			if ($json !== null && isset($json['message'])) {
+				error_log("SIASN download error message: " . $json['message']);
+				return ['status' => false, 'message' => $json['message']];
+			}
+			return ['status' => true, 'content' => $response];
+		} else {
+			$errorMsg = "HTTP $httpCode";
+			if ($curlError) {
+				$errorMsg .= " - CURL: $curlError (errno $curlErrno)";
+			}
+			// Jika JSON error
+			$json = json_decode($response, true);
+			if (isset($json['message'])) {
+				$errorMsg .= " - Message: " . $json['message'];
+			}
+			error_log("SIASN download failed: $errorMsg");
+			return ['status' => false, 'message' => $errorMsg];
+		}
+	}
+
+
+	function viewfile($col, $id)
+	{
+		// Ambil data riwayat pangkat
+		$row = $this->db->query("
+        SELECT FILE_PDF, DOK_URI, PEGAWAI_ID, TMT_PANGKAT 
+        FROM pangkat_riwayat 
+        WHERE PANGKAT_RIWAYAT_ID = '$id'
+    ")->row();
+
+		if (!$row) {
+			echo "Data tidak ditemukan.";
+			return;
+		}
+
+		// Jika FILE_PDF ada, tampilkan langsung
+		if (!empty($row->FILE_PDF)) {
+			$this->displayFile($row->FILE_PDF);
+			return;
+		}
+
+		// Jika tidak ada FILE_PDF dan DOK_URI kosong
+		if (empty($row->DOK_URI)) {
+			echo "Tidak ada file dan tidak ada referensi DOK_URI.";
+			return;
+		}
+
+		// Ambil NIP untuk penamaan file
+		$pegawai = $this->db->query("SELECT NIP_BARU FROM pegawai WHERE PEGAWAI_ID = '$row->PEGAWAI_ID'")->row();
+		if (!$pegawai) {
+			echo "Data pegawai tidak ditemukan.";
+			return;
+		}
+		$nip = $pegawai->NIP_BARU;
+		$tmt = $row->TMT_PANGKAT; // format Y-m-d atau sesuai
+
+		// Download dari SIASN
+		$result = $this->get_file_siasn($row->DOK_URI);
+
+		if ($result['status'] === false) {
+			// Tampilkan pesan error detail
+			echo "Gagal mengunduh file dari SIASN. Error: " . htmlspecialchars($result['message']);
+
+			echo "api_mws_token : " . $this->api_mws_token . "<br>";
+			echo "sso_token : " . $this->sso_token . "<br>";
+
+			return;
+		}
+
+		$fileContent = $result['content'];
+
+		// Buat nama file dan path lokal
+		$newFilename = 'KP_SK_' . $nip . '_' . $tmt . '.pdf';
+		$folder = FCPATH . './dokumen/' . $nip . '/';
+		if (!is_dir($folder)) {
+			mkdir($folder, 0777, true);
+		}
+		$savePath = $folder . $newFilename;
+		$relativePath = 'dokumen/' . $nip . '/' . $newFilename;
+
+		// Simpan file
+		if (file_put_contents($savePath, $fileContent) === false) {
+			echo "Gagal menyimpan file ke server. Periksa izin folder.";
+			return;
+		}
+
+		// Update database
+		$this->db->where('PANGKAT_RIWAYAT_ID', $id);
+		$this->db->update('pangkat_riwayat', ['FILE_PDF' => $relativePath]);
+
+		// Tampilkan file yang sudah diunduh
+		$this->displayFile($relativePath);
+	}
+
+	/**
+	 * Fungsi bantu menampilkan file
+	 */
+	private function displayFile($file_path)
+	{
+		$ext = pathinfo($file_path, PATHINFO_EXTENSION);
+		$urlberkas = base_url($file_path) . '?time=' . date('ymdhis');
+		if (strtolower($ext) == 'pdf') {
+			echo '<iframe src="' . $urlberkas . '" width="100%" height="600px"></iframe>';
+		} else {
+			echo '<img src="' . $urlberkas . '" style="max-width:100%">';
+		}
+	}
+
+	/**
+	 * Download file dari SIASN menggunakan DOK_URI
+	 * @param string $dok_uri - path file dari tabel
+	 * @return string|false - konten file atau false jika gagal
+	 */
+	/**
+	 * Download file dari SIASN menggunakan DOK_URI
+	 * @param string $dok_uri - path file dari tabel
+	 * @return array ['status' => bool, 'content' => string|false, 'message' => string]
+	 */
+	public function get_file_siasn($dok_uri)
+	{
+		// Ambil token dari session atau dari model
+		$api_mws_token = $this->api_mws_token; // sudah di-set di construct
+		// $sso_token = $this->session->userdata('token_sso'); // pastikan session ini ada
+		$sso_token = "bearer eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJBUWNPM0V3MVBmQV9MQ0FtY2J6YnRLUEhtcWhLS1dRbnZ1VDl0RUs3akc4In0.eyJleHAiOjE3MzE5NTQ4MzUsImlhdCI6MTczMTkxMTYzNSwianRpIjoiMzcyZTliZTctZmNhYS00NjFhLWE0OTYtMGUxN2ZmMzI4MDUwIiwiaXNzIjoiaHR0cHM6Ly9zc28tc2lhc24uYmtuLmdvLmlkL2F1dGgvcmVhbG1zL3B1YmxpYy1zaWFzbiIsImF1ZCI6ImFjY291bnQiLCJzdWIiOiIxNzhkOWQ4OC1iOGRlLTRjYWEtYmQ1OS05NDg0NjdlZDJiOTYiLCJ0eXAiOiJCZWFyZXIiLCJhenAiOiJrYWJwcm9ib2xpbmdnb3dzIiwic2Vzc2lvbl9zdGF0ZSI6Ijg2NjFkZjkxLTBjNzMtNDk2Zi05N2YxLTM3MmJkZmYzNTBmNiIsImFjciI6IjEiLCJhbGxvd2VkLW9yaWdpbnMiOlsiaHR0cHM6Ly9kZXYtY2x1c3Rlci5wcm9ib2xpbmdnb2thYi5nby5pZCIsImh0dHA6Ly8xMjcuMC4wLjE6MzAwMC8qIiwiaHR0cDovLzEyNy4wLjAuMTozMDAwIiwiaHR0cDovL2xvY2FsaG9zdDozMDAwLyoiLCJodHRwOi8vbG9jYWxob3N0OjMwMDAiLCJodHRwczovL2Rldi1jbHVzdGVyLnByb2JvbGluZ2dva2FiLmdvLmlkLyoiXSwicmVhbG1fYWNjZXNzIjp7InJvbGVzIjpbInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW1hamFhbjpvcGVyYXRvciIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW5jYW5hYW46aW5zdGFuc2ktb3BlcmF0b3ItaW5mb2phYiIsInJvbGU6c2lhc24taW5zdGFuc2k6cGk6b3BlcmF0b3IiLCJyb2xlOnNpYXNuLWluc3RhbnNpOnBlcmVuY2FuYWFuOmluc3RhbnNpLW1vbml0b3ItcGVyZW5jYW5hYW4ta2VwZWdhd2FpYW4iLCJyb2xlOnNpYXNuLWluc3RhbnNpOnBlbmdhZGFhbjphcHByb3ZhbCIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVuZ2FkYWFuOm9wZXJhdG9yLXNrcG5zIiwicm9sZTpzaWFzbi1pbnN0YW5zaTprcDphcHByb3ZhbCIsInJvbGU6c2lhc24taW5zdGFuc2k6a3A6b3BlcmF0b3IiLCJyb2xlOmRhc2hib2FyZC1rZWJpamFrYW46aW5zdGFuc2kiLCJyb2xlOm1hbmFqZW1lbi13czpkZXZlbG9wZXIiLCJvZmZsaW5lX2FjY2VzcyIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW5jYW5hYW46aW5zdGFuc2ktb3BlcmF0b3ItcGVtZW51aGFuLWtlYi1wZWdhd2FpIiwidW1hX2F1dGhvcml6YXRpb24iLCJyb2xlOnNpYXNuLWluc3RhbnNpOnNrazphcHByb3ZhbCIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW5jYW5hYW46aW5zdGFuc2ktb3BlcmF0b3ItZXZhamFiIiwicm9sZTpzaWFzbi1pbnN0YW5zaTpza2s6b3BlcmF0b3IiLCJyb2xlOnNpYXNuLWluc3RhbnNpOnBlcmVtYWphYW46YXBwcm92YWwiLCJyb2xlOnNpYXNuLWluc3RhbnNpOnBlcmVuY2FuYWFuOmluc3RhbnNpLW9wZXJhdG9yLXNvdGsiLCJyb2xlOmRhc2hib2FyZC1vcGVyYXNpb25hbDppbnN0YW5zaSIsInJvbGU6ZGlzcGFrYXRpOmluc3RhbnNpOm9wZXJhdG9yIiwicm9sZTpzaWFzbi1pbnN0YW5zaTpwZW1iZXJoZW50aWFuOm9wZXJhdG9yX2l6aW5fcHBwayIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVuZ2FkYWFuOm9wZXJhdG9yIiwicm9sZTpzaWFzbi1pbnN0YW5zaTpwZW1iZXJoZW50aWFuOm9wZXJhdG9yIiwicm9sZTpzaWFzbi1pbnN0YW5zaTpwaTphcHByb3ZhbCIsInJvbGU6c2lhc24taW5zdGFuc2k6aXBhc246bW9uaXRvcmluZyIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW5jYW5hYW46aW5zdGFuc2ktb3BlcmF0b3Itc3RhbmRhci1rb21wLWphYiIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVtYmVyaGVudGlhbjphcHByb3ZhbCIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW5jYW5hYW46aW5zdGFuc2ktcGVuZXRhcGFuLXNvdGsiLCJyb2xlOnNpYXNuLWluc3RhbnNpOnByb2ZpbGFzbjp2aWV3cHJvZmlsIiwicm9sZTpkYXNoYm9hcmQtb3BlcmFzaW9uYWw6aW5zdGFuc2ktcGltcGluYW4iLCJyb2xlOnNpYXNuLWluc3RhbnNpOmFkbWluOmFkbWluIiwicm9sZTpzaWFzbi1pbnN0YW5zaTpwZXJlbmNhbmFhbjppbnN0YW5zaS12YWxpZGF0b3Itc3RhbmRhci1rb21wLWphYiJdfSwicmVzb3VyY2VfYWNjZXNzIjp7ImFjY291bnQiOnsicm9sZXMiOlsibWFuYWdlLWFjY291bnQiLCJtYW5hZ2UtYWNjb3VudC1saW5rcyIsInZpZXctcHJvZmlsZSJdfX0sInNjb3BlIjoiZW1haWwgcHJvZmlsZSIsImVtYWlsX3ZlcmlmaWVkIjpmYWxzZSwibmFtZSI6IlNSSSBLVVNUQU5USSIsInByZWZlcnJlZF91c2VybmFtZSI6IjE5ODMwNzA0MjAxMDAxMjAxMiIsImdpdmVuX25hbWUiOiJTUkkiLCJmYW1pbHlfbmFtZSI6IktVU1RBTlRJIiwiZW1haWwiOiJrdXN0YW50aTQ3QGdtYWlsLmNvbSJ9.L4spM6cVggKdzQAS8jw99mzy_bz-J5HZ128QnHhWV65pzlWkSp286wzAjoWDfcaIM8PTo70k0PeRG0ZdTMQrKsJ3-w_50SAvDUjDQnWhLNnVnKsg6Et50ifrE1k6AMLA5BrPwIC8TpjbWaB7hTQ3xk9sz8KgejGA9e4mPzaV53tKuLa-r9LCYJ2tQNP2-XxYZtizHs9gI2B59YEVJkmR0ne-IIFImKo-oicnr-ePO1FFFPrOGQWXxqwavyDT6f93zAjMGN7Tjwghvlpvj563aT1yFaEGN1b_eQR2Un5pBgbiI54NP7mx7PIdrTYY-QIfbv1rine6ZqtVQhtcJVTEkA";
+
+
+		// Jika session tidak ada, gunakan hardcoded (contoh dari fungsi lama)
+		// TAPI lebih baik token diambil dari session yang valid saat login
+		if (empty($sso_token)) {
+			// Hardcoded ini mungkin sudah expired, sebaiknya diisi dengan token terbaru
+			$sso_token = "bearer eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJBUWNPM0V3MVBmQV9MQ0FtY2J6YnRLUEhtcWhLS1dRbnZ1VDl0RUs3akc4In0.eyJleHAiOjE3MzE5NTQ4MzUsImlhdCI6MTczMTkxMTYzNSwianRpIjoiMzcyZTliZTctZmNhYS00NjFhLWE0OTYtMGUxN2ZmMzI4MDUwIiwiaXNzIjoiaHR0cHM6Ly9zc28tc2lhc24uYmtuLmdvLmlkL2F1dGgvcmVhbG1zL3B1YmxpYy1zaWFzbiIsImF1ZCI6ImFjY291bnQiLCJzdWIiOiIxNzhkOWQ4OC1iOGRlLTRjYWEtYmQ1OS05NDg0NjdlZDJiOTYiLCJ0eXAiOiJCZWFyZXIiLCJhenAiOiJrYWJwcm9ib2xpbmdnb3dzIiwic2Vzc2lvbl9zdGF0ZSI6Ijg2NjFkZjkxLTBjNzMtNDk2Zi05N2YxLTM3MmJkZmYzNTBmNiIsImFjciI6IjEiLCJhbGxvd2VkLW9yaWdpbnMiOlsiaHR0cHM6Ly9kZXYtY2x1c3Rlci5wcm9ib2xpbmdnb2thYi5nby5pZCIsImh0dHA6Ly8xMjcuMC4wLjE6MzAwMC8qIiwiaHR0cDovLzEyNy4wLjAuMTozMDAwIiwiaHR0cDovL2xvY2FsaG9zdDozMDAwLyoiLCJodHRwOi8vbG9jYWxob3N0OjMwMDAiLCJodHRwczovL2Rldi1jbHVzdGVyLnByb2JvbGluZ2dva2FiLmdvLmlkLyoiXSwicmVhbG1fYWNjZXNzIjp7InJvbGVzIjpbInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW1hamFhbjpvcGVyYXRvciIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW5jYW5hYW46aW5zdGFuc2ktb3BlcmF0b3ItaW5mb2phYiIsInJvbGU6c2lhc24taW5zdGFuc2k6cGk6b3BlcmF0b3IiLCJyb2xlOnNpYXNuLWluc3RhbnNpOnBlcmVuY2FuYWFuOmluc3RhbnNpLW1vbml0b3ItcGVyZW5jYW5hYW4ta2VwZWdhd2FpYW4iLCJyb2xlOnNpYXNuLWluc3RhbnNpOnBlbmdhZGFhbjphcHByb3ZhbCIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVuZ2FkYWFuOm9wZXJhdG9yLXNrcG5zIiwicm9sZTpzaWFzbi1pbnN0YW5zaTprcDphcHByb3ZhbCIsInJvbGU6c2lhc24taW5zdGFuc2k6a3A6b3BlcmF0b3IiLCJyb2xlOmRhc2hib2FyZC1rZWJpamFrYW46aW5zdGFuc2kiLCJyb2xlOm1hbmFqZW1lbi13czpkZXZlbG9wZXIiLCJvZmZsaW5lX2FjY2VzcyIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW5jYW5hYW46aW5zdGFuc2ktb3BlcmF0b3ItcGVtZW51aGFuLWtlYi1wZWdhd2FpIiwidW1hX2F1dGhvcml6YXRpb24iLCJyb2xlOnNpYXNuLWluc3RhbnNpOnNrazphcHByb3ZhbCIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW5jYW5hYW46aW5zdGFuc2ktb3BlcmF0b3ItZXZhamFiIiwicm9sZTpzaWFzbi1pbnN0YW5zaTpza2s6b3BlcmF0b3IiLCJyb2xlOnNpYXNuLWluc3RhbnNpOnBlcmVtYWphYW46YXBwcm92YWwiLCJyb2xlOnNpYXNuLWluc3RhbnNpOnBlcmVuY2FuYWFuOmluc3RhbnNpLW9wZXJhdG9yLXNvdGsiLCJyb2xlOmRhc2hib2FyZC1vcGVyYXNpb25hbDppbnN0YW5zaSIsInJvbGU6ZGlzcGFrYXRpOmluc3RhbnNpOm9wZXJhdG9yIiwicm9sZTpzaWFzbi1pbnN0YW5zaTpwZW1iZXJoZW50aWFuOm9wZXJhdG9yX2l6aW5fcHBwayIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVuZ2FkYWFuOm9wZXJhdG9yIiwicm9sZTpzaWFzbi1pbnN0YW5zaTpwZW1iZXJoZW50aWFuOm9wZXJhdG9yIiwicm9sZTpzaWFzbi1pbnN0YW5zaTpwaTphcHByb3ZhbCIsInJvbGU6c2lhc24taW5zdGFuc2k6aXBhc246bW9uaXRvcmluZyIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW5jYW5hYW46aW5zdGFuc2ktb3BlcmF0b3Itc3RhbmRhci1rb21wLWphYiIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVtYmVyaGVudGlhbjphcHByb3ZhbCIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW5jYW5hYW46aW5zdGFuc2ktcGVuZXRhcGFuLXNvdGsiLCJyb2xlOnNpYXNuLWluc3RhbnNpOnByb2ZpbGFzbjp2aWV3cHJvZmlsIiwicm9sZTpkYXNoYm9hcmQtb3BlcmFzaW9uYWw6aW5zdGFuc2ktcGltcGluYW4iLCJyb2xlOnNpYXNuLWluc3RhbnNpOmFkbWluOmFkbWluIiwicm9sZTpzaWFzbi1pbnN0YW5zaTpwZXJlbmNhbmFhbjppbnN0YW5zaS12YWxpZGF0b3Itc3RhbmRhci1rb21wLWphYiJdfSwicmVzb3VyY2VfYWNjZXNzIjp7ImFjY291bnQiOnsicm9sZXMiOlsibWFuYWdlLWFjY291bnQiLCJtYW5hZ2UtYWNjb3VudC1saW5rcyIsInZpZXctcHJvZmlsZSJdfX0sInNjb3BlIjoiZW1haWwgcHJvZmlsZSIsImVtYWlsX3ZlcmlmaWVkIjpmYWxzZSwibmFtZSI6IlNSSSBLVVNUQU5USSIsInByZWZlcnJlZF91c2VybmFtZSI6IjE5ODMwNzA0MjAxMDAxMjAxMiIsImdpdmVuX25hbWUiOiJTUkkiLCJmYW1pbHlfbmFtZSI6IktVU1RBTlRJIiwiZW1haWwiOiJrdXN0YW50aTQ3QGdtYWlsLmNvbSJ9.L4spM6cVggKdzQAS8jw99mzy_bz-J5HZ128QnHhWV65pzlWkSp286wzAjoWDfcaIM8PTo70k0PeRG0ZdTMQrKsJ3-w_50SAvDUjDQnWhLNnVnKsg6Et50ifrE1k6AMLA5BrPwIC8TpjbWaB7hTQ3xk9sz8KgejGA9e4mPzaV53tKuLa-r9LCYJ2tQNP2-XxYZtizHs9gI2B59YEVJkmR0ne-IIFImKo-oicnr-ePO1FFFPrOGQWXxqwavyDT6f93zAjMGN7Tjwghvlpvj563aT1yFaEGN1b_eQR2Un5pBgbiI54NP7mx7PIdrTYY-QIfbv1rine6ZqtVQhtcJVTEkA"; // panjang
+			error_log("WARNING: token_sso tidak ada di session, menggunakan hardcoded (mungkin expired)");
+		}
+
+		$api_mws_token = "Bearer " . $api_mws_token;
+
+		$curl = curl_init();
+		curl_setopt_array($curl, array(
+			CURLOPT_URL => 'https://apimws.bkn.go.id:8243/apisiasn/1.0/download-dok?filePath=' . $dok_uri,
+			CURLOPT_RETURNTRANSFER => true,
+			CURLOPT_ENCODING => '',
+			CURLOPT_MAXREDIRS => 10,
+			CURLOPT_TIMEOUT => 30,
+			CURLOPT_FOLLOWLOCATION => true,
+			CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+			CURLOPT_CUSTOMREQUEST => 'GET',
+			CURLOPT_HTTPHEADER => array(
+				'accept: application/json',
+				'Auth: ' . $sso_token,
+				'Authorization: ' . $api_mws_token,
+				'Cookie: ff8d625df24f2272ecde05bd53b814bc=ce158eaac3b25204bfaa39e480fc50f7; pdns=1091068938.13088.0000'
+			),
+			CURLOPT_SSL_VERIFYPEER => false,
+			CURLOPT_SSL_VERIFYHOST => false,
+		));
+
+		$response = curl_exec($curl);
+		$httpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+		$curlError = curl_error($curl);
+		curl_close($curl);
+
+		// Log detail
+		error_log("SIASN download: HTTP $httpCode, DOK_URI: $dok_uri, cURL error: $curlError");
+
+		if ($httpCode == 200 && empty($curlError)) {
+			// Cek apakah response adalah JSON error (misal {"message":"..."})
+			$json = json_decode($response, true);
+			if ($json !== null && isset($json['message'])) {
+				error_log("SIASN download error message: " . $json['message']);
+				return ['status' => false, 'message' => $json['message']];
+			}
+			// Cek apakah ini PDF (awalan %PDF-)
+			if (substr($response, 0, 5) === "%PDF-") {
+				return ['status' => true, 'content' => $response];
+			} else {
+				error_log("SIASN download response bukan PDF valid");
+				return ['status' => false, 'message' => 'Respons bukan PDF valid'];
+			}
+		} else {
+			$msg = "HTTP $httpCode";
+			if ($curlError) {
+				$msg .= " - cURL: $curlError";
+			}
+			// Coba ambil pesan dari response jika JSON
+			$json = json_decode($response, true);
+			if (isset($json['message'])) {
+				$msg .= " - Message: " . $json['message'];
+			} elseif (!empty($response)) {
+				$msg .= " - Response: " . substr($response, 0, 200);
+			}
+			error_log("SIASN download gagal: $msg");
+			return ['status' => false, 'message' => $msg];
+		}
 	}
 }

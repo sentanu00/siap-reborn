@@ -284,7 +284,9 @@ ORDER BY hasil_akhir, t.status_pegawai, t.perbandingan_ketiga_unor, t.perbanding
 		$sql = "SELECT 
     p.nip_baru, 
     p.NAMA, 
-    p.STATUS_PEGAWAI,
+    sp.NAMA  as status_pegawai,
+    s1.NAMA as satker,
+    s2.NAMA as satker_induk,
     p.GELAR_DEPAN AS gelar_depan_siap, 
     d.gelarDepan AS gelar_depan_siasn, 
     CASE 
@@ -301,6 +303,9 @@ ORDER BY hasil_akhir, t.status_pegawai, t.perbandingan_ketiga_unor, t.perbanding
     	END as cek_gelar_belakang
     FROM pegawai p 
     LEFT JOIN data_utama d ON p.NIP_BARU = d.nipBaru 
+    join satker s1 on p.SATKER_ID   = s1.SATKER_ID 
+    join satker s2 on s1.SATKER_INDUK_ID  = s2.SATKER_ID 
+    join status_pegawai sp on p.STATUS_PEGAWAI  = sp.STATUS_PEGAWAI_ID 
     WHERE p.STATUS_PEGAWAI IN ('1','2','10','18') 
     AND (COALESCE(TRIM(p.GELAR_DEPAN), '') != COALESCE(TRIM(d.gelarDepan), '') 
         OR COALESCE(TRIM(p.GELAR_BELAKANG), '') != COALESCE(TRIM(d.gelarBelakang), ''))
@@ -326,6 +331,8 @@ ORDER BY hasil_akhir, t.status_pegawai, t.perbandingan_ketiga_unor, t.perbanding
 			'nip_baru',
 			'nama',
 			'status_pegawai',
+			'satker',
+			'satker_induk',
 			'gelar_depan_siap',
 			'gelar_depan_siasn',
 			'cek_gelar_depan',
@@ -338,7 +345,9 @@ ORDER BY hasil_akhir, t.status_pegawai, t.perbandingan_ketiga_unor, t.perbanding
 			fputcsv($output, [
 				$row->nip_baru,
 				$row->NAMA,
-				$row->STATUS_PEGAWAI,
+				$row->status_pegawai,
+				$row->satker,
+				$row->satker_induk,
 				$row->gelar_depan_siap,
 				$row->gelar_depan_siasn,
 				$row->cek_gelar_depan,
