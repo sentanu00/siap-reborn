@@ -31,22 +31,24 @@ class Devmodmodel extends SB_Model
         return $this->db->query("
         SELECT
             COUNT(*) AS total,
-            SUM(CASE WHEN flag_data_utama = 1 THEN 1 ELSE 0 END) AS antrian,
-            SUM(CASE WHEN flag_data_utama = 0 THEN 1 ELSE 0 END) AS sukses,
-            SUM(CASE WHEN flag_data_utama = 3 THEN 1 ELSE 0 END) AS gagal,
+            SUM(CASE WHEN s.flag_data_utama = 1 THEN 1 ELSE 0 END) AS antrian,
+            SUM(CASE WHEN s.flag_data_utama = 0 THEN 1 ELSE 0 END) AS sukses,
+            SUM(CASE WHEN s.flag_data_utama = 3 THEN 1 ELSE 0 END) AS gagal,
             ROUND(
-                SUM(CASE WHEN flag_data_utama = 1 THEN 1 ELSE 0 END) * 100 / COUNT(*),
+                SUM(CASE WHEN s.flag_data_utama = 1 THEN 1 ELSE 0 END) * 100 / COUNT(*),
                 2
             ) AS persen_antrian,
             ROUND(
-                SUM(CASE WHEN flag_data_utama = 0 THEN 1 ELSE 0 END) * 100 / COUNT(*),
+                SUM(CASE WHEN s.flag_data_utama = 0 THEN 1 ELSE 0 END) * 100 / COUNT(*),
                 2
             ) AS persen_sukses,
             ROUND(
-                SUM(CASE WHEN flag_data_utama = 3 THEN 1 ELSE 0 END) * 100 / COUNT(*),
+                SUM(CASE WHEN s.flag_data_utama = 3 THEN 1 ELSE 0 END) * 100 / COUNT(*),
                 2
             ) AS persen_gagal
-        FROM siasnpegawaiid where statusPegawai in ('PNS', 'CPNS','PPPK','PPPK PARUH WAKTU')
+        FROM siasnpegawaiid s
+        JOIN pegawai p ON p.PEGAWAI_ID = s.pegawai_id
+        WHERE p.STATUS_PEGAWAI IN ('1', '2', '10', '18')
     ")->row();
     }
 
@@ -615,33 +617,31 @@ class Devmodmodel extends SB_Model
                 ELSE 'Lainnya'
             END AS status_pegawai_label,
             COUNT(*) AS total,
-            SUM(
-                CASE 
-                    WHEN (COALESCE(jr.UNOR_ID_SAPK, '') != COALESCE(du.unorId, '') 
-                          OR COALESCE(jr.UNOR_ID_SAPK, '') != COALESCE(s.SATKER_ID_SAPK, ''))
-                          OR (COALESCE(jr.JENIS_JABATAN_SAPK, '') != COALESCE(du.jenisJabatanId, ''))
-                          OR (COALESCE(jr.JFU_ID_SAPK, '') != COALESCE(du.jabatanFungsionalUmumId, ''))
-                          OR (COALESCE(jr.JFT_ID_SAPK, '') != COALESCE(du.jabatanFungsionalId, ''))
-                    THEN 1 ELSE 0 
-                END
-            ) AS berbeda,
-            SUM(
-                CASE 
-                    WHEN (COALESCE(jr.UNOR_ID_SAPK, '') = COALESCE(du.unorId, '') 
-                          AND COALESCE(jr.UNOR_ID_SAPK, '') = COALESCE(s.SATKER_ID_SAPK, ''))
-                          AND (COALESCE(jr.JENIS_JABATAN_SAPK, '') = COALESCE(du.jenisJabatanId, ''))
-                          AND (COALESCE(jr.JFU_ID_SAPK, '') = COALESCE(du.jabatanFungsionalUmumId, ''))
-                          AND (COALESCE(jr.JFT_ID_SAPK, '') = COALESCE(du.jabatanFungsionalId, ''))
-                    THEN 1 ELSE 0 
-                END
-            ) AS sama
+            SUM(CASE 
+                WHEN COALESCE(p.SATKER_ID, '') = COALESCE(j.satker_id, '')
+                AND COALESCE(sj1.SATKER_ID_SAPK, '') = COALESCE(du.unorId, '')
+                AND COALESCE(j.TMT_JABATAN, '') = COALESCE(du.tmtJabatan, '')
+                THEN 0 
+                ELSE 1 
+            END) AS berbeda,
+            SUM(CASE 
+                WHEN COALESCE(p.SATKER_ID, '') = COALESCE(j.satker_id, '')
+                AND COALESCE(sj1.SATKER_ID_SAPK, '') = COALESCE(du.unorId, '')
+                AND COALESCE(j.TMT_JABATAN, '') = COALESCE(du.tmtJabatan, '')
+                THEN 1 
+                ELSE 0 
+            END) AS sama
         FROM pegawai p 
-        JOIN satker s ON p.SATKER_ID = s.SATKER_ID 
-        JOIN data_utama du ON p.NIP_BARU = du.nipBaru 
-        LEFT JOIN jabatan_riwayat jr ON p.JABATAN_ID_TERAKHIR = jr.JABATAN_RIWAYAT_ID 
+        JOIN status_pegawai sp ON p.STATUS_PEGAWAI = sp.STATUS_PEGAWAI_ID 
+        LEFT JOIN satker sp1 ON p.SATKER_ID = sp1.SATKER_ID 
+        LEFT JOIN satker sp2 ON sp2.SATKER_ID = sp1.SATKER_INDUK_ID 
+        LEFT JOIN jabatan_riwayat j ON p.JABATAN_ID_TERAKHIR = j.JABATAN_RIWAYAT_ID 
+        LEFT JOIN satker sj1 ON j.SATKER_ID = sj1.SATKER_ID 
+        LEFT JOIN satker sj2 ON sj2.SATKER_ID = sj1.SATKER_INDUK_ID
+        JOIN data_utama du ON p.PEGAWAI_ID = du.pegawai_id 
         WHERE p.STATUS_PEGAWAI IN ('1','2','10','18')
         GROUP BY p.STATUS_PEGAWAI
-        ORDER BY p.STATUS_PEGAWAI
+        ORDER BY p.STATUS_PEGAWAI;
     ";
 
         return $this->db->query($sql)->result();
@@ -661,5 +661,103 @@ class Devmodmodel extends SB_Model
             }
         }
         return $anomali;
+    }
+
+
+
+
+
+
+    public function getProgressRwJabatan()
+    {
+        $sql = "
+        SELECT
+            COUNT(*) AS total,
+            SUM(CASE WHEN s.jabatan = 1 THEN 1 ELSE 0 END) AS antrian,
+            SUM(CASE WHEN s.jabatan = 0 THEN 1 ELSE 0 END) AS selesai,
+            SUM(CASE WHEN s.jabatan = 3 THEN 1 ELSE 0 END) AS gagal,
+            ROUND(SUM(CASE WHEN s.jabatan = 1 THEN 1 ELSE 0 END) * 100 / GREATEST(COUNT(*), 1), 2) AS persen_antrian,
+            ROUND(SUM(CASE WHEN s.jabatan = 0 THEN 1 ELSE 0 END) * 100 / GREATEST(COUNT(*), 1), 2) AS persen_selesai,
+            ROUND(SUM(CASE WHEN s.jabatan = 3 THEN 1 ELSE 0 END) * 100 / GREATEST(COUNT(*), 1), 2) AS persen_gagal
+        FROM siasnpegawaiid s
+        JOIN pegawai p ON p.PEGAWAI_ID = s.pegawai_id
+        WHERE p.STATUS_PEGAWAI IN ('1', '2')
+    ";
+
+        $result = $this->db->query($sql)->row();
+
+        // Jika query tidak menghasilkan baris (misal karena tabel kosong), buat objek default
+        if (!$result) {
+            $result = (object) [
+                'total'           => 0,
+                'antrian'         => 0,
+                'selesai'         => 0,
+                'gagal'           => 0,
+                'persen_antrian'  => 0,
+                'persen_selesai'  => 0,
+                'persen_gagal'    => 0
+            ];
+        }
+
+        return $result;
+    }
+
+    public function getDashboardRwJabatan()
+    {
+        $dashboard = array();
+
+        $p = $this->getProgressRwJabatan();
+
+        $dashboard[] = array(
+            'judul'             => 'Sinkronisasi Rw Jabatan PNS',
+            'icon'              => 'fa-users',
+            'total'             => $p->total,
+            'sukses'            => $p->selesai,   // <- ubah dari $p->sukses menjadi $p->selesai
+            'antrian'           => $p->antrian,
+            'gagal'             => $p->gagal,
+            'persen_sukses'     => $p->persen_selesai, // <- ubah dari $p->persen_sukses menjadi $p->persen_selesai
+            'persen_antrian'    => $p->persen_antrian,
+            'persen_gagal'      => $p->persen_gagal,
+            'anomali' => array()
+        );
+
+        return $dashboard;
+    }
+
+
+    public function getProgressRwPendidikan()
+    {
+        return $this->db->query("
+        SELECT
+            COUNT(*) AS total,
+            SUM(CASE WHEN s.pendidikan = 1 THEN 1 ELSE 0 END) AS antrian,
+            SUM(CASE WHEN s.pendidikan = 0 THEN 1 ELSE 0 END) AS selesai,
+            SUM(CASE WHEN s.pendidikan = 3 THEN 1 ELSE 0 END) AS gagal,
+            ROUND(SUM(CASE WHEN s.pendidikan = 1 THEN 1 ELSE 0 END) * 100 / GREATEST(COUNT(*), 1), 2) AS persen_antrian,
+            ROUND(SUM(CASE WHEN s.pendidikan = 0 THEN 1 ELSE 0 END) * 100 / GREATEST(COUNT(*), 1), 2) AS persen_selesai,
+            ROUND(SUM(CASE WHEN s.pendidikan = 3 THEN 1 ELSE 0 END) * 100 / GREATEST(COUNT(*), 1), 2) AS persen_gagal
+        FROM siasnpegawaiid s
+        JOIN pegawai p ON p.PEGAWAI_ID = s.pegawai_id
+        WHERE p.STATUS_PEGAWAI IN ('1', '2', '10', '18')
+    ")->row();
+    }
+
+    public function getDashboardRwPendidikan()
+    {
+        $dashboard = array();
+        $p = $this->getProgressRwPendidikan();
+        $dashboard[] = array(
+            'judul'             => 'Sinkronisasi Rw Pendidikan ASN',
+            'icon'              => 'fa-graduation-cap',
+            'total'             => $p->total,
+            'sukses'            => $p->selesai,
+            'antrian'           => $p->antrian,
+            'gagal'             => $p->gagal,
+            'persen_sukses'     => $p->persen_selesai,
+            'persen_antrian'    => $p->persen_antrian,
+            'persen_gagal'      => $p->persen_gagal,
+            'anomali' => array()
+        );
+        return $dashboard;
     }
 }

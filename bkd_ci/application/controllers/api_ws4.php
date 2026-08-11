@@ -155,7 +155,7 @@ class Api_ws4 extends SB_Controller
                 FROM satker s 
                 WHERE s.SATKER_ID = p.SATKER_ID
             )
-        WHERE p.STATUS_PEGAWAI IN ('2');";
+        WHERE p.STATUS_PEGAWAI IN ('2', '1', '10', '18')";
 
         // Mulai transaksi
         $this->db->trans_start();
@@ -229,12 +229,15 @@ class Api_ws4 extends SB_Controller
         $token = $this->api_mws_token;
 
         $pegawai = $this->db
+            ->select('siasnpegawaiid.*')
+            ->from('siasnpegawaiid')
+            ->join('pegawai', 'pegawai.PEGAWAI_ID = siasnpegawaiid.pegawai_id')
             ->where('flag_data_utama', 1)
-            ->where_in('statusPegawai', ['PNS', 'CPNS', 'PPPK', 'PPPK PARUH WAKTU'])
+            ->where_in('pegawai.STATUS_PEGAWAI', ['1', '2', '10', '18'])
             ->where('retry_count_data_utama <', $batastolreansi)
-            ->order_by('id')
+            ->order_by('siasnpegawaiid.id')
             ->limit($limit)
-            ->get('siasnpegawaiid')
+            ->get()
             ->result();
 
         foreach ($pegawai as $p) {
@@ -1026,5 +1029,742 @@ class Api_ws4 extends SB_Controller
             'http_code' => $httpCode,
             'data' => $decoded
         ];
+    }
+
+
+    public function get_jabatan($api_mws_token, $nip_baru)
+    {
+        $api_mws_token = "Bearer " . $api_mws_token;
+        $curl = curl_init();
+
+        curl_setopt_array($curl, array(
+            CURLOPT_URL => 'https://apimws.bkn.go.id:8243/apisiasn/1.0/pns/rw-jabatan/' . $nip_baru,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_ENCODING => '',
+            CURLOPT_MAXREDIRS => 10,
+            CURLOPT_TIMEOUT => 0,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+            CURLOPT_CUSTOMREQUEST => 'GET',
+            CURLOPT_HTTPHEADER => array(
+                'accept: application/json',
+                'Auth: bearer eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJBUWNPM0V3MVBmQV9MQ0FtY2J6YnRLUEhtcWhLS1dRbnZ1VDl0RUs3akc4In0.eyJleHAiOjE3MzE5NTQ4MzUsImlhdCI6MTczMTkxMTYzNSwianRpIjoiMzcyZTliZTctZmNhYS00NjFhLWE0OTYtMGUxN2ZmMzI4MDUwIiwiaXNzIjoiaHR0cHM6Ly9zc28tc2lhc24uYmtuLmdvLmlkL2F1dGgvcmVhbG1zL3B1YmxpYy1zaWFzbiIsImF1ZCI6ImFjY291bnQiLCJzdWIiOiIxNzhkOWQ4OC1iOGRlLTRjYWEtYmQ1OS05NDg0NjdlZDJiOTYiLCJ0eXAiOiJCZWFyZXIiLCJhenAiOiJrYWJwcm9ib2xpbmdnb3dzIiwic2Vzc2lvbl9zdGF0ZSI6Ijg2NjFkZjkxLTBjNzMtNDk2Zi05N2YxLTM3MmJkZmYzNTBmNiIsImFjciI6IjEiLCJhbGxvd2VkLW9yaWdpbnMiOlsiaHR0cHM6Ly9kZXYtY2x1c3Rlci5wcm9ib2xpbmdnb2thYi5nby5pZCIsImh0dHA6Ly8xMjcuMC4wLjE6MzAwMC8qIiwiaHR0cDovLzEyNy4wLjAuMTozMDAwIiwiaHR0cDovL2xvY2FsaG9zdDozMDAwLyoiLCJodHRwOi8vbG9jYWxob3N0OjMwMDAiLCJodHRwczovL2Rldi1jbHVzdGVyLnByb2JvbGluZ2dva2FiLmdvLmlkLyoiXSwicmVhbG1fYWNjZXNzIjp7InJvbGVzIjpbInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW1hamFhbjpvcGVyYXRvciIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW5jYW5hYW46aW5zdGFuc2ktb3BlcmF0b3ItaW5mb2phYiIsInJvbGU6c2lhc24taW5zdGFuc2k6cGk6b3BlcmF0b3IiLCJyb2xlOnNpYXNuLWluc3RhbnNpOnBlcmVuY2FuYWFuOmluc3RhbnNpLW1vbml0b3ItcGVyZW5jYW5hYW4ta2VwZWdhd2FpYW4iLCJyb2xlOnNpYXNuLWluc3RhbnNpOnBlbmdhZGFhbjphcHByb3ZhbCIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVuZ2FkYWFuOm9wZXJhdG9yLXNrcG5zIiwicm9sZTpzaWFzbi1pbnN0YW5zaTprcDphcHByb3ZhbCIsInJvbGU6c2lhc24taW5zdGFuc2k6a3A6b3BlcmF0b3IiLCJyb2xlOmRhc2hib2FyZC1rZWJpamFrYW46aW5zdGFuc2kiLCJyb2xlOm1hbmFqZW1lbi13czpkZXZlbG9wZXIiLCJvZmZsaW5lX2FjY2VzcyIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW5jYW5hYW46aW5zdGFuc2ktb3BlcmF0b3ItcGVtZW51aGFuLWtlYi1wZWdhd2FpIiwidW1hX2F1dGhvcml6YXRpb24iLCJyb2xlOnNpYXNuLWluc3RhbnNpOnNrazphcHByb3ZhbCIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW5jYW5hYW46aW5zdGFuc2ktb3BlcmF0b3ItZXZhamFiIiwicm9sZTpzaWFzbi1pbnN0YW5zaTpza2s6b3BlcmF0b3IiLCJyb2xlOnNpYXNuLWluc3RhbnNpOnBlcmVtYWphYW46YXBwcm92YWwiLCJyb2xlOnNpYXNuLWluc3RhbnNpOnBlcmVuY2FuYWFuOmluc3RhbnNpLW9wZXJhdG9yLXNvdGsiLCJyb2xlOmRhc2hib2FyZC1vcGVyYXNpb25hbDppbnN0YW5zaSIsInJvbGU6ZGlzcGFrYXRpOmluc3RhbnNpOm9wZXJhdG9yIiwicm9sZTpzaWFzbi1pbnN0YW5zaTpwZW1iZXJoZW50aWFuOm9wZXJhdG9yX2l6aW5fcHBwayIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVuZ2FkYWFuOm9wZXJhdG9yIiwicm9sZTpzaWFzbi1pbnN0YW5zaTpwZW1iZXJoZW50aWFuOm9wZXJhdG9yIiwicm9sZTpzaWFzbi1pbnN0YW5zaTpwaTphcHByb3ZhbCIsInJvbGU6c2lhc24taW5zdGFuc2k6aXBhc246bW9uaXRvcmluZyIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW5jYW5hYW46aW5zdGFuc2ktb3BlcmF0b3Itc3RhbmRhci1rb21wLWphYiIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVtYmVyaGVudGlhbjphcHByb3ZhbCIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW5jYW5hYW46aW5zdGFuc2ktcGVuZXRhcGFuLXNvdGsiLCJyb2xlOnNpYXNuLWluc3RhbnNpOnByb2ZpbGFzbjp2aWV3cHJvZmlsIiwicm9sZTpkYXNoYm9hcmQtb3BlcmFzaW9uYWw6aW5zdGFuc2ktcGltcGluYW4iLCJyb2xlOnNpYXNuLWluc3RhbnNpOmFkbWluOmFkbWluIiwicm9sZTpzaWFzbi1pbnN0YW5zaTpwZXJlbmNhbmFhbjppbnN0YW5zaS12YWxpZGF0b3Itc3RhbmRhci1rb21wLWphYiJdfSwicmVzb3VyY2VfYWNjZXNzIjp7ImFjY291bnQiOnsicm9sZXMiOlsibWFuYWdlLWFjY291bnQiLCJtYW5hZ2UtYWNjb3VudC1saW5rcyIsInZpZXctcHJvZmlsZSJdfX0sInNjb3BlIjoiZW1haWwgcHJvZmlsZSIsImVtYWlsX3ZlcmlmaWVkIjpmYWxzZSwibmFtZSI6IlNSSSBLVVNUQU5USSIsInByZWZlcnJlZF91c2VybmFtZSI6IjE5ODMwNzA0MjAxMDAxMjAxMiIsImdpdmVuX25hbWUiOiJTUkkiLCJmYW1pbHlfbmFtZSI6IktVU1RBTlRJIiwiZW1haWwiOiJrdXN0YW50aTQ3QGdtYWlsLmNvbSJ9.L4spM6cVggKdzQAS8jw99mzy_bz-J5HZ128QnHhWV65pzlWkSp286wzAjoWDfcaIM8PTo70k0PeRG0ZdTMQrKsJ3-w_50SAvDUjDQnWhLNnVnKsg6Et50ifrE1k6AMLA5BrPwIC8TpjbWaB7hTQ3xk9sz8KgejGA9e4mPzaV53tKuLa-r9LCYJ2tQNP2-XxYZtizHs9gI2B59YEVJkmR0ne-IIFImKo-oicnr-ePO1FFFPrOGQWXxqwavyDT6f93zAjMGN7Tjwghvlpvj563aT1yFaEGN1b_eQR2Un5pBgbiI54NP7mx7PIdrTYY-QIfbv1rine6ZqtVQhtcJVTEkA',
+                'Authorization: ' . $api_mws_token,
+                'Cookie: ff8d625df24f2272ecde05bd53b814bc=ce158eaac3b25204bfaa39e480fc50f7; pdns=1091068938.13088.0000'
+            ),
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYHOST => false,
+        ));
+
+        $response = curl_exec($curl);
+        curl_close($curl);
+
+        return $response;
+    }
+
+
+    public function SingkronJabatanBkn($peg_id)
+    {
+        $result = [
+            'success' => false,
+            'message' => '',
+            'total'   => 0,
+            'inserted' => 0,
+            'updated' => 0,
+            'deleted' => 0
+        ];
+
+        if (empty($peg_id)) {
+            $result['message'] = 'Parameter pegawai_id wajib diisi.';
+            return $result;
+        }
+
+        // Cek data pegawai
+        $data_peg = $this->db->get_where('pegawai', ['pegawai_id' => $peg_id])->row();
+        if (!$data_peg) {
+            $result['message'] = 'Pegawai tidak ditemukan.';
+            return $result;
+        }
+
+        // Panggil WS
+        $jabatanData = $this->get_jabatan($this->api_mws_token, $data_peg->NIP_BARU);
+        $data = json_decode($jabatanData, true);
+
+        if (!isset($data['data']) || !is_array($data['data'])) {
+            $result['message'] = $data['message'] ?? $data['description'] ?? 'Tidak ada data riwayat jabatan dari SIASN.';
+            return $result;
+        }
+
+        $siasn_data = $data['data'];
+        $total = count($siasn_data);
+
+        // Ambil semua SIASN_ID yang sudah ada di database untuk pegawai ini
+        $existing_ids = $this->db
+            ->select('SIASN_ID')
+            ->where('PEGAWAI_ID', $peg_id)
+            ->get('jabatan_siasn')
+            ->result_array();
+        $existing_ids = array_column($existing_ids, 'SIASN_ID');
+
+        // SIASN_ID dari data SIASN
+        $siasn_ids = array_column($siasn_data, 'id');
+
+        // Hapus data yang tidak ada di SIASN
+        $ids_to_delete = array_diff($existing_ids, $siasn_ids);
+        if (!empty($ids_to_delete)) {
+            $this->db->where('PEGAWAI_ID', $peg_id)
+                ->where_in('SIASN_ID', $ids_to_delete)
+                ->delete('jabatan_siasn');
+            $result['deleted'] = $this->db->affected_rows();
+        }
+
+        // Proses insert/update
+        $inserted = 0;
+        $updated = 0;
+
+        foreach ($siasn_data as $jabatan) {
+            $siasn_id = $jabatan['id'];
+
+            // Helper untuk format tanggal (dd-mm-YYYY atau 01-01-0001 -> NULL)
+            $formatTanggal = function ($tgl) {
+                if (empty($tgl) || $tgl == '01-01-0001') return null;
+                $d = DateTime::createFromFormat('d-m-Y', $tgl);
+                return $d ? $d->format('Y-m-d') : null;
+            };
+
+            $data_insert = [
+                'PEGAWAI_ID'                => $peg_id,
+                'SIASN_ID'                  => $siasn_id,
+                'SIASN_PNS_ID'              => $jabatan['idPns'] ?? null,
+                'JENIS_JABATAN'             => $jabatan['jenisJabatan'] ?? null,
+                'INSTANSI_KERJA_ID'         => $jabatan['instansiKerjaId'] ?? null,
+                'INSTANSI_KERJA_NAMA'       => $jabatan['instansiKerjaNama'] ?? null,
+                'SATKER_ID'                 => $jabatan['satuanKerjaId'] ?? null,
+                'SATKER_NAMA'               => $jabatan['satuanKerjaNama'] ?? null,
+                'UNOR_ID'                   => $jabatan['unorId'] ?? null,
+                'UNOR_NAMA'                 => $jabatan['unorNama'] ?? null,
+                'UNOR_INDUK_ID'             => $jabatan['unorIndukId'] ?? null,
+                'UNOR_INDUK_NAMA'           => $jabatan['unorIndukNama'] ?? null,
+                'ESELON'                    => $jabatan['eselon'] ?? null,
+                'ESELON_ID'                 => $jabatan['eselonId'] ?? null,
+                'JABATAN_FUNGSIONAL_ID'     => $jabatan['jabatanFungsionalId'] ?? null,
+                'JABATAN_FUNGSIONAL_NAMA'   => $jabatan['jabatanFungsionalNama'] ?? null,
+                'JABATAN_FUNGSIONAL_UMUM_ID' => $jabatan['jabatanFungsionalUmumId'] ?? null,
+                'JABATAN_FUNGSIONAL_UMUM_NAMA' => $jabatan['jabatanFungsionalUmumNama'] ?? null,
+                'TMT_JABATAN'               => $formatTanggal($jabatan['tmtJabatan'] ?? ''),
+                'NOMOR_SK'                  => $jabatan['nomorSk'] ?? null,
+                'TANGGAL_SK'                => $formatTanggal($jabatan['tanggalSk'] ?? ''),
+                'NAMA_UNOR'                 => $jabatan['namaUnor'] ?? null,
+                'NAMA_JABATAN'              => $jabatan['namaJabatan'] ?? null,
+                'TMT_PELANTIKAN'            => $formatTanggal($jabatan['tmtPelantikan'] ?? ''),
+                'JENIS_PENUGASAN_ID'        => $jabatan['jenisPenugasanId'] ?? null,
+                'JENIS_MUTASI_ID'           => $jabatan['jenisMutasiId'] ?? null,
+                'SUB_JABATAN_ID'            => $jabatan['subJabatanId'] ?? null,
+                'TMT_MUTASI'                => $formatTanggal($jabatan['tmtMutasi'] ?? ''),
+                'PATH'                      => isset($jabatan['path']) ? json_encode($jabatan['path']) : null,
+                'WS_CREATED_AT'             => isset($jabatan['createdAt']) ? $this->formatDateTime($jabatan['createdAt']) : null,
+                'WS_UPDATED_AT'             => isset($jabatan['updatedAt']) ? $this->formatDateTime($jabatan['updatedAt']) : null,
+                'WS_DELETED_AT'             => isset($jabatan['deletedAt']) ? $this->formatDateTime($jabatan['deletedAt']) : null,
+                'LAST_SYNC'                 => date('Y-m-d H:i:s')
+            ];
+
+            // Cek existing berdasarkan SIASN_ID
+            $existing = $this->db->get_where('jabatan_siasn', ['SIASN_ID' => $siasn_id])->row();
+            if ($existing) {
+                // Update, jangan ubah PEGAWAI_ID dan SIASN_ID
+                unset($data_insert['PEGAWAI_ID'], $data_insert['SIASN_ID']);
+                $this->db->where('SIASN_ID', $siasn_id)->update('jabatan_siasn', $data_insert);
+                $updated++;
+            } else {
+                $this->db->insert('jabatan_siasn', $data_insert);
+                $inserted++;
+            }
+        }
+
+        $result['success'] = true;
+        $result['message'] = "Sinkronisasi selesai. Total data: $total, Insert: $inserted, Update: $updated, Hapus: {$result['deleted']}";
+        $result['total'] = $total;
+        $result['inserted'] = $inserted;
+        $result['updated'] = $updated;
+
+        return $result;
+    }
+
+    // Helper untuk format datetime (format dari WS: 'dd-mm-YYYY'? Tapi createdAt berupa '30-04-2026'? 
+    // Pada contoh, createdAt = "30-04-2026" juga format tanggal tanpa waktu. Kita konversi ke datetime dengan waktu 00:00:00.
+    private function formatDateTime($str)
+    {
+        if (empty($str)) return null;
+        $d = DateTime::createFromFormat('d-m-Y', $str);
+        return $d ? $d->format('Y-m-d H:i:s') : null;
+    }
+
+
+    public function sync_rw_jabatan_batch($limit = 50, $batastolreansi = 15)
+    {
+        echo "================================ mulai ambil rw jabatan " . date('Y-m-d H:i:s') . " ================================\n\n";
+
+        $token = $this->api_mws_token;
+
+        $pegawai = $this->db
+            ->where('jabatan', 1)
+            ->where_in('statusPegawai', ['PNS', 'CPNS'])
+            ->where('retry_count_jabatan <', $batastolreansi)
+            ->order_by('id')
+            ->limit($limit)
+            ->get('siasnpegawaiid')
+            ->result();
+
+        foreach ($pegawai as $p) {
+
+            echo "\nSedang diproses : {$p->nip}";
+
+            $json = $this->get_jabatan($token, $p->nip);
+
+            $retry = $p->retry_count_jabatan + 1;
+
+            /**
+             * 1. Response kosong
+             */
+            if (empty($json)) {
+                $this->db
+                    ->where('id', $p->id)
+                    ->update('siasnpegawaiid', array(
+                        'jabatan'       => ($retry >= $batastolreansi ? 3 : 1),
+                        'retry_count_jabatan' => $retry
+                    ));
+                echo " ==> Response kosong ({$retry}/{$batastolreansi})";
+                continue;
+            }
+
+            /**
+             * 2. Decode JSON
+             */
+            $response = json_decode($json, true);
+
+            if (json_last_error() != JSON_ERROR_NONE) {
+                $this->db
+                    ->where('id', $p->id)
+                    ->update('siasnpegawaiid', array(
+                        'jabatan'       => ($retry >= $batastolreansi ? 3 : 1),
+                        'retry_count_jabatan' => $retry
+                    ));
+                echo " ==> JSON tidak valid ({$retry}/{$batastolreansi})";
+                continue;
+            }
+
+            /**
+             * 3. Response sukses dari SIASN
+             */
+            if (isset($response['code']) && $response['code'] == 1) {
+
+                // Panggil sinkronisasi jabatan
+                $save = $this->SingkronJabatanBkn($p->pegawai_id);
+
+                if ($save['success']) {
+                    $this->db
+                        ->where('id', $p->id)
+                        ->update('siasnpegawaiid', array(
+                            'jabatan'       => 0,
+                            'retry_count_jabatan' => 0
+                        ));
+                    echo " ==> SUKSES (Insert: {$save['inserted']}, Update: {$save['updated']}, Hapus: {$save['deleted']})";
+                } else {
+                    $this->db
+                        ->where('id', $p->id)
+                        ->update('siasnpegawaiid', array(
+                            'jabatan'       => ($retry >= $batastolreansi ? 3 : 1),
+                            'retry_count_jabatan' => $retry
+                        ));
+                    echo " ==> Gagal menyimpan data: {$save['message']}";
+                }
+                continue;
+            }
+
+            /**
+             * 4. Response gagal dari SIASN
+             */
+            $this->db
+                ->where('id', $p->id)
+                ->update('siasnpegawaiid', array(
+                    'jabatan'       => ($retry >= $batastolreansi ? 3 : 1),
+                    'retry_count_jabatan' => $retry
+                ));
+
+            $pesan = isset($response['message']) ? $response['message'] : 'Unknown Error';
+            echo " ==> GAGAL ({$retry}/{$batastolreansi}) : {$pesan}";
+        }
+
+        echo "\n\n================================ selesai ambil rw jabatan " . date('Y-m-d H:i:s') . " ================================\n";
+    }
+
+    public function resetAntrianJabatan()
+    {
+        header('Content-Type: text/plain; charset=utf-8');
+        echo "=========================================\n";
+        echo "RESET ANTRIAN JABATAN\n";
+        echo "Dimulai : " . date('Y-m-d H:i:s') . "\n";
+        echo "=========================================\n\n";
+
+        // Query update
+        $this->db
+            ->where_in('statusPegawai', ['PNS', 'CPNS', 'PPPK', 'PPPK PARUH WAKTU'])
+            ->update('siasnpegawaiid', [
+                'jabatan' => 1,
+                'retry_count_jabatan' => 0
+            ]);
+
+        $affected_rows = $this->db->affected_rows();
+
+        echo "Update berhasil.\n";
+        echo "Jumlah baris yang diupdate: " . number_format($affected_rows) . "\n";
+        echo "Status pegawai yang direset: PNS, CPNS, PPPK, PPPK PARUH WAKTU\n";
+        echo "=========================================\n";
+        echo "SELESAI\n";
+        echo "Waktu    : " . date('Y-m-d H:i:s') . "\n";
+        echo "=========================================\n";
+    }
+
+    public function get_pendidikan($api_mws_token, $nip_baru)
+    {
+        $api_mws_token = "Bearer " . $api_mws_token;
+        $curl = curl_init();
+
+        curl_setopt_array($curl, array(
+            CURLOPT_URL => 'https://apimws.bkn.go.id:8243/apisiasn/1.0/pns/rw-pendidikan/' . $nip_baru,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_ENCODING => '',
+            CURLOPT_MAXREDIRS => 10,
+            CURLOPT_TIMEOUT => 30,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+            CURLOPT_CUSTOMREQUEST => 'GET',
+            CURLOPT_HTTPHEADER => array(
+                'accept: application/json',
+                'Auth: bearer eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJBUWNPM0V3MVBmQV9MQ0FtY2J6YnRLUEhtcWhLS1dRbnZ1VDl0RUs3akc4In0.eyJleHAiOjE3MzE5NTQ4MzUsImlhdCI6MTczMTkxMTYzNSwianRpIjoiMzcyZTliZTctZmNhYS00NjFhLWE0OTYtMGUxN2ZmMzI4MDUwIiwiaXNzIjoiaHR0cHM6Ly9zc28tc2lhc24uYmtuLmdvLmlkL2F1dGgvcmVhbG1zL3B1YmxpYy1zaWFzbiIsImF1ZCI6ImFjY291bnQiLCJzdWIiOiIxNzhkOWQ4OC1iOGRlLTRjYWEtYmQ1OS05NDg0NjdlZDJiOTYiLCJ0eXAiOiJCZWFyZXIiLCJhenAiOiJrYWJwcm9ib2xpbmdnb3dzIiwic2Vzc2lvbl9zdGF0ZSI6Ijg2NjFkZjkxLTBjNzMtNDk2Zi05N2YxLTM3MmJkZmYzNTBmNiIsImFjciI6IjEiLCJhbGxvd2VkLW9yaWdpbnMiOlsiaHR0cHM6Ly9kZXYtY2x1c3Rlci5wcm9ib2xpbmdnb2thYi5nby5pZCIsImh0dHA6Ly8xMjcuMC4wLjE6MzAwMC8qIiwiaHR0cDovLzEyNy4wLjAuMTozMDAwIiwiaHR0cDovL2xvY2FsaG9zdDozMDAwLyoiLCJodHRwOi8vbG9jYWxob3N0OjMwMDAiLCJodHRwczovL2Rldi1jbHVzdGVyLnByb2JvbGluZ2dva2FiLmdvLmlkLyoiXSwicmVhbG1fYWNjZXNzIjp7InJvbGVzIjpbInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW1hamFhbjpvcGVyYXRvciIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW5jYW5hYW46aW5zdGFuc2ktb3BlcmF0b3ItaW5mb2phYiIsInJvbGU6c2lhc24taW5zdGFuc2k6cGk6b3BlcmF0b3IiLCJyb2xlOnNpYXNuLWluc3RhbnNpOnBlcmVuY2FuYWFuOmluc3RhbnNpLW1vbml0b3ItcGVyZW5jYW5hYW4ta2VwZWdhd2FpYW4iLCJyb2xlOnNpYXNuLWluc3RhbnNpOnBlbmdhZGFhbjphcHByb3ZhbCIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVuZ2FkYWFuOm9wZXJhdG9yLXNrcG5zIiwicm9sZTpzaWFzbi1pbnN0YW5zaTprcDphcHByb3ZhbCIsInJvbGU6c2lhc24taW5zdGFuc2k6a3A6b3BlcmF0b3IiLCJyb2xlOmRhc2hib2FyZC1rZWJpamFrYW46aW5zdGFuc2kiLCJyb2xlOm1hbmFqZW1lbi13czpkZXZlbG9wZXIiLCJvZmZsaW5lX2FjY2VzcyIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW5jYW5hYW46aW5zdGFuc2ktb3BlcmF0b3ItcGVtZW51aGFuLWtlYi1wZWdhd2FpIiwidW1hX2F1dGhvcml6YXRpb24iLCJyb2xlOnNpYXNuLWluc3RhbnNpOnNrazphcHByb3ZhbCIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW5jYW5hYW46aW5zdGFuc2ktb3BlcmF0b3ItZXZhamFiIiwicm9sZTpzaWFzbi1pbnN0YW5zaTpza2s6b3BlcmF0b3IiLCJyb2xlOnNpYXNuLWluc3RhbnNpOnBlcmVtYWphYW46YXBwcm92YWwiLCJyb2xlOnNpYXNuLWluc3RhbnNpOnBlcmVuY2FuYWFuOmluc3RhbnNpLW9wZXJhdG9yLXNvdGsiLCJyb2xlOmRhc2hib2FyZC1vcGVyYXNpb25hbDppbnN0YW5zaSIsInJvbGU6ZGlzcGFrYXRpOmluc3RhbnNpOm9wZXJhdG9yIiwicm9sZTpzaWFzbi1pbnN0YW5zaTpwZW1iZXJoZW50aWFuOm9wZXJhdG9yX2l6aW5fcHBwayIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVuZ2FkYWFuOm9wZXJhdG9yIiwicm9sZTpzaWFzbi1pbnN0YW5zaTpwZW1iZXJoZW50aWFuOm9wZXJhdG9yIiwicm9sZTpzaWFzbi1pbnN0YW5zaTpwaTphcHByb3ZhbCIsInJvbGU6c2lhc24taW5zdGFuc2k6aXBhc246bW9uaXRvcmluZyIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW5jYW5hYW46aW5zdGFuc2ktb3BlcmF0b3Itc3RhbmRhci1rb21wLWphYiIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVtYmVyaGVudGlhbjphcHByb3ZhbCIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW5jYW5hYW46aW5zdGFuc2ktcGVuZXRhcGFuLXNvdGsiLCJyb2xlOnNpYXNuLWluc3RhbnNpOnByb2ZpbGFzbjp2aWV3cHJvZmlsIiwicm9sZTpkYXNoYm9hcmQtb3BlcmFzaW9uYWw6aW5zdGFuc2ktcGltcGluYW4iLCJyb2xlOnNpYXNuLWluc3RhbnNpOmFkbWluOmFkbWluIiwicm9sZTpzaWFzbi1pbnN0YW5zaTpwZXJlbmNhbmFhbjppbnN0YW5zaS12YWxpZGF0b3Itc3RhbmRhci1rb21wLWphYiJdfSwicmVzb3VyY2VfYWNjZXNzIjp7ImFjY291bnQiOnsicm9sZXMiOlsibWFuYWdlLWFjY291bnQiLCJtYW5hZ2UtYWNjb3VudC1saW5rcyIsInZpZXctcHJvZmlsZSJdfX0sInNjb3BlIjoiZW1haWwgcHJvZmlsZSIsImVtYWlsX3ZlcmlmaWVkIjpmYWxzZSwibmFtZSI6IlNSSSBLVVNUQU5USSIsInByZWZlcnJlZF91c2VybmFtZSI6IjE5ODMwNzA0MjAxMDAxMjAxMiIsImdpdmVuX25hbWUiOiJTUkkiLCJmYW1pbHlfbmFtZSI6IktVU1RBTlRJIiwiZW1haWwiOiJrdXN0YW50aTQ3QGdtYWlsLmNvbSJ9.L4spM6cVggKdzQAS8jw99mzy_bz-J5HZ128QnHhWV65pzlWkSp286wzAjoWDfcaIM8PTo70k0PeRG0ZdTMQrKsJ3-w_50SAvDUjDQnWhLNnVnKsg6Et50ifrE1k6AMLA5BrPwIC8TpjbWaB7hTQ3xk9sz8KgejGA9e4mPzaV53tKuLa-r9LCYJ2tQNP2-XxYZtizHs9gI2B59YEVJkmR0ne-IIFImKo-oicnr-ePO1FFFPrOGQWXxqwavyDT6f93zAjMGN7Tjwghvlpvj563aT1yFaEGN1b_eQR2Un5pBgbiI54NP7mx7PIdrTYY-QIfbv1rine6ZqtVQhtcJVTEkA',
+                'Authorization: ' . $api_mws_token,
+                'Cookie: ff8d625df24f2272ecde05bd53b814bc=ce158eaac3b25204bfaa39e480fc50f7; pdns=1091068938.13088.0000'
+            ),
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYHOST => false,
+        ));
+
+        $response = curl_exec($curl);
+
+        // Cek error curl
+        if (curl_errno($curl)) {
+            $error_msg = 'Curl error: ' . curl_error($curl);
+            curl_close($curl);
+            return $error_msg;
+        }
+
+        curl_close($curl);
+        return $response;
+    }
+
+    public function SingkronPendidikanBkn($peg_id)
+    {
+        $result = [
+            'success' => false,
+            'message' => '',
+            'total'   => 0,
+            'inserted' => 0,
+            'updated' => 0,
+            'deleted' => 0
+        ];
+
+        if (empty($peg_id)) {
+            $result['message'] = 'Parameter pegawai_id wajib diisi.';
+            return $result;
+        }
+
+        // Cek data pegawai
+        $data_peg = $this->db->get_where('pegawai', ['pegawai_id' => $peg_id])->row();
+        if (!$data_peg) {
+            $result['message'] = "Pegawai dengan ID $peg_id tidak ditemukan.";
+            return $result;
+        }
+
+        // Pastikan NIP_BARU ada
+        if (empty($data_peg->NIP_BARU)) {
+            $result['message'] = "NIP_BARU tidak ditemukan untuk pegawai ID $peg_id.";
+            return $result;
+        }
+
+        // Panggil WS
+        $pendidikanData = $this->get_pendidikan($this->api_mws_token, $data_peg->NIP_BARU);
+
+        // Cek jika get_pendidikan mengembalikan string error (misal curl error)
+        if (is_string($pendidikanData) && strpos($pendidikanData, 'Curl error') !== false) {
+            $result['message'] = $pendidikanData;
+            return $result;
+        }
+
+        $data = json_decode($pendidikanData, true);
+
+        // Cek jika json decode gagal
+        if ($data === null) {
+            $result['message'] = 'Gagal mendecode JSON dari SIASN. Response: ' . substr($pendidikanData, 0, 200);
+            return $result;
+        }
+
+        // Cek apakah response memiliki code != 1
+        if (isset($data['code']) && $data['code'] != 1) {
+            $result['message'] = isset($data['message']) ? $data['message'] : (isset($data['description']) ? $data['description'] : 'Response code tidak 1');
+            return $result;
+        }
+
+        // Cek apakah ada data
+        if (!isset($data['data']) || !is_array($data['data'])) {
+            $result['message'] = isset($data['message']) ? $data['message'] : (isset($data['description']) ? $data['description'] : 'Tidak ada data riwayat pendidikan dari SIASN.');
+            return $result;
+        }
+
+        $siasn_data = $data['data'];
+        $total = count($siasn_data);
+
+        // Ambil semua id yang sudah ada di database untuk pegawai ini
+        $existing_ids = $this->db
+            ->select('id')
+            ->where('pegawai_id', $peg_id)
+            ->get('riwayat_pendidikan_siasn')
+            ->result_array();
+        $existing_ids = array_column($existing_ids, 'id');
+
+        // id dari data SIASN
+        $siasn_ids = array_column($siasn_data, 'id');
+
+        // Hapus data yang tidak ada di SIASN
+        $ids_to_delete = array_diff($existing_ids, $siasn_ids);
+        if (!empty($ids_to_delete)) {
+            $this->db->where('pegawai_id', $peg_id)
+                ->where_in('id', $ids_to_delete)
+                ->delete('riwayat_pendidikan_siasn');
+            $result['deleted'] = $this->db->affected_rows();
+        }
+
+        // Proses insert/update
+        $inserted = 0;
+        $updated = 0;
+
+        foreach ($siasn_data as $pend) {
+            $siasn_id = $pend['id'];
+
+            // Helper untuk format tanggal (d-m-Y)
+            $formatTanggal = function ($tgl) {
+                if (empty($tgl)) return null;
+                $d = DateTime::createFromFormat('d-m-Y', $tgl);
+                return $d ? $d->format('Y-m-d') : null;
+            };
+
+            // Ekstrak path dokumen
+            $ijazah_dok_id = null;
+            $ijazah_dok_nama = null;
+            $ijazah_dok_uri = null;
+            $ijazah_object = null;
+            $ijazah_slug = null;
+            $ijazah_sumber = null;
+            $transkrip_dok_id = null;
+            $transkrip_dok_nama = null;
+            $transkrip_dok_uri = null;
+            $transkrip_object = null;
+            $transkrip_slug = null;
+            $transkrip_sumber = null;
+            $pg_dok_id = null;
+            $pg_dok_nama = null;
+            $pg_dok_uri = null;
+            $pg_object = null;
+            $pg_slug = null;
+            $pg_sumber = null;
+
+            if (isset($pend['path']) && is_array($pend['path'])) {
+                foreach ($pend['path'] as $key => $dok) {
+                    $dok_id = $dok['dok_id'] ?? null;
+                    $dok_nama = $dok['dok_nama'] ?? null;
+                    $dok_uri = $dok['dok_uri'] ?? null;
+                    $object = $dok['object'] ?? null;
+                    $slug = $dok['slug'] ?? null;
+                    $sumber = $dok['asal_nama'] ?? null;
+
+                    if (stripos($dok_nama, 'ijazah') !== false) {
+                        $ijazah_dok_id = $dok_id;
+                        $ijazah_dok_nama = $dok_nama;
+                        $ijazah_dok_uri = $dok_uri;
+                        $ijazah_object = $object;
+                        $ijazah_slug = $slug;
+                        $ijazah_sumber = $sumber;
+                    } elseif (stripos($dok_nama, 'transkrip') !== false) {
+                        $transkrip_dok_id = $dok_id;
+                        $transkrip_dok_nama = $dok_nama;
+                        $transkrip_dok_uri = $dok_uri;
+                        $transkrip_object = $object;
+                        $transkrip_slug = $slug;
+                        $transkrip_sumber = $sumber;
+                    } elseif (stripos($dok_nama, 'gelar') !== false) { // asumsi "Dok SK Pencantuman Gelar"
+                        $pg_dok_id = $dok_id;
+                        $pg_dok_nama = $dok_nama;
+                        $pg_dok_uri = $dok_uri;
+                        $pg_object = $object;
+                        $pg_slug = $slug;
+                        $pg_sumber = $sumber;
+                    }
+                }
+            }
+
+            // Gelar depan dan belakang (bisa array atau string)
+            $gelarDepan = $pend['gelarDepan'] ?? null;
+            if (is_array($gelarDepan)) {
+                $gelarDepan = implode(',', $gelarDepan);
+            }
+            $gelarBelakang = $pend['gelarBelakang'] ?? null;
+            if (is_array($gelarBelakang)) {
+                $gelarBelakang = implode(',', $gelarBelakang);
+            }
+
+            // Cek apakah data dengan id ini sudah ada
+            $existing = $this->db->get_where('riwayat_pendidikan_siasn', ['id' => $siasn_id])->row();
+
+            $data_insert = [
+                'id'                        => $siasn_id,
+                'pegawai_id'                => $peg_id,
+                'idPns'                     => $pend['idPns'] ?? null,
+                'nipBaru'                   => $pend['nipBaru'] ?? null,
+                'nipLama'                   => $pend['nipLama'] ?? null,
+                'pendidikanId'              => $pend['pendidikanId'] ?? null,
+                'pendidikanNama'            => $pend['pendidikanNama'] ?? null,
+                'tkPendidikanId'            => $pend['tkPendidikanId'] ?? null,
+                'tkPendidikanNama'          => $pend['tkPendidikanNama'] ?? null,
+                'tahunLulus'                => $pend['tahunLulus'] ?? null,
+                'tglLulus'                  => $formatTanggal($pend['tglLulus'] ?? ''),
+                'isPendidikanPertama'       => $pend['isPendidikanPertama'] ?? null,
+                'nomorIjasah'               => $pend['nomorIjasah'] ?? null,
+                'namaSekolah'               => $pend['namaSekolah'] ?? null,
+                'gelarDepan'                => $gelarDepan,
+                'gelarBelakang'             => $gelarBelakang,
+                'createdAt'                 => $pend['createdAt'] ?? null,
+                'updatedAt'                 => $pend['updatedAt'] ?? null,
+                'ijazah_dok_id'             => $ijazah_dok_id,
+                'ijazah_dok_nama'           => $ijazah_dok_nama,
+                'ijazah_dok_uri'            => $ijazah_dok_uri,
+                'ijazah_object'             => $ijazah_object,
+                'ijazah_slug'               => $ijazah_slug,
+                'ijazah_sumber'             => $ijazah_sumber,
+                'transkrip_dok_id'          => $transkrip_dok_id,
+                'transkrip_dok_nama'        => $transkrip_dok_nama,
+                'transkrip_dok_uri'         => $transkrip_dok_uri,
+                'transkrip_object'          => $transkrip_object,
+                'transkrip_slug'            => $transkrip_slug,
+                'transkrip_sumber'          => $transkrip_sumber,
+                'pg_dok_id'                 => $pg_dok_id,
+                'pg_dok_nama'               => $pg_dok_nama,
+                'pg_dok_uri'                => $pg_dok_uri,
+                'pg_object'                 => $pg_object,
+                'pg_slug'                   => $pg_slug,
+                'pg_sumber'                 => $pg_sumber,
+                'created_at'                => date('Y-m-d H:i:s'),
+                'updated_at_local'          => date('Y-m-d H:i:s'),
+                'isPendidikanTerakhir'      => 0 // akan diupdate setelah semua data diproses
+            ];
+
+            if ($existing) {
+                // Update, jangan ubah id dan pegawai_id
+                unset($data_insert['id'], $data_insert['pegawai_id']);
+                $this->db->where('id', $siasn_id)->update('riwayat_pendidikan_siasn', $data_insert);
+                $updated++;
+            } else {
+                $this->db->insert('riwayat_pendidikan_siasn', $data_insert);
+                $inserted++;
+            }
+        }
+
+        // Update isPendidikanTerakhir: tandai yang memiliki tglLulus terbaru sebagai 1
+        // Ambil tglLulus terbaru untuk pegawai ini
+        $max_row = $this->db
+            ->select('MAX(tglLulus) as max_tgl')
+            ->where('pegawai_id', $peg_id)
+            ->get('riwayat_pendidikan_siasn')
+            ->row();
+
+        $max_tgl = $max_row ? $max_row->max_tgl : null;
+
+        if ($max_tgl) {
+            // Set data dengan tanggal lulus terbaru menjadi 1
+            $this->db
+                ->where('pegawai_id', $peg_id)
+                ->where('tglLulus', $max_tgl)
+                ->update('riwayat_pendidikan_siasn', ['isPendidikanTerakhir' => 1]);
+
+            // Set data lainnya menjadi 0
+            $this->db
+                ->where('pegawai_id', $peg_id)
+                ->where('tglLulus !=', $max_tgl)
+                ->update('riwayat_pendidikan_siasn', ['isPendidikanTerakhir' => 0]);
+        } else {
+            // Jika semua tglLulus null, set semua menjadi 0
+            $this->db
+                ->where('pegawai_id', $peg_id)
+                ->update('riwayat_pendidikan_siasn', ['isPendidikanTerakhir' => 0]);
+        }
+
+        $result['success'] = true;
+        $result['message'] = "Sinkronisasi pendidikan selesai. Total data: $total, Insert: $inserted, Update: $updated, Hapus: {$result['deleted']}";
+        $result['total'] = $total;
+        $result['inserted'] = $inserted;
+        $result['updated'] = $updated;
+
+        return $result;
+    }
+
+    public function sync_rw_pendidikan_batch($limit = 50, $batastolreansi = 15)
+    {
+        // Aktifkan error reporting untuk debugging
+        error_reporting(E_ALL);
+        ini_set('display_errors', 1);
+
+        echo "================================ mulai ambil rw pendidikan " . date('Y-m-d H:i:s') . " ================================\n\n";
+
+        $token = $this->api_mws_token;
+
+        // Cek token
+        if (empty($token)) {
+            echo "ERROR: Token API MWS kosong! Pastikan model apimodel mengembalikan token valid.\n";
+            return;
+        }
+
+        $pegawai = $this->db
+            ->where('pendidikan', 1)
+            ->where_in('statusPegawai', ['PNS', 'CPNS', 'PPPK', 'PPPK PARUH WAKTU'])
+            ->where('retry_count_pendidikan <', $batastolreansi)
+            ->order_by('id')
+            ->limit($limit)
+            ->get('siasnpegawaiid')
+            ->result();
+
+        if (empty($pegawai)) {
+            echo "Tidak ada pegawai dengan status pendidikan=1 dan retry_count < $batastolreansi.\n";
+            echo "\n\n================================ selesai " . date('Y-m-d H:i:s') . " ================================\n";
+            return;
+        }
+
+        foreach ($pegawai as $p) {
+
+            echo "\nSedang diproses : {$p->nip}";
+
+            try {
+                $json = $this->get_pendidikan($token, $p->nip);
+
+                $retry = $p->retry_count_pendidikan + 1;
+
+                /**
+                 * 1. Response kosong
+                 */
+                if (empty($json)) {
+                    $this->db
+                        ->where('id', $p->id)
+                        ->update('siasnpegawaiid', array(
+                            'pendidikan'       => ($retry >= $batastolreansi ? 3 : 1),
+                            'retry_count_pendidikan' => $retry
+                        ));
+                    echo " ==> Response kosong ({$retry}/{$batastolreansi})";
+                    continue;
+                }
+
+                /**
+                 * 2. Decode JSON
+                 */
+                $response = json_decode($json, true);
+
+                if (json_last_error() != JSON_ERROR_NONE) {
+                    $this->db
+                        ->where('id', $p->id)
+                        ->update('siasnpegawaiid', array(
+                            'pendidikan'       => ($retry >= $batastolreansi ? 3 : 1),
+                            'retry_count_pendidikan' => $retry
+                        ));
+                    echo " ==> JSON tidak valid ({$retry}/{$batastolreansi})";
+                    // Tampilkan potongan response untuk debug
+                    echo "\nResponse: " . substr($json, 0, 200);
+                    continue;
+                }
+
+                /**
+                 * 3. Response sukses dari SIASN
+                 */
+                if (isset($response['code']) && $response['code'] == 1) {
+
+                    // Panggil sinkronisasi pendidikan
+                    $save = $this->SingkronPendidikanBkn($p->pegawai_id);
+
+                    if ($save['success']) {
+                        $this->db
+                            ->where('id', $p->id)
+                            ->update('siasnpegawaiid', array(
+                                'pendidikan'       => 0,
+                                'retry_count_pendidikan' => 0
+                            ));
+                        echo " ==> SUKSES (Insert: {$save['inserted']}, Update: {$save['updated']}, Hapus: {$save['deleted']})";
+                    } else {
+                        $this->db
+                            ->where('id', $p->id)
+                            ->update('siasnpegawaiid', array(
+                                'pendidikan'       => ($retry >= $batastolreansi ? 3 : 1),
+                                'retry_count_pendidikan' => $retry
+                            ));
+                        echo " ==> Gagal menyimpan data: {$save['message']}";
+                    }
+                    continue;
+                }
+
+                /**
+                 * 4. Response gagal dari SIASN (code != 1)
+                 */
+                $this->db
+                    ->where('id', $p->id)
+                    ->update('siasnpegawaiid', array(
+                        'pendidikan'       => ($retry >= $batastolreansi ? 3 : 1),
+                        'retry_count_pendidikan' => $retry
+                    ));
+
+                $pesan = isset($response['message']) ? $response['message'] : 'Unknown Error';
+                echo " ==> GAGAL ({$retry}/{$batastolreansi}) : {$pesan}";
+            } catch (Exception $e) {
+                // Tangkap error dan update status
+                $this->db
+                    ->where('id', $p->id)
+                    ->update('siasnpegawaiid', array(
+                        'pendidikan'       => ($retry >= $batastolreansi ? 3 : 1),
+                        'retry_count_pendidikan' => $retry
+                    ));
+                echo " ==> ERROR: " . $e->getMessage() . " (line {$e->getLine()})";
+            }
+        }
+
+        echo "\n\n================================ selesai ambil rw pendidikan " . date('Y-m-d H:i:s') . " ================================\n";
+    }
+
+    public function resetAntrianPendidikan()
+    {
+        header('Content-Type: text/plain; charset=utf-8');
+        echo "=========================================\n";
+        echo "RESET ANTRIAN PENDIDIKAN\n";
+        echo "Dimulai : " . date('Y-m-d H:i:s') . "\n";
+        echo "=========================================\n\n";
+
+        $this->db
+            ->where_in('statusPegawai', ['PNS', 'CPNS', 'PPPK', 'PPPK PARUH WAKTU'])
+            ->update('siasnpegawaiid', [
+                'pendidikan' => 1,
+                'retry_count_pendidikan' => 0
+            ]);
+
+        $affected_rows = $this->db->affected_rows();
+
+        echo "Update berhasil.\n";
+        echo "Jumlah baris yang diupdate: " . number_format($affected_rows) . "\n";
+        echo "Status pegawai yang direset: PNS, CPNS, PPPK, PPPK PARUH WAKTU\n";
+        echo "=========================================\n";
+        echo "SELESAI\n";
+        echo "Waktu    : " . date('Y-m-d H:i:s') . "\n";
+        echo "=========================================\n";
     }
 }

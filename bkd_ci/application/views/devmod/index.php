@@ -27,11 +27,26 @@
 
   <?php } ?>
 
+  <!-- TAMBAHKAN: Monitoring Rw Jabatan -->
+  <?php foreach ($monitoringRwJabatan as $item) { ?>
+
+    <?php $this->load->view('devmod/monitoring_card_jabatan', $item); ?>
+
+  <?php } ?>
+
   <!-- TAMBAHKAN: Monitoring Rw Golongan -->
   <?php foreach ($monitoringRwGolongan as $item) { ?>
 
     <?php $this->load->view('devmod/monitoring_card_pangkat', $item); ?>
 
   <?php } ?>
+
+  <!-- TAMBAHKAN: Monitoring Rw Pendidikan -->
+  <?php foreach ($monitoringRwPendidikan as $item) { ?>
+
+    <?php $this->load->view('devmod/monitoring_card_pendidikan', $item); ?>
+
+  <?php } ?>
+
 
 </div>

@@ -46,15 +46,17 @@ class Devmod extends SB_Controller
 	{
 		$monitoring = $this->model->getDashboardMonitoring();
 		$monitoringRwGolongan = $this->model->getDashboardRwGolongan();
+		$monitoringRwJabatan = $this->model->getDashboardRwJabatan();
+		$monitoringRwPendidikan = $this->model->getDashboardRwPendidikan();
 
 		// Anomali gelar (untuk monitoring data utama)
 		$anomali = [
 			'gelar' => $this->model->getAnomaliGelarFormatted(),
-			'jabatan_unor' => $this->model->getAnomaliRwJabatanFormatted(),
 		];
 		$anomali = array_filter($anomali, function ($items) {
 			return !empty($items);
 		});
+
 		if (!empty($monitoring[0])) {
 			$monitoring[0]['anomali'] = $anomali;
 		}
@@ -82,8 +84,45 @@ class Devmod extends SB_Controller
 			$monitoringRwGolongan[0]['anomali'] = $anomaliRwGolongan;
 		}
 
+
+
+		// ====== ANOMALI UNTUK RW JABATAN ======
+
+
+		$anomalijabatan = [
+			'jabatan_unor' => $this->model->getAnomaliRwJabatanFormatted(),
+		];
+		$anomalijabatan = array_filter($anomalijabatan, function ($items) {
+			return !empty($items);
+		});
+
+		// Gabungkan anomali 
+		$anomaliRwJabatan = array_merge($anomalijabatan);
+
+		if (!empty($monitoringRwJabatan[0])) {
+			$monitoringRwJabatan[0]['anomali'] = $anomaliRwJabatan;
+		}
+
+
+		// ====== ANOMALI UNTUK RW PENDIDIKAN ======
+		$anomalipendidikan = [
+			// 'pendidikan' => $this->model->getAnomaliRwPendidikanFormatted(),
+		];
+		$anomalipendidikan = array_filter($anomalipendidikan, function ($items) {
+			return !empty($items);
+		});
+
+		// Gabungkan anomali 
+		$anomaliRwPendidikan = array_merge($anomalipendidikan);
+
+		if (!empty($monitoringRwPendidikan[0])) {
+			$monitoringRwPendidikan[0]['anomali'] = $anomaliRwPendidikan;
+		}
+
 		$this->data['monitoring'] = $monitoring;
 		$this->data['monitoringRwGolongan'] = $monitoringRwGolongan;
+		$this->data['monitoringRwJabatan'] = $monitoringRwJabatan;
+		$this->data['monitoringRwPendidikan'] = $monitoringRwPendidikan;
 		$this->data['access'] = $this->access;
 		$this->data['content'] = $this->load->view('devmod/index', $this->data, true);
 		$this->load->view($this->layout, $this->data);
@@ -153,62 +192,91 @@ class Devmod extends SB_Controller
 			redirect('user/login', 301);
 		}
 
-		// Query detail dengan status_pegawai dan LEFT JOIN
 		$sql = "
-        SELECT 
-    t.*,
-    CASE 
-        WHEN t.perbandingan_ketiga_unor = 'Berbeda' 
-          OR t.perbandingan_jenis_jabatan = 'Berbeda' 
-          OR t.perbandingan_jfu = 'Berbeda' 
-          OR t.perbandingan_jfT = 'Berbeda' 
-        THEN 'Berbeda' 
-        ELSE 'Sama' 
-    END AS hasil_akhir
-FROM (
-    SELECT 
-        p.NIP_BARU,
-        p.NAMA,
-        sp.NAMA as status_pegawai,
-        s.SATKER_ID_SAPK AS unor_id_pegawai_siap,
-        jr.UNOR_ID_SAPK AS unor_id_siap,
-        du.unorId AS unor_id_siasn,
-        CASE 
-            WHEN COALESCE(jr.UNOR_ID_SAPK, '') = COALESCE(du.unorId, '') 
-             AND COALESCE(jr.UNOR_ID_SAPK, '') = COALESCE(s.SATKER_ID_SAPK, '')
-            THEN 'Sama' 
-            ELSE 'Berbeda' 
-        END AS perbandingan_ketiga_unor,
-        jr.JENIS_JABATAN_SAPK AS jenis_jabatan_siap,
-        du.jenisJabatanId AS jenis_jabatan_siasn,
-        CASE 
-            WHEN COALESCE(jr.JENIS_JABATAN_SAPK, '') = COALESCE(du.jenisJabatanId, '') 
-            THEN 'Sama' 
-            ELSE 'Berbeda' 
-        END AS perbandingan_jenis_jabatan,
-        jr.JFU_ID_SAPK AS jfu_siap,
-        du.jabatanFungsionalUmumId AS jfu_siasn,
-        CASE 
-            WHEN COALESCE(jr.JFU_ID_SAPK, '') = COALESCE(du.jabatanFungsionalUmumId, '') 
-            THEN 'Sama' 
-            ELSE 'Berbeda' 
-        END AS perbandingan_jfu,
-        jr.JFT_ID_SAPK AS jfT_siap,
-        du.jabatanFungsionalId AS jfT_siasn,
-        CASE 
-            WHEN COALESCE(jr.JFT_ID_SAPK, '') = COALESCE(du.jabatanFungsionalId, '') 
-            THEN 'Sama' 
-            ELSE 'Berbeda' 
-        END AS perbandingan_jfT    
-    FROM pegawai p 
-    JOIN status_pegawai sp on p.STATUS_PEGAWAI  = sp.STATUS_PEGAWAI_ID 
-    JOIN satker s ON p.SATKER_ID = s.SATKER_ID 
-    JOIN data_utama du ON p.NIP_BARU = du.nipBaru 
-    LEFT JOIN jabatan_riwayat jr ON p.JABATAN_ID_TERAKHIR = jr.JABATAN_RIWAYAT_ID 
-    WHERE p.STATUS_PEGAWAI IN ('1','2','10','18')
-    GROUP BY p.PEGAWAI_ID
-) t
-ORDER BY hasil_akhir, t.status_pegawai, t.perbandingan_ketiga_unor, t.perbandingan_jenis_jabatan, t.perbandingan_jfu, t.perbandingan_jfT
+        select 
+        CASE
+            WHEN COALESCE(p.SATKER_ID, '') = COALESCE(j.satker_id, '')
+             AND COALESCE(sj1.SATKER_ID_SAPK, '') = COALESCE(du.unorId, '')
+             AND COALESCE(j.TMT_JABATAN, '') = COALESCE(du.tmtJabatan, '')
+            THEN 'Sama'
+            ELSE 'Berbeda'
+        END AS perbandingan_akhir,
+        CASE
+            WHEN COALESCE(p.SATKER_ID, '') = COALESCE(j.satker_id, '') 
+                THEN 'Sama'
+                ELSE 'Berbeda' 
+        END AS perbandingan_satkerid_pg_jr,
+        CASE
+            WHEN COALESCE(sj1.SATKER_ID_SAPK, '') = COALESCE(du.unorId, '') 
+                THEN 'Sama'
+                ELSE 'Berbeda' 
+        END AS perbandingan_unorid_jr_du,
+        CASE
+            WHEN COALESCE(j.TMT_JABATAN, '') = COALESCE(du.tmtJabatan, '') 
+                THEN 'Sama'
+                ELSE 'Berbeda' 
+        END AS perbandingan_tmtjab_jr_du,
+        sp.NAMA as p_status_pegawai,
+        p.PEGAWAI_ID as p_PEGAWAI_ID, 
+        p.NIP_BARU as p_NIP_BARU, 
+        p.NAMA as p_NAMA, 
+        p.SATKER_ID as p_satker_id, 
+        sp1.NAMA as p_join_satker_nama, 
+        sp2.NAMA as p_join_satker_induk_nama, 
+        j.TMT_JABATAN as j_TMT_JABATAN, 
+        j.satker_id as j_satker_id, 
+        sj1.SATKER_ID_SAPK as J_unorId, 
+        sj1.NAMA as j_unorNama, 
+        sj2.NAMA as j_unor_induk_nama, 
+        du.tmtJabatan AS du_tmtJabatan, 
+        du.unorId AS du_unorId, 
+        du.unorNama AS du_unorNama, 
+        du.unorIndukNama AS du_unorIndukNama, 
+
+        j.JABATAN_RIWAYAT_ID as j_JABATAN_RIWAYAT_ID, 
+        j.RW_JABATAN_ID_SAPK as j_RW_JABATAN_ID_SAPK, 
+        j.TMT_ESELON as j_TMT_ESELON, 
+        j.UNOR_ID_SAPK as j_UNOR_ID_SAPK, 
+        j.SATUAN_KERJA_ID_SAPK as j_SATUAN_KERJA_ID_SAPK, 
+        j.SATUAN_KERJA_NAMA_SAPK as j_SATUAN_KERJA_NAMA_SAPK, 
+        j.NAMA as j_NAMA, 
+        j.INSTANSI_KERJA_ID_SAPK as j_INSTANSI_KERJA_ID_SAPK, 
+        j.INSTANSI_KERJA_NAMA_SAPK as j_INSTANSI_KERJA_NAMA_SAPK, 
+        j.JENIS_JABATAN_SAPK as j_JENIS_JABATAN_SAPK, 
+        j.JFT_ID_SAPK as j_JFT_ID_SAPK, 
+        j.JFT_NAMA_SAPK as j_JFT_NAMA_SAPK, 
+        j.JFU_ID_SAPK as j_JFU_ID_SAPK, 
+        j.JFU_NAMA_SAPK as j_JFU_NAMA_SAPK, 
+        j.KETERANGAN_BUP as j_KETERANGAN_BUP, 
+        j.ESELON_ID as j_ESELON_ID,
+
+        du.pegawai_id AS du_pegawai_id,
+        du.nipBaru AS du_nipBaru,
+        du.id AS du_id,
+        du.tmtEselon AS du_tmtEselon,
+        du.satuanKerjaKerjaId AS du_satuanKerjaKerjaId,
+        du.satuanKerjaKerjaNama AS du_satuanKerjaKerjaNama,
+        du.jabatanNama AS du_jabatanNama,
+        du.instansiKerjaId AS du_instansiKerjaId,
+        du.instansiKerjaNama AS du_instansiKerjaNama,
+        du.jenisJabatanId AS du_jenisJabatanId,
+        du.jabatanFungsionalId AS du_jabatanFungsionalId,
+        du.jabatanFungsionalNama AS du_jabatanFungsionalNama,
+        du.jabatanFungsionalUmumId AS du_jabatanFungsionalUmumId,
+        du.jabatanFungsionalUmumNama AS du_jabatanFungsionalUmumNama,
+        du.bupPensiun AS du_bupPensiun,
+        du.eselonId AS du_eselonId
+        from pegawai p 
+        join status_pegawai sp on p.STATUS_PEGAWAI  = sp.STATUS_PEGAWAI_ID 
+        left join satker sp1 on p.SATKER_ID  = sp1.SATKER_ID 
+        left join satker sp2 on sp2.SATKER_ID   = sp1.SATKER_INDUK_ID 
+        left join jabatan_riwayat j on p.JABATAN_ID_TERAKHIR   = j.JABATAN_RIWAYAT_ID 
+        left join satker sj1 on j.SATKER_ID  = sj1.SATKER_ID 
+        left join satker sj2 on sj2.SATKER_ID   = sj1.SATKER_INDUK_ID
+        join data_utama du on p.PEGAWAI_ID  = du.pegawai_id 
+        where p.STATUS_PEGAWAI in ('1','2','10','18')
+        group by p.PEGAWAI_ID
+        order by perbandingan_tmtjab_jr_du desc, perbandingan_unorid_jr_du desc, perbandingan_satkerid_pg_jr desc, sp.nama, sp2.nama, sp1.nama, sj2.nama, sj1.nama, du.unorIndukNama, du.unorNama
     ";
 
 		$data = $this->db->query($sql)->result();
@@ -226,47 +294,17 @@ ORDER BY hasil_akhir, t.status_pegawai, t.perbandingan_ketiga_unor, t.perbanding
 		$output = fopen('php://output', 'w');
 		fputs($output, "\xEF\xBB\xBF"); // BOM UTF-8
 
-		// Header dengan tambahan status_pegawai
-		fputcsv($output, [
-			'NIP Baru',
-			'Nama',
-			'Status Pegawai',
-			'UNOR ID SIAP (Pegawai)',
-			'UNOR ID SIAP (Jabatan)',
-			'UNOR ID SIASN',
-			'Perbandingan UNOR',
-			'Jenis Jabatan SIAP',
-			'Jenis Jabatan SIASN',
-			'Perbandingan Jenis Jabatan',
-			'JFU SIAP',
-			'JFU SIASN',
-			'Perbandingan JFU',
-			'JFT SIAP',
-			'JFT SIASN',
-			'Perbandingan JFT',
-			'Hasil Akhir'
-		], '|');
+		// Ambil nama kolom dari baris pertama (alias sudah jelas)
+		$firstRow = $data[0];
+		$headers = array_keys((array)$firstRow);
 
+		// Tulis header
+		fputcsv($output, $headers, '|');
+
+		// Tulis data
 		foreach ($data as $row) {
-			fputcsv($output, [
-				$row->NIP_BARU,
-				$row->NAMA,
-				$row->status_pegawai,
-				$row->unor_id_pegawai_siap,
-				$row->unor_id_siap,
-				$row->unor_id_siasn,
-				$row->perbandingan_ketiga_unor,
-				$row->jenis_jabatan_siap,
-				$row->jenis_jabatan_siasn,
-				$row->perbandingan_jenis_jabatan,
-				$row->jfu_siap,
-				$row->jfu_siasn,
-				$row->perbandingan_jfu,
-				$row->jfT_siap,
-				$row->jfT_siasn,
-				$row->perbandingan_jfT,
-				$row->hasil_akhir
-			], '|');
+			$rowArray = (array)$row;
+			fputcsv($output, $rowArray, '|');
 		}
 
 		fclose($output);

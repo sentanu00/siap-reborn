@@ -253,7 +253,8 @@ class Pegawai extends SB_Controller
 	{
 		$id = $_POST['id'];
 		$satkernama = "";
-		$c = $this->db->query("SELECT CONCAT((SELECT NAMA FROM satker WHERE satker_id = LEFT('" . $id . "',2)),' - ',NAMA) as NAMA FROM satker WHERE SATKER_ID = '" . $id . "'")->row();
+		// $c = $this->db->query("SELECT CONCAT((SELECT NAMA FROM satker WHERE satker_id = LEFT('" . $id . "',2)),' - ',NAMA) as NAMA FROM satker WHERE SATKER_ID = '" . $id . "'")->row();
+		$c = $this->db->query("select s.hirarki_nama as NAMA from satker s where s.SATKER_ID ='" . $id . "'")->row();
 		if ($c) $satkernama = $c->NAMA;
 		echo $satkernama;
 	}
@@ -274,7 +275,8 @@ class Pegawai extends SB_Controller
 			$this->createNIPFolder($row['NIP_BARU']);
 			$foto = $this->db->query("select p.FOTO, p.FOTO_SETENGAH from pegawai as p where p.PEGAWAI_ID = '" . $id . "'")->row();
 
-			$c = $this->db->query("SELECT CONCAT((SELECT NAMA FROM satker WHERE satker_id = LEFT('" . $row['SATKER_ID'] . "',2)),' - ',NAMA) as NAMA FROM satker WHERE SATKER_ID = '" . $row['SATKER_ID'] . "'")->row();
+			// $c = $this->db->query("SELECT CONCAT((SELECT NAMA FROM satker WHERE satker_id = LEFT('" . $row['SATKER_ID'] . "',2)),' - ',NAMA) as NAMA FROM satker WHERE SATKER_ID = '" . $row['SATKER_ID'] . "'")->row();
+			$c = $this->db->query("select s.hirarki_nama as NAMA from satker s where s.SATKER_ID ='" . $row['SATKER_ID'] . "'")->row();
 			if ($c) $satkernama = $c->NAMA;
 
 			$this->data['pangkat'] = $this->db->query("SELECT a.*,b.KODE AS KODEPANGKAT,b.NAMA as NAMAPANGKAT FROM pangkat_riwayat a INNER JOIN pangkat b ON a.PANGKAT_ID=b.PANGKAT_ID WHERE PEGAWAI_ID = '$id' ORDER BY TMT_PANGKAT DESC LIMIT 1")->row();
