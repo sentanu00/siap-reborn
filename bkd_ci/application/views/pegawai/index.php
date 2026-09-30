@@ -311,7 +311,7 @@
       $('#mobile-collapse').click();
     }, 500);
     $("#gridv_length").append(' Status Pegawai <select class="form-control" id="status_peg" onchange="reloadgridx()" style="width:150px">' +
-      '<option value="1,2,10,0,3,4,5,6,7,8,9,18,19,20,21">SEMUA</option>' +
+      '<option value="1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28">SEMUA</option>' +
       '<option value="0">USULAN</option>' +
       '<option value="1">CPNS</option>' +
       '<option value="2">PNS</option>' +
@@ -324,9 +324,16 @@
       '<option value="21">PENSIUN KARENA UZUR</option>' +
       '<option value="4">P3D</option>' +
       '<option value="5">TEWAS</option>' +
-      '<option value="6">WAFAT</option>' +
+      '<option value="6">WAFAT PNS</option>' +
+      '<option value="22">WAFAT PPPK</option>' +
+      '<option value="23">WAFAT PPPK PW</option>' +
       '<option value="7">PINDAH</option>' +
-      '<option value="8">DIBERHENTIKAN</option>' +
+      '<option value="8">PNS DIBERHENTIKAN</option>' +
+      '<option value="25">PPPK DIBERHENTIKAN</option>' +
+      '<option value="24">PPPK DIBERHENTIKAN</option>' +
+      '<option value="26">PNS PEMBERHENTIAN ATAS PERMINTAAN SENDIRI</option>' +
+      '<option value="27">PPPK PEMBERHENTIAN ATAS PERMINTAAN SENDIRI</option>' +
+      '<option value="28">PPPK PW PEMBERHENTIAN ATAS PERMINTAAN SENDIRI</option>' +
       '<option value="9">MPP</option>' +
       '</select>');
 

@@ -128,40 +128,43 @@ class Api_ws4 extends SB_Controller
     public function update_data_terakhir_tbl_pegawai()
     {
         $sql = "UPDATE pegawai p
-        SET 
-            PANGKAT_ID_TERAKHIR = (
-                SELECT pr.pangkat_riwayat_id
-                FROM pangkat_riwayat pr
-                WHERE pr.PEGAWAI_ID = p.PEGAWAI_ID
-                ORDER BY pr.TMT_PANGKAT DESC
-                LIMIT 1
-            ),
-            JABATAN_ID_TERAKHIR = (
-                SELECT jr.JABATAN_RIWAYAT_ID
-                FROM jabatan_riwayat jr
-                WHERE jr.PEGAWAI_ID = p.PEGAWAI_ID and jr.flag_tayang = 1 
-                ORDER BY jr.TMT_JABATAN DESC
-                LIMIT 1
-            ),
-            PENDIDIKAN_ID_TERAKHIR = (
-                SELECT pd.PENDIDIKAN_RIWAYAT_ID
-                FROM pendidikan_riwayat pd
-                WHERE pd.PEGAWAI_ID = p.PEGAWAI_ID
-                ORDER BY pd.TANGGAL_STTB DESC
-                LIMIT 1
-            ),
-            SATKER_INDUK_ID = (
-                SELECT s.SATKER_INDUK_ID  
-                FROM satker s 
-                WHERE s.SATKER_ID = p.SATKER_ID
-            )
-        WHERE p.STATUS_PEGAWAI IN ('2', '1', '10', '18')";
+    SET 
+        PANGKAT_ID_TERAKHIR = (
+            SELECT pr.pangkat_riwayat_id
+            FROM pangkat_riwayat pr
+            WHERE pr.PEGAWAI_ID = p.PEGAWAI_ID
+            ORDER BY pr.TMT_PANGKAT DESC
+            LIMIT 1
+        ),
+        JABATAN_ID_TERAKHIR = (
+            SELECT jr.JABATAN_RIWAYAT_ID
+            FROM jabatan_riwayat jr
+            WHERE jr.PEGAWAI_ID = p.PEGAWAI_ID and jr.flag_tayang = 1 
+            ORDER BY jr.TMT_JABATAN DESC
+            LIMIT 1
+        ),
+        PENDIDIKAN_ID_TERAKHIR = (
+            SELECT pd.PENDIDIKAN_RIWAYAT_ID
+            FROM pendidikan_riwayat pd
+            WHERE pd.PEGAWAI_ID = p.PEGAWAI_ID
+            ORDER BY pd.TANGGAL_STTB DESC
+            LIMIT 1
+        ),
+        SATKER_INDUK_ID = (
+            SELECT s.SATKER_INDUK_ID  
+            FROM satker s 
+            WHERE s.SATKER_ID = p.SATKER_ID
+        )
+    WHERE p.STATUS_PEGAWAI IN ('2', '1', '10', '18')";
 
         // Mulai transaksi
         $this->db->trans_start();
 
         // Eksekusi query
         $this->db->query($sql);
+
+        // [PERBAIKAN] Ambil jumlah affected rows SEKARANG, SEBELUM trans_complete()
+        $affected = $this->db->affected_rows();
 
         // Selesaikan transaksi
         $this->db->trans_complete();
@@ -171,7 +174,6 @@ class Api_ws4 extends SB_Controller
             $error = $this->db->error();
             echo "Gagal update data: " . $error['message'] . " (Kode error: " . $error['code'] . ")";
         } else {
-            $affected = $this->db->affected_rows();
             echo "Update data berhasil. Jumlah pegawai yang diupdate: " . $affected;
         }
     }
@@ -1325,9 +1327,11 @@ class Api_ws4 extends SB_Controller
         echo "=========================================\n";
     }
 
-    public function get_pendidikan($api_mws_token, $nip_baru)
+    public function get_pendidikan($api_mws_token, $nip_baru, $retry_count = 0)
     {
+        $max_retries = 3;
         $api_mws_token = "Bearer " . $api_mws_token;
+
         $curl = curl_init();
 
         curl_setopt_array($curl, array(
@@ -1335,7 +1339,8 @@ class Api_ws4 extends SB_Controller
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_ENCODING => '',
             CURLOPT_MAXREDIRS => 10,
-            CURLOPT_TIMEOUT => 30,
+            CURLOPT_TIMEOUT => 15, // timeout lebih pendek
+            CURLOPT_CONNECTTIMEOUT => 10,
             CURLOPT_FOLLOWLOCATION => true,
             CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
             CURLOPT_CUSTOMREQUEST => 'GET',
@@ -1350,15 +1355,26 @@ class Api_ws4 extends SB_Controller
         ));
 
         $response = curl_exec($curl);
+        $httpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($curl);
+        curl_close($curl);
 
-        // Cek error curl
-        if (curl_errno($curl)) {
-            $error_msg = 'Curl error: ' . curl_error($curl);
-            curl_close($curl);
-            return $error_msg;
+        // Jika ada error curl dan masih di bawah max retry, coba ulang
+        if ($curlError && $retry_count < $max_retries) {
+            usleep(500000); // delay 0.5 detik sebelum retry
+            return $this->get_pendidikan($api_mws_token, $nip_baru, $retry_count + 1);
         }
 
-        curl_close($curl);
+        // Jika masih error setelah retry, return error message
+        if ($curlError) {
+            return 'Curl error after ' . $max_retries . ' attempts: ' . $curlError;
+        }
+
+        // Jika HTTP code bukan 200, return error
+        if ($httpCode != 200) {
+            return 'HTTP Error: ' . $httpCode . ' - ' . $response;
+        }
+
         return $response;
     }
 
@@ -1632,12 +1648,16 @@ class Api_ws4 extends SB_Controller
         }
 
         $pegawai = $this->db
+            ->select('siasnpegawaiid.*')
+            ->from('siasnpegawaiid')
+            ->join('pegawai', 'pegawai.PEGAWAI_ID = siasnpegawaiid.pegawai_id')
             ->where('pendidikan', 1)
-            ->where_in('statusPegawai', ['PNS', 'CPNS', 'PPPK', 'PPPK PARUH WAKTU'])
+            ->where_in('pegawai.STATUS_PEGAWAI', ['1', '2', '10', '18'])
             ->where('retry_count_pendidikan <', $batastolreansi)
-            ->order_by('id')
+            ->order_by('pegawai.STATUS_PEGAWAI', 'ASC')   // urutan pertama
+            ->order_by('siasnpegawaiid.id', 'ASC')        // urutan kedua
             ->limit($limit)
-            ->get('siasnpegawaiid')
+            ->get()
             ->result();
 
         if (empty($pegawai)) {
@@ -1646,26 +1666,31 @@ class Api_ws4 extends SB_Controller
             return;
         }
 
+        $index = 0;
         foreach ($pegawai as $p) {
-
-            echo "\nSedang diproses : {$p->nip}";
+            $index++;
+            echo "\n[$index] Sedang diproses : {$p->nip}";
 
             try {
-                $json = $this->get_pendidikan($token, $p->nip);
+                // Tambahkan delay antar request untuk menghindari overload
+                if ($index > 1) {
+                    usleep(300000); // 0.3 detik
+                }
 
+                $json = $this->get_pendidikan($token, $p->nip);
                 $retry = $p->retry_count_pendidikan + 1;
 
                 /**
-                 * 1. Response kosong
+                 * 1. Response kosong atau error curl
                  */
-                if (empty($json)) {
+                if (empty($json) || strpos($json, 'Curl error') !== false || strpos($json, 'HTTP Error') !== false) {
                     $this->db
                         ->where('id', $p->id)
                         ->update('siasnpegawaiid', array(
                             'pendidikan'       => ($retry >= $batastolreansi ? 3 : 1),
                             'retry_count_pendidikan' => $retry
                         ));
-                    echo " ==> Response kosong ({$retry}/{$batastolreansi})";
+                    echo " ==> Error: " . ($json ?: 'Response kosong') . " ({$retry}/{$batastolreansi})";
                     continue;
                 }
 
@@ -1682,7 +1707,6 @@ class Api_ws4 extends SB_Controller
                             'retry_count_pendidikan' => $retry
                         ));
                     echo " ==> JSON tidak valid ({$retry}/{$batastolreansi})";
-                    // Tampilkan potongan response untuk debug
                     echo "\nResponse: " . substr($json, 0, 200);
                     continue;
                 }
@@ -1729,6 +1753,7 @@ class Api_ws4 extends SB_Controller
                 echo " ==> GAGAL ({$retry}/{$batastolreansi}) : {$pesan}";
             } catch (Exception $e) {
                 // Tangkap error dan update status
+                $retry = isset($retry) ? $retry : $p->retry_count_pendidikan + 1;
                 $this->db
                     ->where('id', $p->id)
                     ->update('siasnpegawaiid', array(

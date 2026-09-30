@@ -193,90 +193,131 @@ class Devmod extends SB_Controller
 		}
 
 		$sql = "
-        select 
-        CASE
-            WHEN COALESCE(p.SATKER_ID, '') = COALESCE(j.satker_id, '')
-             AND COALESCE(sj1.SATKER_ID_SAPK, '') = COALESCE(du.unorId, '')
-             AND COALESCE(j.TMT_JABATAN, '') = COALESCE(du.tmtJabatan, '')
-            THEN 'Sama'
-            ELSE 'Berbeda'
-        END AS perbandingan_akhir,
-        CASE
-            WHEN COALESCE(p.SATKER_ID, '') = COALESCE(j.satker_id, '') 
-                THEN 'Sama'
-                ELSE 'Berbeda' 
-        END AS perbandingan_satkerid_pg_jr,
-        CASE
-            WHEN COALESCE(sj1.SATKER_ID_SAPK, '') = COALESCE(du.unorId, '') 
-                THEN 'Sama'
-                ELSE 'Berbeda' 
-        END AS perbandingan_unorid_jr_du,
-        CASE
-            WHEN COALESCE(j.TMT_JABATAN, '') = COALESCE(du.tmtJabatan, '') 
-                THEN 'Sama'
-                ELSE 'Berbeda' 
-        END AS perbandingan_tmtjab_jr_du,
-        sp.NAMA as p_status_pegawai,
-        p.PEGAWAI_ID as p_PEGAWAI_ID, 
-        p.NIP_BARU as p_NIP_BARU, 
-        p.NAMA as p_NAMA, 
-        p.SATKER_ID as p_satker_id, 
-        sp1.NAMA as p_join_satker_nama, 
-        sp2.NAMA as p_join_satker_induk_nama, 
-        j.TMT_JABATAN as j_TMT_JABATAN, 
-        j.satker_id as j_satker_id, 
-        sj1.SATKER_ID_SAPK as J_unorId, 
-        sj1.NAMA as j_unorNama, 
-        sj2.NAMA as j_unor_induk_nama, 
-        du.tmtJabatan AS du_tmtJabatan, 
-        du.unorId AS du_unorId, 
-        du.unorNama AS du_unorNama, 
-        du.unorIndukNama AS du_unorIndukNama, 
+			SELECT *
+			FROM (
+				SELECT
+					CASE
+						WHEN COALESCE(p.SATKER_ID, '') = COALESCE(j.satker_id, '')
+						AND COALESCE(sj1.SATKER_ID_SAPK, '') = COALESCE(du.unorId, '')
+						AND COALESCE(j.TMT_JABATAN, '') = COALESCE(du.tmtJabatan, '')
+						THEN 'Sama'
+						ELSE 'Berbeda'
+					END AS perbandingan_akhir,
 
-        j.JABATAN_RIWAYAT_ID as j_JABATAN_RIWAYAT_ID, 
-        j.RW_JABATAN_ID_SAPK as j_RW_JABATAN_ID_SAPK, 
-        j.TMT_ESELON as j_TMT_ESELON, 
-        j.UNOR_ID_SAPK as j_UNOR_ID_SAPK, 
-        j.SATUAN_KERJA_ID_SAPK as j_SATUAN_KERJA_ID_SAPK, 
-        j.SATUAN_KERJA_NAMA_SAPK as j_SATUAN_KERJA_NAMA_SAPK, 
-        j.NAMA as j_NAMA, 
-        j.INSTANSI_KERJA_ID_SAPK as j_INSTANSI_KERJA_ID_SAPK, 
-        j.INSTANSI_KERJA_NAMA_SAPK as j_INSTANSI_KERJA_NAMA_SAPK, 
-        j.JENIS_JABATAN_SAPK as j_JENIS_JABATAN_SAPK, 
-        j.JFT_ID_SAPK as j_JFT_ID_SAPK, 
-        j.JFT_NAMA_SAPK as j_JFT_NAMA_SAPK, 
-        j.JFU_ID_SAPK as j_JFU_ID_SAPK, 
-        j.JFU_NAMA_SAPK as j_JFU_NAMA_SAPK, 
-        j.KETERANGAN_BUP as j_KETERANGAN_BUP, 
-        j.ESELON_ID as j_ESELON_ID,
+					CASE
+						WHEN COALESCE(p.SATKER_ID, '') = COALESCE(j.satker_id, '')
+						THEN 'Sama'
+						ELSE 'Berbeda'
+					END AS perbandingan_satkerid_pg_jr,
 
-        du.pegawai_id AS du_pegawai_id,
-        du.nipBaru AS du_nipBaru,
-        du.id AS du_id,
-        du.tmtEselon AS du_tmtEselon,
-        du.satuanKerjaKerjaId AS du_satuanKerjaKerjaId,
-        du.satuanKerjaKerjaNama AS du_satuanKerjaKerjaNama,
-        du.jabatanNama AS du_jabatanNama,
-        du.instansiKerjaId AS du_instansiKerjaId,
-        du.instansiKerjaNama AS du_instansiKerjaNama,
-        du.jenisJabatanId AS du_jenisJabatanId,
-        du.jabatanFungsionalId AS du_jabatanFungsionalId,
-        du.jabatanFungsionalNama AS du_jabatanFungsionalNama,
-        du.jabatanFungsionalUmumId AS du_jabatanFungsionalUmumId,
-        du.jabatanFungsionalUmumNama AS du_jabatanFungsionalUmumNama,
-        du.bupPensiun AS du_bupPensiun,
-        du.eselonId AS du_eselonId
-        from pegawai p 
-        join status_pegawai sp on p.STATUS_PEGAWAI  = sp.STATUS_PEGAWAI_ID 
-        left join satker sp1 on p.SATKER_ID  = sp1.SATKER_ID 
-        left join satker sp2 on sp2.SATKER_ID   = sp1.SATKER_INDUK_ID 
-        left join jabatan_riwayat j on p.JABATAN_ID_TERAKHIR   = j.JABATAN_RIWAYAT_ID 
-        left join satker sj1 on j.SATKER_ID  = sj1.SATKER_ID 
-        left join satker sj2 on sj2.SATKER_ID   = sj1.SATKER_INDUK_ID
-        join data_utama du on p.PEGAWAI_ID  = du.pegawai_id 
-        where p.STATUS_PEGAWAI in ('1','2','10','18')
-        group by p.PEGAWAI_ID
-        order by perbandingan_tmtjab_jr_du desc, perbandingan_unorid_jr_du desc, perbandingan_satkerid_pg_jr desc, sp.nama, sp2.nama, sp1.nama, sj2.nama, sj1.nama, du.unorIndukNama, du.unorNama
+					CASE
+						WHEN COALESCE(sj1.SATKER_ID_SAPK, '') = COALESCE(du.unorId, '')
+						THEN 'Sama'
+						ELSE 'Berbeda'
+					END AS perbandingan_unorid_jr_du,
+
+					CASE
+						WHEN COALESCE(j.TMT_JABATAN, '') = COALESCE(du.tmtJabatan, '')
+						THEN 'Sama'
+						ELSE 'Berbeda'
+					END AS perbandingan_tmtjab_jr_du,
+
+					sp.NAMA AS p_status_pegawai,
+					p.PEGAWAI_ID AS p_PEGAWAI_ID,
+					p.NIP_BARU AS p_NIP_BARU,
+					p.NAMA AS p_NAMA,
+					p.SATKER_ID AS p_satker_id,
+
+					sp1.NAMA AS p_join_satker_nama,
+					sp2.NAMA AS p_join_satker_induk_nama,
+
+					j.TMT_JABATAN AS j_TMT_JABATAN,
+					j.satker_id AS j_satker_id,
+
+					sj1.SATKER_ID_SAPK AS J_unorId,
+					sj1.NAMA AS j_unorNama,
+					sj2.NAMA AS j_unor_induk_nama,
+
+					du.tmtJabatan AS du_tmtJabatan,
+					du.unorId AS du_unorId,
+					du.unorNama AS du_unorNama,
+					du.unorIndukNama AS du_unorIndukNama,
+
+					j.JABATAN_RIWAYAT_ID AS j_JABATAN_RIWAYAT_ID,
+					j.RW_JABATAN_ID_SAPK AS j_RW_JABATAN_ID_SAPK,
+					j.TMT_ESELON AS j_TMT_ESELON,
+					j.UNOR_ID_SAPK AS j_UNOR_ID_SAPK,
+					j.SATUAN_KERJA_ID_SAPK AS j_SATUAN_KERJA_ID_SAPK,
+					j.SATUAN_KERJA_NAMA_SAPK AS j_SATUAN_KERJA_NAMA_SAPK,
+					j.NAMA AS j_NAMA,
+					j.INSTANSI_KERJA_ID_SAPK AS j_INSTANSI_KERJA_ID_SAPK,
+					j.INSTANSI_KERJA_NAMA_SAPK AS j_INSTANSI_KERJA_NAMA_SAPK,
+					j.JENIS_JABATAN_SAPK AS j_JENIS_JABATAN_SAPK,
+					j.JFT_ID_SAPK AS j_JFT_ID_SAPK,
+					j.JFT_NAMA_SAPK AS j_JFT_NAMA_SAPK,
+					j.JFU_ID_SAPK AS j_JFU_ID_SAPK,
+					j.JFU_NAMA_SAPK AS j_JFU_NAMA_SAPK,
+					j.KETERANGAN_BUP AS j_KETERANGAN_BUP,
+					j.ESELON_ID AS j_ESELON_ID,
+
+					du.pegawai_id AS du_pegawai_id,
+					du.nipBaru AS du_nipBaru,
+					du.id AS du_id,
+					du.tmtEselon AS du_tmtEselon,
+					du.satuanKerjaKerjaId AS du_satuanKerjaKerjaId,
+					du.satuanKerjaKerjaNama AS du_satuanKerjaKerjaNama,
+					du.jabatanNama AS du_jabatanNama,
+					du.instansiKerjaId AS du_instansiKerjaId,
+					du.instansiKerjaNama AS du_instansiKerjaNama,
+					du.jenisJabatanId AS du_jenisJabatanId,
+					du.jabatanFungsionalId AS du_jabatanFungsionalId,
+					du.jabatanFungsionalNama AS du_jabatanFungsionalNama,
+					du.jabatanFungsionalUmumId AS du_jabatanFungsionalUmumId,
+					du.jabatanFungsionalUmumNama AS du_jabatanFungsionalUmumNama,
+					du.bupPensiun AS du_bupPensiun,
+					du.eselonId AS du_eselonId
+
+				FROM pegawai p
+
+				JOIN status_pegawai sp
+					ON p.STATUS_PEGAWAI = sp.STATUS_PEGAWAI_ID
+
+				LEFT JOIN satker sp1
+					ON p.SATKER_ID = sp1.SATKER_ID
+
+				LEFT JOIN satker sp2
+					ON sp2.SATKER_ID = sp1.SATKER_INDUK_ID
+
+				LEFT JOIN jabatan_riwayat j
+					ON p.JABATAN_ID_TERAKHIR = j.JABATAN_RIWAYAT_ID
+
+				LEFT JOIN satker sj1
+					ON j.SATKER_ID = sj1.SATKER_ID
+
+				LEFT JOIN satker sj2
+					ON sj2.SATKER_ID = sj1.SATKER_INDUK_ID
+
+				JOIN data_utama du
+					ON p.PEGAWAI_ID = du.pegawai_id
+
+				WHERE p.STATUS_PEGAWAI IN ('1','2','10','18')
+
+				GROUP BY p.PEGAWAI_ID
+			) AS x
+
+			WHERE x.perbandingan_akhir = 'Berbeda'
+
+			ORDER BY
+				x.perbandingan_tmtjab_jr_du DESC,
+				x.perbandingan_unorid_jr_du DESC,
+				x.perbandingan_satkerid_pg_jr DESC,
+				x.p_status_pegawai,
+				x.p_join_satker_induk_nama,
+				x.p_join_satker_nama,
+				x.j_unor_induk_nama,
+				x.j_unorNama,
+				x.du_unorIndukNama,
+				x.du_unorNama
     ";
 
 		$data = $this->db->query($sql)->result();

@@ -641,7 +641,7 @@ class Devmodmodel extends SB_Model
         JOIN data_utama du ON p.PEGAWAI_ID = du.pegawai_id 
         WHERE p.STATUS_PEGAWAI IN ('1','2','10','18')
         GROUP BY p.STATUS_PEGAWAI
-        ORDER BY p.STATUS_PEGAWAI;
+        ORDER BY p.STATUS_PEGAWAI
     ";
 
         return $this->db->query($sql)->result();
