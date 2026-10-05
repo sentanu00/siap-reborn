@@ -1,239 +1,354 @@
 <?php if (!defined('BASEPATH')) exit('No direct script access allowed');
 
-class Sihenti_pegawai extends SB_Controller 
+class Sihenti_pegawai extends SB_Controller
 {
 
-	protected $layout 	= "layouts/main";
-	public $module 		= 'sihenti_pegawai';
-	public $per_page	= '10';
-	public $idx			= '';
+	protected $layout   = "layouts/main";
+	public $module      = 'sihenti_pegawai';
+	public $per_page    = '10';
+	public $idx         = '';
 
-	function __construct() {
+	function __construct()
+	{
 		parent::__construct();
-		
+
 		$this->load->model('sihenti_pegawaimodel');
 		$this->model = $this->sihenti_pegawaimodel;
 		$idx = $this->model->primaryKey;
-		
-		$this->info = $this->model->makeInfo( $this->module);
-		$this->access = $this->model->validAccess($this->info['id']);	
-		$this->data = array_merge( $this->data, array(
-			'pageTitle'	=> 	$this->info['title'],
-			'pageNote'	=>  $this->info['note'],
-			'pageModule'	=> 'sihenti_pegawai',
+
+		$this->info   = $this->model->makeInfo($this->module);
+		$this->access = $this->model->validAccess($this->info['id']);
+
+		$this->data = array_merge($this->data, array(
+			'pageTitle'  => $this->info['title'],
+			'pageNote'   => $this->info['note'],
+			'pageModule' => 'sihenti_pegawai',
 		));
+
 		$this->col = array();
 		$this->con = array();
 		$inf = $this->info['config']['grid'];
 		$inf = SiteHelpers::array_sort($inf, 'sortlist', SORT_ASC);
-		$in=0;
+		$in = 0;
 		foreach ($inf as $key => $t) {
-			if($t['view'] =='1'){
-				
+			if ($t['view'] == '1') {
 				$in++;
 				$this->col[$in] = $t['field'];
 				$this->con[$in] = $t['conn'];
-				
 			}
-			
 		}
-		
-		if(!$this->session->userdata('logged_in')) redirect('user/login',301);
-		
+
+		if (!$this->session->userdata('logged_in')) redirect('user/login', 301);
 	}
 
-	function grids($pg){
-		
-		$sort = $this->model->primaryKey; 
-		$order = 'asc';
-		$filter = "";
-		//$filter = (!is_null($this->input->get('search', true)) ? $this->buildSearch() : '');
-		//order 
-		if(isset($_POST['order']))
-        {
-            if(($_POST['order']['0']['column'])==0){
-        		$sort = $this->col[($_POST['order']['0']['column'])+1];
-            	$order = $_POST['order']['0']['dir'];
-        	}else{
-            	$sort = $this->col[($_POST['order']['0']['column'])];
-            	$order = $_POST['order']['0']['dir'];
-        	}
+	/* =====================================================
+     * HALAMAN UTAMA - 2 TABEL
+     * (Tabel pegawai dimuat via AJAX, tidak di-query di sini)
+     * ===================================================== */
+	public function index()
+	{
+		// ---------- Tabel Atas: Usulan Pemberhentian ----------
+		$this->data['usulan_list'] = $this->db
+			->select('id, nip, nama, tanggal_usul, jenis_usulan,
+                      diusulkan_oleh, tanggal_edit, status_usulan, keterangan')
+			->from('usulan_pemberhentian')
+			->order_by('tanggal_usul', 'DESC')
+			->order_by('id', 'DESC')
+			->get()->result();
 
-        }
+		// ---------- NIP yang masih punya usulan aktif ----------
+		$aktif = $this->db
+			->select('nip')
+			->from('usulan_pemberhentian')
+			->where('status_usulan !=', 'Selesai')
+			->get()->result();
+		$this->data['nip_aktif'] = array_column($aktif, 'nip');
 
-        for ($i=0; $i < count($this->col) ; $i++) { 
-        	
-            if(isset($_POST['search']['value']) && $_POST['search']['value'] != ''){
-            	if($i==0){
-            		$filter .= " AND (".$this->col[$i+1]." LIKE '%".$_POST['search']['value']."%'";
-            	}else{
-            		$filter .= " OR ".$this->col[$i+1]." LIKE '%".$_POST['search']['value']."%'";
-            	}
-            }
-        }
-
-        if($filter != '') $filter .= ")";
-        $filter .= " AND PEGAWAI_ID = '$pg'"; 
-
-		$params = array(
-			'limit'		=> $_POST['start'],
-			'page'		=> $_POST['length'],
-			'sort'		=> $sort ,
-			'order'		=> $order,
-			'params'	=> $filter,
-			'global'	=> (isset($this->access['is_global']) ? $this->access['is_global'] : 0 )
+		// ---------- Opsi Jenis Usulan ----------
+		$this->data['jenis_usulan_options'] = array(
+			'Pensiun',
+			'Pengunduran Diri',
+			'Pemberhentian Dengan Hormat',
+			'Pemberhentian Tidak Dengan Hormat',
+			'Meninggal Dunia',
+			'Habis Masa Kontrak',
+			'Mutasi',
 		);
-		// Get Query 
-		$results = $this->model->getRows( $params );
-		$rows = $results['rows'];
-		$total = $results['total'];
-		$totalfil = $results['totalfil'];
-		
-		//run data to view
-		$data = array();$no=0;
-		foreach ($rows as $dt) {
-            $row = array();
-			$idku = $this->model->primaryKey;
-			$row['id'] = $dt->$idku; 
-            $row[] = $no+1;
-            for ($i=0; $i < count($this->col) ; $i++) { 
-            		$field = $this->col[$i+1];
-            		$conn = (isset($this->con[$i+1]) ? $this->con[$i+1] : array() ) ;
-					$row[] = SiteHelpers::gridDisplay($dt->$field , $field , $conn );
-            }
- 
-            //add html for action
-            $btn ='';
-            
 
-            $btn .= '<div class="btn-group dropdown-split-danger">';
-            	$btn .= '<button type="button" class="btn btn-danger dropdown-toggle dropdown-toggle-split waves-effect waves-light" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-<span class="sr-only">Toggle primary</span>
-</button>
-<div class="dropdown-menu" x-placement="bottom-start" style="position: absolute; transform: translate3d(86px, 40px, 0px); top: 0px; left: 0px; will-change: transform;">';
+		// Konfigurasi pagination pegawai
+		$this->data['pegawai_per_page'] = 10;
 
-if($this->access['is_remove'] ==1){
-$btn .= '<a class="dropdown-item waves-effect waves-light" href="#" onclick="ConfirmDelete(\''.site_url('sihenti_pegawai/destroy/').'\','.$dt->$idku.')"><i class="ti-trash"></i> Delete</a>';
-}
-$btn .= '</div>';
-           
- 			$row[] = $btn;
-            $data[] = $row;
-            $no++;
-        }
-         $output = array(
-                        "draw" => $_POST['draw'],
-                        "recordsTotal" => $total,
-                        "recordsFiltered" => $totalfil,
-                        "data" => $data,
-                );
-        //output to json format
-        echo json_encode($output);
+		// ---------- Render view ----------
+		$this->data['content'] = $this->load->view(
+			'sihenti_pegawai/v_sihenti_pegawai',
+			$this->data,
+			TRUE
+		);
 
+		$this->load->view('layouts/main', $this->data);
 	}
-	
-	function index() 
-	{
-		$this->data['PEGAWAI_ID'] = $_POST['id'];
-		$this->data['tableGrid'] 	= $this->info['config']['grid'];
 
-		// Group users permission
-		$this->data['access']		= $this->access;
-		// Render into template
-		
-		echo $this->data['content'] = $this->load->view('sihenti_pegawai/index',$this->data, true );
-		
-    	//$this->load->view('layouts/main', $this->data );
-    
-	  
-	}
-	
-	function show( $id = null) 
+	/* =====================================================
+ * AJAX: Data Pegawai dengan Pagination + Search
+ * Params: page (int), per_page (int), q (string)
+ * ===================================================== */
+	public function get_pegawai()
 	{
-		if($this->access['is_detail'] ==0)
-		{ 
-			$this->session->set_flashdata('error',SiteHelpers::alert('error','Your are not allowed to access the page'));
-			redirect('dashboard',301);
-	  	}		
+		$page     = max(1, (int) $this->input->get('page'));
+		$per_page = (int) $this->input->get('per_page');
+		$q        = trim($this->input->get('q', TRUE));
 
-		$row = $this->model->getRow($id);
-		if($row)
-		{
-			$this->data['row'] =  $row;
-		} else {
-			$this->data['row'] = $this->model->getColumnTable('pegawai'); 
+		if ($per_page < 1)   $per_page = 10;
+		if ($per_page > 100) $per_page = 100;
+		$offset = ($page - 1) * $per_page;
+
+		// ---------- Bangun kondisi pencarian (aman dari SQL injection) ----------
+		// CI2 tidak punya group_start/group_end → pakai where manual dengan parentheses
+		$cond = '';
+		if ($q !== '') {
+			$q_like = $this->db->escape_like_str($q);   // escape wildcard % dan _
+			$cond   = "(p.NIP_BARU LIKE '%{$q_like}%' OR p.NAMA LIKE '%{$q_like}%')";
 		}
-		
-		$this->data['id'] = $id;
-		echo $this->data['content'] =  $this->load->view('sihenti_pegawai/view', $this->data ,true);	  
-		//$this->load->view('layouts/main',$this->data);
-	}
-  
-	function add( $id = null ) 
-	{
 
-		$row = $this->model->getRow( $id );
-		if($row)
-		{
-			$this->data['row'] =  $row;
-		} else {
-			$this->data['row'] = $this->model->getColumnTable('pegawai'); 
+		// ---------- Hitung total ----------
+		$this->db
+			->from('pegawai p')
+			->join('satker s1', 'p.SATKER_ID = s1.SATKER_ID')
+			->join('satker s2', 's1.SATKER_INDUK_ID = s2.SATKER_ID')
+			->where_in('p.STATUS_PEGAWAI', array('1', '2', '10', '18'));
+
+		if ($cond !== '') {
+			$this->db->where($cond, NULL, FALSE);   // FALSE = jangan di-escape lagi
 		}
-	
-		$this->data['id'] = $id;
-		$this->data['PEGAWAI_ID'] = $_POST['id'];
-		echo $this->data['content'] = $this->load->view('sihenti_pegawai/form',$this->data, true );		
-	  	//$this->load->view('layouts/main', $this->data );
-	
-	}
-	
-	function save() {
-		
-		$rules = $this->validateForm();
 
-		$this->form_validation->set_rules( $rules );
-		if( $this->form_validation->run() )
-		{
-			$data = $this->validatePost();
-			$ID = $this->model->insertRow($data , $this->input->get_post( 'PEGAWAI_ID' , true ));
-			// Input logs
-			if( $this->input->get( 'PEGAWAI_ID' , true ) =='')
-			{
-				$this->inputLogs("New Entry row with ID : $ID  , Has Been Save Successfull");
-			} else {
-				$this->inputLogs(" ID : $ID  , Has Been Changed Successfull");
+		$total = $this->db->count_all_results();
+
+		// ---------- Ambil data halaman ini ----------
+		$this->db
+			->select('p.NIP_BARU, p.NAMA, s1.NAMA AS satker,
+                  s2.NAMA AS satker_induk, p.TANGGAL_PENSIUN')
+			->from('pegawai p')
+			->join('satker s1', 'p.SATKER_ID = s1.SATKER_ID')
+			->join('satker s2', 's1.SATKER_INDUK_ID = s2.SATKER_ID')
+			->where_in('p.STATUS_PEGAWAI', array('1', '2', '10', '18'));
+
+		if ($cond !== '') {
+			$this->db->where($cond, NULL, FALSE);
+		}
+
+		$rows = $this->db
+			->order_by('p.TANGGAL_PENSIUN', 'DESC')
+			->limit($per_page, $offset)
+			->get()->result();
+
+		// ---------- NIP yang sudah aktif diusulkan ----------
+		$aktif = $this->db
+			->select('nip')
+			->from('usulan_pemberhentian')
+			->where('status_usulan !=', 'Selesai')
+			->get()->result();
+		$nip_aktif = array();
+		foreach ($aktif as $a) {
+			$nip_aktif[] = $a->nip;
+		}
+
+		// ---------- Susun response ----------
+		$data = array();
+		foreach ($rows as $r) {
+			$data[] = array(
+				'nip'             => $r->NIP_BARU,
+				'nama'            => $r->NAMA,
+				'satker'          => $r->satker,
+				'satker_induk'    => $r->satker_induk,
+				'tanggal_pensiun' => $r->TANGGAL_PENSIUN,
+				'is_aktif'        => in_array($r->NIP_BARU, $nip_aktif),
+			);
+		}
+
+		return $this->_json(array(
+			'status'     => 'success',
+			'data'       => $data,
+			'total'      => $total,
+			'page'       => $page,
+			'per_page'   => $per_page,
+			'total_page' => (int) ceil($total / $per_page),
+			'q'          => $q,
+		));
+	}
+	public function tambah_usulan()
+	{
+		$nip  = trim($this->input->post('nip', TRUE));
+		$nama = trim($this->input->post('nama', TRUE));
+
+		if (empty($nip) || empty($nama)) {
+			return $this->_json(array(
+				'status'  => 'error',
+				'message' => 'Data tidak lengkap (nip/nama kosong).'
+			));
+		}
+
+		// ---------- Cek duplikat usulan aktif ----------
+		$cek = $this->db
+			->where('nip', $nip)
+			->where('status_usulan !=', 'Selesai')
+			->get('usulan_pemberhentian')
+			->row();
+
+		if ($cek) {
+			return $this->_json(array(
+				'status'  => 'error',
+				'message' => "NIP {$nip} masih memiliki usulan aktif (status: {$cek->status_usulan})."
+			));
+		}
+
+		// ---------- Siapkan data ----------
+		$userNama = $this->session->userdata('nama');
+		if (empty($userNama)) $userNama = $this->session->userdata('username');
+		if (empty($userNama)) $userNama = 'Administrator';
+
+		$insert = array(
+			'nip'            => $nip,
+			'nama'           => $nama,
+			'tanggal_usul'   => date('Y-m-d'),
+			'jenis_usulan'   => 'Pensiun',
+			'diusulkan_oleh' => $userNama,
+			'status_usulan'  => 'Draft',
+			'keterangan'     => NULL,
+		);
+
+		// ---------- Eksekusi + tangkap error ----------
+		$ok = $this->db->insert('usulan_pemberhentian', $insert);
+
+		if (!$ok) {
+			// CI2: pakai method dengan underscore
+			$mysqlErr = '';
+			if (method_exists($this->db, '_error_message')) {
+				$mysqlErr = $this->db->_error_message();
 			}
-			// Redirect after save	
-			$this->session->set_flashdata('message',SiteHelpers::alert('success'," Data has been saved succesfuly !"));
-			if($this->input->post('apply'))
-			{
-				redirect( 'sihenti_pegawai/add/'.$ID,301);
-			} else {
-				redirect( 'sihenti_pegawai',301);
-			}			
-			
-			
-		} else {
-			$data =	array(
-					'message'	=> 'Ops , The following errors occurred',
-					'errors'	=> validation_errors('<li>', '</li>')
-					);			
-			$this->displayError($data);
+
+			return $this->_json(array(
+				'status'   => 'error',
+				'message'  => 'Gagal menyimpan ke database. ' . $mysqlErr,
+				'debug'    => array(
+					'last_query' => $this->db->last_query(),
+					'error'      => $mysqlErr,
+				)
+			));
 		}
+
+		return $this->_json(array(
+			'status'  => 'success',
+			'message' => "Berhasil menambahkan {$nama} ({$nip}) ke usulan pemberhentian.",
+			'id'      => $this->db->insert_id(),
+		));
 	}
 
-	function destroy()
+	/* =====================================================
+     * AJAX: PILIH JENIS USULAN → status = 'Input Data'
+     * ===================================================== */
+	public function pilih_jenis_usulan()
 	{
-		if($this->access['is_remove'] ==0)
-		{ 
-			echo "err : maaf anda tidak memiliki hak untuk menghapus data";
-	  	}
-			
-		$this->model->destroy($_POST['id']);
-		$this->inputLogs("ID : ".$_POST['id']."  , Has Been Removed Successfull");
-		echo "ID : ".$_POST['id']."  , berhasil dihapus !!";
-		
+		$id    = (int) $this->input->post('id');
+		$jenis = $this->input->post('jenis_usulan', TRUE);
+
+		if (!$id || empty($jenis)) {
+			return $this->_json(array(
+				'status'  => 'error',
+				'message' => 'Data tidak lengkap (id/jenis_usulan kosong).'
+			));
+		}
+
+		// Validasi nilai ENUM (biar tidak error MySQL "Data truncated")
+		$allowed = array(
+			'Pensiun',
+			'Pengunduran Diri',
+			'Pemberhentian Dengan Hormat',
+			'Pemberhentian Tidak Dengan Hormat',
+			'Meninggal Dunia',
+			'Habis Masa Kontrak',
+			'Mutasi',
+		);
+		if (!in_array($jenis, $allowed)) {
+			return $this->_json(array(
+				'status'  => 'error',
+				'message' => 'Jenis usulan tidak valid.'
+			));
+		}
+
+		// Pastikan barisnya ada
+		$row = $this->db->where('id', $id)->get('usulan_pemberhentian')->row();
+		if (!$row) {
+			return $this->_json(array(
+				'status'  => 'error',
+				'message' => "Data usulan dengan id {$id} tidak ditemukan."
+			));
+		}
+
+		// Update
+		$this->db->where('id', $id)->update('usulan_pemberhentian', array(
+			'jenis_usulan'  => $jenis,
+			'status_usulan' => 'Input Data',
+			'tanggal_edit'  => date('Y-m-d H:i:s'),
+		));
+
+		$err = method_exists($this->db, '_error_message') ? $this->db->_error_message() : '';
+		if (!empty($err)) {
+			return $this->_json(array(
+				'status'  => 'error',
+				'message' => 'Gagal update: ' . $err,
+				'debug'   => array('last_query' => $this->db->last_query())
+			));
+		}
+
+		return $this->_json(array(
+			'status'  => 'success',
+			'message' => 'Jenis usulan berhasil dipilih. Status berubah menjadi "Input Data".'
+		));
 	}
 
+	/* =====================================================
+     * HALAMAN DETAIL
+     * ===================================================== */
+	public function detail($id = NULL)
+	{
+		if (!$id) redirect('sihenti_pegawai');
 
+		$usulan = $this->db
+			->where('id', $id)
+			->get('usulan_pemberhentian')->row();
+
+		if (!$usulan) redirect('sihenti_pegawai');
+
+		$this->data['pageTitle'] = 'Detail Usulan Pemberhentian';
+		$this->data['usulan']    = $usulan;
+
+		$this->data['content'] = $this->load->view(
+			'sihenti_pegawai/v_sihenti_detail',
+			$this->data,
+			TRUE
+		);
+
+		$this->load->view('layouts/main', $this->data);
+	}
+
+	/**
+	 * Helper JSON + auto-refresh CSRF token
+	 * (CI2 regenerasi CSRF setelah POST → hash lama jadi stale)
+	 */
+	private function _json($arr)
+	{
+		if (!is_array($arr)) $arr = array();
+
+		// Sertakan CSRF terbaru agar JS selalu punya token valid
+		$arr['csrf_name'] = $this->security->get_csrf_token_name();
+		$arr['csrf_hash'] = $this->security->get_csrf_hash();
+
+		$this->output
+			->set_content_type('application/json')
+			->set_output(json_encode($arr));
+
+		// Hentikan eksekusi supaya tidak ada output tambahan
+		// (bisa di-nonaktifkan kalau ada hook yang perlu jalan)
+		// exit;  // <- opsional, aktifkan kalau ada output bocor
+	}
 }
