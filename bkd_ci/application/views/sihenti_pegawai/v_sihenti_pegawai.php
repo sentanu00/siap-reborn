@@ -78,7 +78,7 @@ if (!function_exists('_badge_status')) {
                     <th>Tgl Edit</th>
                     <th>Status</th>
                     <th>Keterangan</th>
-                    <th class="text-center" style="width:180px;">Aksi</th>
+                    <th class="text-center" style="width:230px;">Aksi</th>
                 </tr>
             </thead>
             <tbody>
@@ -115,6 +115,14 @@ if (!function_exists('_badge_status')) {
                                     title="Detail Berkas">
                                     <i class="bi bi-folder2-open"></i> Detail
                                 </a>
+                                <button type="button"
+                                    class="btn btn-sm btn-outline-danger btn-hapus-usulan"
+                                    data-id="<?= $u->id ?>"
+                                    data-nip="<?= htmlspecialchars($u->nip) ?>"
+                                    data-nama="<?= htmlspecialchars($u->nama) ?>"
+                                    title="Hapus Usulan">
+                                    <i class="fa fa-trash"></i>
+                                </button>
                             </td>
                         </tr>
                 <?php endforeach;
@@ -249,6 +257,26 @@ if (!function_exists('_badge_status')) {
             <div class="modal-footer">
                 <button class="btn btn-secondary" data-dismiss="modal" data-bs-dismiss="modal">Batal</button>
                 <button class="btn btn-primary" id="btn-simpan-jenis">Simpan</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalHapus" tabindex="-1" role="dialog">
+    <div class="modal-dialog" style="max-width: 450px !important; width: 90% !important; margin: 1.75rem auto;">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white" style="display: flex; justify-content: space-between; align-items: center;">
+                <h5 class="modal-title mb-0"><i class="fa fa-exclamation-triangle"></i> Konfirmasi Hapus</h5>
+                <button type="button" class="close text-white border-0 bg-transparent opacity-100" data-dismiss="modal" data-bs-dismiss="modal" aria-label="Close" style="font-size: 1.5rem; cursor: pointer;">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p id="hapus-text" class="mb-0"></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="btn btn-danger" id="btn-hapus-ya">Ya, Hapus</button>
             </div>
         </div>
     </div>
@@ -605,6 +633,63 @@ if (!function_exists('_badge_status')) {
                     btn.disabled = false;
                     btn.textContent = 'Simpan';
                     pendingJenis = null;
+                });
+        });
+
+
+        let pendingHapus = null;
+
+        document.querySelectorAll('.btn-hapus-usulan').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                pendingHapus = {
+                    id: this.dataset.id,
+                    nip: this.dataset.nip,
+                    nama: this.dataset.nama
+                };
+                document.getElementById('hapus-text').innerHTML =
+                    'Apakah Anda yakin ingin menghapus usulan pemberhentian untuk <b>' +
+                    escapeHtml(this.dataset.nama) + ' (' + escapeHtml(this.dataset.nip) + ')</b>?';
+
+                $('#modalHapus').modal('show');
+            });
+        });
+
+        document.getElementById('btn-hapus-ya').addEventListener('click', function() {
+            if (!pendingHapus) return;
+
+            const btn = this;
+            btn.disabled = true;
+            btn.textContent = 'Menghapus…';
+
+            const fd = new FormData();
+            fd.append('id', pendingHapus.id);
+            fd.append(CSRF_NAME, CSRF_HASH);
+
+            fetch(BASE + '/hapus_usulan', {
+                    method: 'POST',
+                    body: fd
+                })
+                .then(function(r) { return r.json(); })
+                .then(function(res) {
+                    if (res.csrf_hash) CSRF_HASH = res.csrf_hash;
+                    if (res.csrf_name) CSRF_NAME = res.csrf_name;
+
+                    if (res.status === 'success') {
+                        $('#modalHapus').modal('hide');
+                        alert(res.message);
+                        location.reload();
+                    } else {
+                        alert(res.message);
+                        if (res.debug) console.error('Debug:', res.debug);
+                    }
+                })
+                .catch(function(err) {
+                    alert('Error: ' + err);
+                })
+                .finally(function() {
+                    btn.disabled = false;
+                    btn.textContent = 'Ya, Hapus';
+                    pendingHapus = null;
                 });
         });
     })();

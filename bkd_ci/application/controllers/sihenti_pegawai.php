@@ -296,6 +296,46 @@ class Sihenti_pegawai extends SB_Controller
 		$this->load->view('layouts/main', $this->data);
 	}
 
+	
+	public function hapus_usulan()
+	{
+		$id = (int) $this->input->post('id');
+
+		if (!$id) {
+			return $this->_json(array(
+				'status'  => 'error',
+				'message' => 'ID usulan tidak valid.'
+			));
+		}
+
+		// Cek apakah data ada
+		$row = $this->db->where('id', $id)->get('usulan_pemberhentian')->row();
+		if (!$row) {
+			return $this->_json(array(
+				'status'  => 'error',
+				'message' => "Data usulan dengan ID {$id} tidak ditemukan."
+			));
+		}
+
+		// Eksekusi Hapus
+		$ok = $this->db->where('id', $id)->delete('usulan_pemberhentian');
+
+		if (!$ok) {
+			$mysqlErr = method_exists($this->db, '_error_message') ? $this->db->_error_message() : '';
+
+			return $this->_json(array(
+				'status'  => 'error',
+				'message' => 'Gagal menghapus data dari database. ' . $mysqlErr,
+				'debug'   => array('last_query' => $this->db->last_query())
+			));
+		}
+
+		return $this->_json(array(
+			'status'  => 'success',
+			'message' => "Usulan pemberhentian untuk {$row->nama} ({$row->nip}) berhasil dihapus."
+		));
+	}
+
 	private function _json($arr)
 	{
 		if (!is_array($arr)) $arr = array();
