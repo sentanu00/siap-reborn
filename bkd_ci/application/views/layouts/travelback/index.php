@@ -23,6 +23,7 @@
 
 	<!-- CSS Plugins -->
 	<link rel="stylesheet" type="text/css" href="<?php echo base_url().'sximo/themes/tourpacker/';?>bootstrap/css/bootstrap.min.css" media="screen">	
+	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 	<link href="<?php echo base_url().'sximo/themes/tourpacker/';?>css/animate.css" rel="stylesheet">
 	<link href="<?php echo base_url().'sximo/themes/tourpacker/';?>css/main.css" rel="stylesheet">
 	<link href="<?php echo base_url().'sximo/themes/tourpacker/';?>css/component.css" rel="stylesheet">
