@@ -43,10 +43,13 @@ class Sihenti_pegawai extends SB_Controller
 
 	/* =====================================================
      * HALAMAN UTAMA - 2 TABEL
-     * (Tabel pegawai dimuat via AJAX, tidak di-query di sini)
      * ===================================================== */
 	public function index()
 	{
+		// Fetch jenis pemberhentian dari model (disimpan ke $this->data)
+		$this->load->model('jenispemberhentianmodel');
+		$this->data['jenis_pemberhentian_list'] = $this->db->get('jenis_pemberhentian')->result();
+		
 		// ---------- Tabel Atas: Usulan Pemberhentian ----------
 		$this->data['usulan_list'] = $this->db
 			->select('id, nip, nama, tanggal_usul, jenis_usulan,
@@ -64,17 +67,6 @@ class Sihenti_pegawai extends SB_Controller
 			->get()->result();
 		$this->data['nip_aktif'] = array_column($aktif, 'nip');
 
-		// ---------- Opsi Jenis Usulan ----------
-		$this->data['jenis_usulan_options'] = array(
-			'Pensiun',
-			'Pengunduran Diri',
-			'Pemberhentian Dengan Hormat',
-			'Pemberhentian Tidak Dengan Hormat',
-			'Meninggal Dunia',
-			'Habis Masa Kontrak',
-			'Mutasi',
-		);
-
 		// Konfigurasi pagination pegawai
 		$this->data['pegawai_per_page'] = 10;
 
@@ -89,9 +81,8 @@ class Sihenti_pegawai extends SB_Controller
 	}
 
 	/* =====================================================
- * AJAX: Data Pegawai dengan Pagination + Search
- * Params: page (int), per_page (int), q (string)
- * ===================================================== */
+     * AJAX: Data Pegawai dengan Pagination + Search
+     * ===================================================== */
 	public function get_pegawai()
 	{
 		$page     = max(1, (int) $this->input->get('page'));
@@ -102,15 +93,13 @@ class Sihenti_pegawai extends SB_Controller
 		if ($per_page > 100) $per_page = 100;
 		$offset = ($page - 1) * $per_page;
 
-		// ---------- Bangun kondisi pencarian (aman dari SQL injection) ----------
-		// CI2 tidak punya group_start/group_end → pakai where manual dengan parentheses
 		$cond = '';
 		if ($q !== '') {
-			$q_like = $this->db->escape_like_str($q);   // escape wildcard % dan _
+			$q_like = $this->db->escape_like_str($q);
 			$cond   = "(p.NIP_BARU LIKE '%{$q_like}%' OR p.NAMA LIKE '%{$q_like}%')";
 		}
 
-		// ---------- Hitung total ----------
+		// Hitung total
 		$this->db
 			->from('pegawai p')
 			->join('satker s1', 'p.SATKER_ID = s1.SATKER_ID')
@@ -118,12 +107,12 @@ class Sihenti_pegawai extends SB_Controller
 			->where_in('p.STATUS_PEGAWAI', array('1', '2', '10', '18'));
 
 		if ($cond !== '') {
-			$this->db->where($cond, NULL, FALSE);   // FALSE = jangan di-escape lagi
+			$this->db->where($cond, NULL, FALSE);
 		}
 
 		$total = $this->db->count_all_results();
 
-		// ---------- Ambil data halaman ini ----------
+		// Ambil data halaman ini
 		$this->db
 			->select('p.NIP_BARU, p.NAMA, s1.NAMA AS satker,
                   s2.NAMA AS satker_induk, p.TANGGAL_PENSIUN')
@@ -141,18 +130,14 @@ class Sihenti_pegawai extends SB_Controller
 			->limit($per_page, $offset)
 			->get()->result();
 
-		// ---------- NIP yang sudah aktif diusulkan ----------
+		// NIP yang sudah aktif diusulkan
 		$aktif = $this->db
 			->select('nip')
 			->from('usulan_pemberhentian')
 			->where('status_usulan !=', 'Selesai')
 			->get()->result();
-		$nip_aktif = array();
-		foreach ($aktif as $a) {
-			$nip_aktif[] = $a->nip;
-		}
+		$nip_aktif = array_column($aktif, 'nip');
 
-		// ---------- Susun response ----------
 		$data = array();
 		foreach ($rows as $r) {
 			$data[] = array(
@@ -175,19 +160,24 @@ class Sihenti_pegawai extends SB_Controller
 			'q'          => $q,
 		));
 	}
+
+	/* =====================================================
+     * AJAX: TAMBAH USULAN (Menerima NIP, Nama & Jenis Usulan)
+     * ===================================================== */
 	public function tambah_usulan()
 	{
-		$nip  = trim($this->input->post('nip', TRUE));
-		$nama = trim($this->input->post('nama', TRUE));
+		$nip          = trim($this->input->post('nip', TRUE));
+		$nama         = trim($this->input->post('nama', TRUE));
+		$jenis_usulan = trim($this->input->post('jenis_usulan', TRUE));
 
-		if (empty($nip) || empty($nama)) {
+		if (empty($nip) || empty($nama) || empty($jenis_usulan)) {
 			return $this->_json(array(
 				'status'  => 'error',
-				'message' => 'Data tidak lengkap (nip/nama kosong).'
+				'message' => 'Data tidak lengkap (NIP, Nama, atau Jenis Usulan kosong).'
 			));
 		}
 
-		// ---------- Cek duplikat usulan aktif ----------
+		// Cek duplikat usulan aktif
 		$cek = $this->db
 			->where('nip', $nip)
 			->where('status_usulan !=', 'Selesai')
@@ -201,7 +191,6 @@ class Sihenti_pegawai extends SB_Controller
 			));
 		}
 
-		// ---------- Siapkan data ----------
 		$userNama = $this->session->userdata('nama');
 		if (empty($userNama)) $userNama = $this->session->userdata('username');
 		if (empty($userNama)) $userNama = 'Administrator';
@@ -210,21 +199,16 @@ class Sihenti_pegawai extends SB_Controller
 			'nip'            => $nip,
 			'nama'           => $nama,
 			'tanggal_usul'   => date('Y-m-d'),
-			'jenis_usulan'   => 'Pensiun',
+			'jenis_usulan'   => $jenis_usulan,
 			'diusulkan_oleh' => $userNama,
-			'status_usulan'  => 'Draft',
+			'status_usulan'  => 'Input Data',
 			'keterangan'     => NULL,
 		);
 
-		// ---------- Eksekusi + tangkap error ----------
 		$ok = $this->db->insert('usulan_pemberhentian', $insert);
 
 		if (!$ok) {
-			// CI2: pakai method dengan underscore
-			$mysqlErr = '';
-			if (method_exists($this->db, '_error_message')) {
-				$mysqlErr = $this->db->_error_message();
-			}
+			$mysqlErr = method_exists($this->db, '_error_message') ? $this->db->_error_message() : '';
 
 			return $this->_json(array(
 				'status'   => 'error',
@@ -244,7 +228,7 @@ class Sihenti_pegawai extends SB_Controller
 	}
 
 	/* =====================================================
-     * AJAX: PILIH JENIS USULAN → status = 'Input Data'
+     * AJAX: PILIH JENIS USULAN
      * ===================================================== */
 	public function pilih_jenis_usulan()
 	{
@@ -258,24 +242,6 @@ class Sihenti_pegawai extends SB_Controller
 			));
 		}
 
-		// Validasi nilai ENUM (biar tidak error MySQL "Data truncated")
-		$allowed = array(
-			'Pensiun',
-			'Pengunduran Diri',
-			'Pemberhentian Dengan Hormat',
-			'Pemberhentian Tidak Dengan Hormat',
-			'Meninggal Dunia',
-			'Habis Masa Kontrak',
-			'Mutasi',
-		);
-		if (!in_array($jenis, $allowed)) {
-			return $this->_json(array(
-				'status'  => 'error',
-				'message' => 'Jenis usulan tidak valid.'
-			));
-		}
-
-		// Pastikan barisnya ada
 		$row = $this->db->where('id', $id)->get('usulan_pemberhentian')->row();
 		if (!$row) {
 			return $this->_json(array(
@@ -284,7 +250,6 @@ class Sihenti_pegawai extends SB_Controller
 			));
 		}
 
-		// Update
 		$this->db->where('id', $id)->update('usulan_pemberhentian', array(
 			'jenis_usulan'  => $jenis,
 			'status_usulan' => 'Input Data',
@@ -302,7 +267,7 @@ class Sihenti_pegawai extends SB_Controller
 
 		return $this->_json(array(
 			'status'  => 'success',
-			'message' => 'Jenis usulan berhasil dipilih. Status berubah menjadi "Input Data".'
+			'message' => 'Jenis usulan berhasil dipilih.'
 		));
 	}
 
@@ -331,24 +296,55 @@ class Sihenti_pegawai extends SB_Controller
 		$this->load->view('layouts/main', $this->data);
 	}
 
-	/**
-	 * Helper JSON + auto-refresh CSRF token
-	 * (CI2 regenerasi CSRF setelah POST → hash lama jadi stale)
-	 */
+	
+	public function hapus_usulan()
+	{
+		$id = (int) $this->input->post('id');
+
+		if (!$id) {
+			return $this->_json(array(
+				'status'  => 'error',
+				'message' => 'ID usulan tidak valid.'
+			));
+		}
+
+		// Cek apakah data ada
+		$row = $this->db->where('id', $id)->get('usulan_pemberhentian')->row();
+		if (!$row) {
+			return $this->_json(array(
+				'status'  => 'error',
+				'message' => "Data usulan dengan ID {$id} tidak ditemukan."
+			));
+		}
+
+		// Eksekusi Hapus
+		$ok = $this->db->where('id', $id)->delete('usulan_pemberhentian');
+
+		if (!$ok) {
+			$mysqlErr = method_exists($this->db, '_error_message') ? $this->db->_error_message() : '';
+
+			return $this->_json(array(
+				'status'  => 'error',
+				'message' => 'Gagal menghapus data dari database. ' . $mysqlErr,
+				'debug'   => array('last_query' => $this->db->last_query())
+			));
+		}
+
+		return $this->_json(array(
+			'status'  => 'success',
+			'message' => "Usulan pemberhentian untuk {$row->nama} ({$row->nip}) berhasil dihapus."
+		));
+	}
+
 	private function _json($arr)
 	{
 		if (!is_array($arr)) $arr = array();
 
-		// Sertakan CSRF terbaru agar JS selalu punya token valid
 		$arr['csrf_name'] = $this->security->get_csrf_token_name();
 		$arr['csrf_hash'] = $this->security->get_csrf_hash();
 
 		$this->output
 			->set_content_type('application/json')
 			->set_output(json_encode($arr));
-
-		// Hentikan eksekusi supaya tidak ada output tambahan
-		// (bisa di-nonaktifkan kalau ada hook yang perlu jalan)
-		// exit;  // <- opsional, aktifkan kalau ada output bocor
 	}
 }

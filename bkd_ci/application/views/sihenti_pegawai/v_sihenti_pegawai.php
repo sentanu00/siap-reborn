@@ -1,3 +1,23 @@
+<?php
+if (!function_exists('_badge_status')) {
+    function _badge_status($s)
+    {
+        $map = array(
+            'Draft'       => 'secondary',
+            'Input Data'  => 'info',
+            'Diajukan'    => 'primary',
+            'Diproses'    => 'warning',
+            'Disetujui'   => 'success',
+            'Ditolak'     => 'danger',
+            'Selesai'     => 'dark',
+        );
+        $cls = isset($map[$s]) ? $map[$s] : 'secondary';
+        return '<span class="badge bg-' . $cls . ' badge-status">'
+            . htmlspecialchars($s) . '</span>';
+    }
+}
+?>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 <!-- ==================== STYLE ==================== -->
 <style>
     .card-header {
@@ -58,7 +78,7 @@
                     <th>Tgl Edit</th>
                     <th>Status</th>
                     <th>Keterangan</th>
-                    <th class="text-center" style="width:180px;">Aksi</th>
+                    <th class="text-center" style="width:230px;">Aksi</th>
                 </tr>
             </thead>
             <tbody>
@@ -88,13 +108,21 @@
                                     data-nama="<?= htmlspecialchars($u->nama) ?>"
                                     data-jenis="<?= htmlspecialchars($u->jenis_usulan) ?>"
                                     title="Pilih Jenis Usulan">
-                                    <i class="bi bi-tags"></i>
+                                    <i class="bi bi-pencil-square"></i>Pilih Jenis
                                 </button>
                                 <a href="<?= site_url('sihenti_pegawai/detail/' . $u->id) ?>"
                                     class="btn btn-sm btn-outline-success"
                                     title="Detail Berkas">
                                     <i class="bi bi-folder2-open"></i> Detail
                                 </a>
+                                <button type="button"
+                                    class="btn btn-sm btn-outline-danger btn-hapus-usulan"
+                                    data-id="<?= $u->id ?>"
+                                    data-nip="<?= htmlspecialchars($u->nip) ?>"
+                                    data-nama="<?= htmlspecialchars($u->nama) ?>"
+                                    title="Hapus Usulan">
+                                    <i class="fa fa-trash"></i>
+                                </button>
                             </td>
                         </tr>
                 <?php endforeach;
@@ -108,17 +136,26 @@
 <!-- TABEL 2 : DAFTAR PEGAWAI (AJAX + Pagination)         -->
 <!-- ==================================================== -->
 <div class="card shadow-sm mb-4">
-    <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center flex-wrap gap-2">
-        <span><i class="bi bi-people"></i> Daftar Pegawai Aktif</span>
+    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <p class="mb-0"><i class="bi bi-people"></i> Daftar Pegawai Aktif</p>
         <div class="d-flex align-items-center gap-2">
-            <select id="per-page-pegawai" class="form-select form-select-sm" style="width:auto;">
+            <select id="per-page-pegawai" class="form-select form-select-sm shadow-none" style="width:auto;">
                 <option value="10" selected>10 / hal</option>
                 <option value="25">25 / hal</option>
                 <option value="50">50 / hal</option>
                 <option value="100">100 / hal</option>
             </select>
-            <input type="text" id="search-pegawai" class="form-control form-control-sm"
-                placeholder="Cari NIP atau Nama…" style="min-width:260px;">
+            
+            <div class="input-group input-group-sm rounded-pill overflow-hidden bg-white border" style="min-width: 280px;">
+                <span class="input-group-text bg-transparent border-0 pe-1 text-muted">
+                    <i class="bi bi-search"></i>
+                </span>
+                <input type="text" id="search-pegawai" class="form-control border-0 bg-transparent shadow-none px-2"
+                    placeholder="Cari NIP atau Nama…">
+                <button class="btn btn-link text-decoration-none border-0 pe-2 d-none" type="button" id="btn-reset-pegawai" title="Reset Pencarian">
+                    <i class="bi bi-x-circle-fill text-secondary opacity-75"></i>
+                </button>
+            </div>
         </div>
     </div>
     <div class="card-body table-responsive p-0">
@@ -150,54 +187,96 @@
 </div>
 
 <!-- ==================================================== -->
-<!-- MODAL KONFIRMASI TAMBAH                               -->
+<!-- MODAL TAMBAH USULAN (PILIH JENIS PEMBERHENTIAN)       -->
 <!-- ==================================================== -->
 <div class="modal fade" id="modalKonfirmasi" tabindex="-1">
-    <div class="modal-dialog">
+    <!-- <div class="modal-dialog modal-sm modal-dialog-centered"> -->
+    <div class="modal-dialog" style="max-width: 500px !important; width: 90% !important; margin: 1.75rem auto;">
         <div class="modal-content">
             <div class="modal-header bg-success text-white">
-                <h5 class="modal-title">Konfirmasi</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                <h5 class="modal-title"><i class="bi bi-person-plus"></i> Tambah Usulan Pemberhentian</h5>
+                <button type="button" class="close text-white border-0 bg-transparent opacity-100" data-dismiss="modal" data-bs-dismiss="modal" aria-label="Close" style="font-size: 1.5rem; cursor: pointer;">
+                    <span aria-hidden="true">&times;</span>
+                </button>
             </div>
             <div class="modal-body">
-                <p id="konfirmasi-text" class="mb-0"></p>
+                <p id="konfirmasi-text" class="mb-3"></p>
+                
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Jenis Pemberhentian <span class="text-danger">*</span></label>
+                    <select class="form-select" id="tambah-jenis-usulan">
+                        <option value="">-- Pilih Jenis Pemberhentian --</option>
+                        <?php if (!empty($jenis_pemberhentian_list)): ?>
+                            <?php foreach ($jenis_pemberhentian_list as $jp): 
+                                $valText = $jp->jenis;
+                            ?>
+                                <option value="<?= htmlspecialchars($valText) ?>">
+                                    <?= htmlspecialchars($valText) ?>
+                                </option>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </select>
+                </div>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-                <button class="btn btn-success" id="btn-konfirmasi-ya">Ya, Tambahkan</button>
+                <button class="btn btn-secondary" data-dismiss="modal" data-bs-dismiss="modal">Batal</button>
+                <button class="btn btn-success" id="btn-konfirmasi-ya">Simpan Usulan</button>
             </div>
         </div>
     </div>
 </div>
 
 <!-- ==================================================== -->
-<!-- MODAL PILIH JENIS USULAN                              -->
+<!-- MODAL EDIT JENIS USULAN                               -->
 <!-- ==================================================== -->
 <div class="modal fade" id="modalJenis" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog" style="max-width: 500px !important; width: 90% !important; margin: 1.75rem auto;">
         <div class="modal-content">
             <div class="modal-header bg-primary text-white">
                 <h5 class="modal-title">Pilih Jenis Usulan</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                <button type="button" class="close text-white border-0 bg-transparent opacity-100" data-dismiss="modal" data-bs-dismiss="modal" aria-label="Close" style="font-size: 1.5rem; cursor: pointer;">
+                    <span aria-hidden="true">&times;</span>
+                </button>
             </div>
             <div class="modal-body">
                 <p class="mb-2">Pegawai:
                     <strong id="jenis-nama"></strong>
                     (<span id="jenis-nip"></span>)
                 </p>
-                <label class="form-label">Jenis Usulan Pemberhentian</label>
+                <label class="form-label fw-bold">Jenis Pemberhentian</label>
                 <select class="form-select" id="select-jenis">
-                    <?php foreach ($jenis_usulan_options as $opt): ?>
-                        <option value="<?= htmlspecialchars($opt) ?>"><?= htmlspecialchars($opt) ?></option>
-                    <?php endforeach; ?>
+                    <?php if (!empty($jenis_pemberhentian_list)): ?>
+                        <?php foreach ($jenis_pemberhentian_list as $jp): 
+                            $valText = $jp->jenis;
+                        ?>
+                            <option value="<?= htmlspecialchars($valText) ?>"><?= htmlspecialchars($valText) ?></option>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
                 </select>
-                <small class="text-muted d-block mt-2">
-                    Setelah dipilih, status akan berubah menjadi <b>Input Data</b>.
-                </small>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                <button class="btn btn-secondary" data-dismiss="modal" data-bs-dismiss="modal">Batal</button>
                 <button class="btn btn-primary" id="btn-simpan-jenis">Simpan</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalHapus" tabindex="-1" role="dialog">
+    <div class="modal-dialog" style="max-width: 450px !important; width: 90% !important; margin: 1.75rem auto;">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white" style="display: flex; justify-content: space-between; align-items: center;">
+                <h5 class="modal-title mb-0"><i class="fa fa-exclamation-triangle"></i> Konfirmasi Hapus</h5>
+                <button type="button" class="close text-white border-0 bg-transparent opacity-100" data-dismiss="modal" data-bs-dismiss="modal" aria-label="Close" style="font-size: 1.5rem; cursor: pointer;">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p id="hapus-text" class="mb-0"></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="btn btn-danger" id="btn-hapus-ya">Ya, Hapus</button>
             </div>
         </div>
     </div>
@@ -209,8 +288,8 @@
 <script>
     (function() {
         const BASE = "<?= site_url('sihenti_pegawai') ?>";
-        const CSRF_NAME = "<?= $this->security->get_csrf_token_name() ?>";
-        const CSRF_HASH = "<?= $this->security->get_csrf_hash() ?>";
+        let CSRF_NAME = "<?= $this->security->get_csrf_token_name() ?>";
+        let CSRF_HASH = "<?= $this->security->get_csrf_hash() ?>";
 
         /* =========================================================
          * BAGIAN A: PEGAWAI - AJAX + Pagination + Search
@@ -228,6 +307,7 @@
         const infoPegawai = document.getElementById('info-pegawai');
         const paginasi = document.getElementById('pagination-pegawai');
         const searchInput = document.getElementById('search-pegawai');
+        const btnReset = document.getElementById('btn-reset-pegawai');
         const perPageSel = document.getElementById('per-page-pegawai');
 
         function escapeHtml(s) {
@@ -274,7 +354,6 @@
             });
             tbodyPegawai.innerHTML = html;
 
-            // rebind tombol tambah
             tbodyPegawai.querySelectorAll('.btn-tambah').forEach(function(btn) {
                 btn.addEventListener('click', onKlikTambah);
             });
@@ -299,7 +378,6 @@
 
             html += mkBtn('&laquo;', curr - 1, curr <= 1, false);
 
-            // window 5 halaman
             let start = Math.max(1, curr - 2);
             let end = Math.min(total, start + 4);
             if (end - start < 4) start = Math.max(1, end - 4);
@@ -350,11 +428,9 @@
                         'X-Requested-With': 'XMLHttpRequest'
                     }
                 })
-                .then(function(r) {
-                    return r.json();
-                })
+                .then(function(r) { return r.json(); })
                 .then(function(res) {
-                    if (myReq !== statePegawai.requestId) return; // buang response lama
+                    if (myReq !== statePegawai.requestId) return;
                     if (res.status !== 'success') {
                         tbodyPegawai.innerHTML =
                             '<tr><td colspan="7" class="text-center text-danger py-3">' +
@@ -382,9 +458,19 @@
                 });
         }
 
-        /* --- Debounce pencarian (300ms) --- */
+        /* --- Toggle Tombol Reset & Debounce Pencarian --- */
         let searchTimer = null;
+
+        function toggleResetButton() {
+            if (searchInput.value.trim().length > 0) {
+                btnReset.classList.remove('d-none');
+            } else {
+                btnReset.classList.add('d-none');
+            }
+        }
+
         searchInput.addEventListener('input', function() {
+            toggleResetButton();
             clearTimeout(searchTimer);
             const val = this.value.trim();
             searchTimer = setTimeout(function() {
@@ -394,25 +480,30 @@
             }, 300);
         });
 
-        /* --- Ganti jumlah per halaman --- */
+        btnReset.addEventListener('click', function() {
+            searchInput.value = '';
+            toggleResetButton();
+            searchInput.focus();
+
+            if (statePegawai.q !== '') {
+                statePegawai.q = '';
+                statePegawai.page = 1;
+                loadPegawai();
+            }
+        });
+
         perPageSel.addEventListener('change', function() {
             statePegawai.per_page = parseInt(this.value, 10) || 10;
             statePegawai.page = 1;
             loadPegawai();
         });
 
-        /* --- Load pertama --- */
         loadPegawai();
 
+        /* =========================================================
+         * BAGIAN B: MODAL TAMBAH USULAN PEGAWAI (jQuery Bootstrap)
+         * ========================================================= */
         let pendingTambah = null;
-        let modalKonfirmasiInstance = null; // ⭐ lazy init
-
-        function getModalKonfirmasi() {
-            if (!modalKonfirmasiInstance) {
-                modalKonfirmasiInstance = new bootstrap.Modal('#modalKonfirmasi');
-            }
-            return modalKonfirmasiInstance;
-        }
 
         function onKlikTambah() {
             const nip = this.dataset.nip;
@@ -423,14 +514,25 @@
             };
 
             document.getElementById('konfirmasi-text').innerHTML =
-                'Apakah Anda yakin ingin menambahkan <b>' + escapeHtml(nama) +
-                ' (' + escapeHtml(nip) + ')</b> ke usulan pemberhentian?';
+                'Menambahkan usulan untuk: <b> <br>' + escapeHtml(nama) +
+                ' (' + escapeHtml(nip) + ')</b>';
 
-            getModalKonfirmasi().show(); // ⭐ dibuat saat diklik
+            // Reset Pilihan Select
+            document.getElementById('tambah-jenis-usulan').value = '';
+
+            // Buka Modal dengan jQuery Bootstrap
+            $('#modalKonfirmasi').modal('show');
         }
 
         document.getElementById('btn-konfirmasi-ya').addEventListener('click', function() {
             if (!pendingTambah) return;
+
+            const jenisUsulan = document.getElementById('tambah-jenis-usulan').value;
+            if (!jenisUsulan) {
+                alert('Silakan pilih jenis pemberhentian terlebih dahulu!');
+                return;
+            }
+
             const btn = this;
             btn.disabled = true;
             btn.textContent = 'Memproses…';
@@ -438,22 +540,20 @@
             const fd = new FormData();
             fd.append('nip', pendingTambah.nip);
             fd.append('nama', pendingTambah.nama);
+            fd.append('jenis_usulan', jenisUsulan);
             fd.append(CSRF_NAME, CSRF_HASH);
 
             fetch(BASE + '/tambah_usulan', {
                     method: 'POST',
                     body: fd
                 })
-                .then(function(r) {
-                    return r.json();
-                })
+                .then(function(r) { return r.json(); })
                 .then(function(res) {
-                    // update CSRF baru dari server
                     if (res.csrf_hash) CSRF_HASH = res.csrf_hash;
                     if (res.csrf_name) CSRF_NAME = res.csrf_name;
 
                     if (res.status === 'success') {
-                        getModalKonfirmasi().hide();
+                        $('#modalKonfirmasi').modal('hide');
                         alert(res.message);
                         location.reload();
                     } else {
@@ -466,23 +566,15 @@
                 })
                 .finally(function() {
                     btn.disabled = false;
-                    btn.textContent = 'Ya, Tambahkan';
+                    btn.textContent = 'Simpan Usulan';
                     pendingTambah = null;
                 });
         });
 
         /* =========================================================
-         * BAGIAN C: PILIH JENIS USULAN
+         * BAGIAN C: PILIH JENIS USULAN (jQuery Bootstrap)
          * ========================================================= */
         let pendingJenis = null;
-        let modalJenisInstance = null; // ⭐ lazy init
-
-        function getModalJenis() {
-            if (!modalJenisInstance) {
-                modalJenisInstance = new bootstrap.Modal('#modalJenis');
-            }
-            return modalJenisInstance;
-        }
 
         document.querySelectorAll('.btn-pilih-jenis').forEach(function(btn) {
             btn.addEventListener('click', function() {
@@ -499,7 +591,7 @@
                         break;
                     }
                 }
-                getModalJenis().show(); // ⭐
+                $('#modalJenis').modal('show');
             });
         });
 
@@ -520,15 +612,13 @@
                     method: 'POST',
                     body: fd
                 })
-                .then(function(r) {
-                    return r.json();
-                })
+                .then(function(r) { return r.json(); })
                 .then(function(res) {
                     if (res.csrf_hash) CSRF_HASH = res.csrf_hash;
                     if (res.csrf_name) CSRF_NAME = res.csrf_name;
 
                     if (res.status === 'success') {
-                        getModalJenis().hide();
+                        $('#modalJenis').modal('hide');
                         alert(res.message);
                         location.reload();
                     } else {
@@ -545,25 +635,63 @@
                     pendingJenis = null;
                 });
         });
+
+
+        let pendingHapus = null;
+
+        document.querySelectorAll('.btn-hapus-usulan').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                pendingHapus = {
+                    id: this.dataset.id,
+                    nip: this.dataset.nip,
+                    nama: this.dataset.nama
+                };
+                document.getElementById('hapus-text').innerHTML =
+                    'Apakah Anda yakin ingin menghapus usulan pemberhentian untuk <b>' +
+                    escapeHtml(this.dataset.nama) + ' (' + escapeHtml(this.dataset.nip) + ')</b>?';
+
+                $('#modalHapus').modal('show');
+            });
+        });
+
+        document.getElementById('btn-hapus-ya').addEventListener('click', function() {
+            if (!pendingHapus) return;
+
+            const btn = this;
+            btn.disabled = true;
+            btn.textContent = 'Menghapus…';
+
+            const fd = new FormData();
+            fd.append('id', pendingHapus.id);
+            fd.append(CSRF_NAME, CSRF_HASH);
+
+            fetch(BASE + '/hapus_usulan', {
+                    method: 'POST',
+                    body: fd
+                })
+                .then(function(r) { return r.json(); })
+                .then(function(res) {
+                    if (res.csrf_hash) CSRF_HASH = res.csrf_hash;
+                    if (res.csrf_name) CSRF_NAME = res.csrf_name;
+
+                    if (res.status === 'success') {
+                        $('#modalHapus').modal('hide');
+                        alert(res.message);
+                        location.reload();
+                    } else {
+                        alert(res.message);
+                        if (res.debug) console.error('Debug:', res.debug);
+                    }
+                })
+                .catch(function(err) {
+                    alert('Error: ' + err);
+                })
+                .finally(function() {
+                    btn.disabled = false;
+                    btn.textContent = 'Ya, Hapus';
+                    pendingHapus = null;
+                });
+        });
     })();
 </script>
 
-<?php
-if (!function_exists('_badge_status')) {
-    function _badge_status($s)
-    {
-        $map = array(
-            'Draft'       => 'secondary',
-            'Input Data'  => 'info',
-            'Diajukan'    => 'primary',
-            'Diproses'    => 'warning',
-            'Disetujui'   => 'success',
-            'Ditolak'     => 'danger',
-            'Selesai'     => 'dark',
-        );
-        $cls = isset($map[$s]) ? $map[$s] : 'secondary';
-        return '<span class="badge bg-' . $cls . ' badge-status">'
-            . htmlspecialchars($s) . '</span>';
-    }
-}
-?>
