@@ -26,6 +26,9 @@
             <dt class="col-sm-3 detail-dt">Nama</dt>
             <dd class="col-sm-9"><?= htmlspecialchars($usulan->nama) ?></dd>
 
+            <dt class="col-sm-3 detail-dt">Status Pegawai</dt>
+            <dd class="col-sm-9"><?= htmlspecialchars($usulan->status_pegawai ?: '-') ?></dd>
+
             <dt class="col-sm-3 detail-dt">Jenis Usulan</dt>
             <dd class="col-sm-9"><?= htmlspecialchars($usulan->jenis_usulan) ?></dd>
 

@@ -106,9 +106,10 @@ if (!function_exists('_badge_status')) {
                                     data-id="<?= $u->id ?>"
                                     data-nip="<?= htmlspecialchars($u->nip) ?>"
                                     data-nama="<?= htmlspecialchars($u->nama) ?>"
+                                    data-status="<?= htmlspecialchars($u->status_pegawai) ?>"
                                     data-jenis="<?= htmlspecialchars($u->jenis_usulan) ?>"
                                     title="Pilih Jenis Usulan">
-                                    <i class="bi bi-pencil-square"></i>Pilih Jenis
+                                    <i class="bi bi-pencil-square"></i> Pilih Jenis
                                 </button>
                                 <a href="<?= site_url('sihenti_pegawai/detail/' . $u->id) ?>"
                                     class="btn btn-sm btn-outline-success"
@@ -145,7 +146,7 @@ if (!function_exists('_badge_status')) {
                 <option value="50">50 / hal</option>
                 <option value="100">100 / hal</option>
             </select>
-            
+
             <div class="input-group input-group-sm rounded-pill overflow-hidden bg-white border" style="min-width: 280px;">
                 <span class="input-group-text bg-transparent border-0 pe-1 text-muted">
                     <i class="bi bi-search"></i>
@@ -165,6 +166,7 @@ if (!function_exists('_badge_status')) {
                     <th style="width:40px;">#</th>
                     <th>NIP</th>
                     <th>Nama</th>
+                    <th>Status</th>
                     <th>Satker</th>
                     <th>Satker Induk</th>
                     <th>Tanggal Pensiun</th>
@@ -201,17 +203,17 @@ if (!function_exists('_badge_status')) {
             </div>
             <div class="modal-body">
                 <p id="konfirmasi-text" class="mb-3"></p>
-                
+
                 <div class="mb-3">
                     <label class="form-label fw-bold">Jenis Pemberhentian <span class="text-danger">*</span></label>
                     <select class="form-select" id="tambah-jenis-usulan">
                         <option value="">-- Pilih Jenis Pemberhentian --</option>
                         <?php if (!empty($jenis_pemberhentian_list)): ?>
-                            <?php foreach ($jenis_pemberhentian_list as $jp): 
-                                $valText = $jp->jenis;
-                            ?>
-                                <option value="<?= htmlspecialchars($valText) ?>">
-                                    <?= htmlspecialchars($valText) ?>
+                            <?php foreach ($jenis_pemberhentian_list as $jp): ?>
+                                <option
+                                    value="<?= htmlspecialchars($jp->jenis) ?>"
+                                    data-status="<?= htmlspecialchars($jp->status_pegawai) ?>">
+                                    <?= htmlspecialchars($jp->jenis) ?>
                                 </option>
                             <?php endforeach; ?>
                         <?php endif; ?>
@@ -245,11 +247,14 @@ if (!function_exists('_badge_status')) {
                 </p>
                 <label class="form-label fw-bold">Jenis Pemberhentian</label>
                 <select class="form-select" id="select-jenis">
+                    <option value="">-- Pilih Jenis Pemberhentian --</option>
                     <?php if (!empty($jenis_pemberhentian_list)): ?>
-                        <?php foreach ($jenis_pemberhentian_list as $jp): 
-                            $valText = $jp->jenis;
-                        ?>
-                            <option value="<?= htmlspecialchars($valText) ?>"><?= htmlspecialchars($valText) ?></option>
+                        <?php foreach ($jenis_pemberhentian_list as $jp): ?>
+                            <option
+                                value="<?= htmlspecialchars($jp->jenis) ?>"
+                                data-status="<?= htmlspecialchars($jp->status_pegawai) ?>">
+                                <?= htmlspecialchars($jp->jenis) ?>
+                            </option>
                         <?php endforeach; ?>
                     <?php endif; ?>
                 </select>
@@ -320,6 +325,69 @@ if (!function_exists('_badge_status')) {
                 .replace(/'/g, '&#39;');
         }
 
+        function filterJenisPemberhentian(selectId, statusPegawai, selectedJenis) {
+            const select = document.getElementById(selectId);
+
+            if (!select) return;
+
+            // Normalisasi status
+            let statusFilter = String(statusPegawai || '').trim().toUpperCase();
+
+            // CPNS menggunakan daftar jenis PNS
+            if (statusFilter === 'CPNS') {
+                statusFilter = 'PNS';
+            }
+
+            // Simpan semua option asli
+            const allOptions = Array.from(select.querySelectorAll('option'));
+
+            // Kosongkan select
+            select.innerHTML = '';
+
+            // Option default
+            const defaultOption = document.createElement('option');
+            defaultOption.value = '';
+            defaultOption.textContent = '-- Pilih Jenis Pemberhentian --';
+            select.appendChild(defaultOption);
+
+            let jumlah = 0;
+
+            allOptions.forEach(function(option) {
+
+                // Lewati option default
+                if (!option.value) return;
+
+                const statusJenis = String(
+                    option.dataset.status || ''
+                ).trim().toUpperCase();
+
+                if (statusJenis === statusFilter) {
+
+                    const newOption = document.createElement('option');
+
+                    newOption.value = option.value;
+                    newOption.textContent = option.textContent;
+                    newOption.dataset.status = option.dataset.status;
+
+                    // Kalau sedang edit, pilih jenis yang lama
+                    if (selectedJenis && option.value === selectedJenis) {
+                        newOption.selected = true;
+                    }
+
+                    select.appendChild(newOption);
+
+                    jumlah++;
+                }
+            });
+
+            console.log(
+                'Filter jenis pemberhentian:',
+                'status pegawai =', statusPegawai,
+                'filter =', statusFilter,
+                'jumlah jenis =', jumlah
+            );
+        }
+
         function renderPegawai(data) {
             if (!data || data.length === 0) {
                 tbodyPegawai.innerHTML =
@@ -334,6 +402,7 @@ if (!function_exists('_badge_status')) {
                 html += '<td>' + (start + i + 1) + '</td>';
                 html += '<td>' + escapeHtml(row.nip) + '</td>';
                 html += '<td>' + escapeHtml(row.nama) + '</td>';
+                html += '<td>' + escapeHtml(row.status) + '</td>';
                 html += '<td>' + escapeHtml(row.satker) + '</td>';
                 html += '<td>' + escapeHtml(row.satker_induk) + '</td>';
                 html += '<td>' + escapeHtml(row.tanggal_pensiun) + '</td>';
@@ -346,7 +415,8 @@ if (!function_exists('_badge_status')) {
                     html += '<button type="button" ' +
                         'class="btn btn-sm btn-success btn-tambah" ' +
                         'data-nip="' + escapeHtml(row.nip) + '" ' +
-                        'data-nama="' + escapeHtml(row.nama) + '">' +
+                        'data-nama="' + escapeHtml(row.nama) + '" ' +
+                        'data-status="' + escapeHtml(row.status) + '">' +
                         '<i class="bi bi-plus-circle"></i> Tambah</button>';
                 }
                 html += '</td>';
@@ -428,7 +498,9 @@ if (!function_exists('_badge_status')) {
                         'X-Requested-With': 'XMLHttpRequest'
                     }
                 })
-                .then(function(r) { return r.json(); })
+                .then(function(r) {
+                    return r.json();
+                })
                 .then(function(res) {
                     if (myReq !== statePegawai.requestId) return;
                     if (res.status !== 'success') {
@@ -506,21 +578,32 @@ if (!function_exists('_badge_status')) {
         let pendingTambah = null;
 
         function onKlikTambah() {
+
             const nip = this.dataset.nip;
             const nama = this.dataset.nama;
+            const status = this.dataset.status;
+
             pendingTambah = {
                 nip: nip,
-                nama: nama
+                nama: nama,
+                status: this.dataset.status
             };
 
             document.getElementById('konfirmasi-text').innerHTML =
-                'Menambahkan usulan untuk: <b> <br>' + escapeHtml(nama) +
-                ' (' + escapeHtml(nip) + ')</b>';
+                'Menambahkan usulan untuk: <b><br>' +
+                escapeHtml(nama) +
+                ' (' + escapeHtml(nip) + ')</b>' +
+                '<br><small class="text-muted">Status: ' +
+                escapeHtml(status) +
+                '</small>';
 
-            // Reset Pilihan Select
-            document.getElementById('tambah-jenis-usulan').value = '';
+            // FILTER JENIS BERDASARKAN STATUS PEGAWAI
+            filterJenisPemberhentian(
+                'tambah-jenis-usulan',
+                status,
+                ''
+            );
 
-            // Buka Modal dengan jQuery Bootstrap
             $('#modalKonfirmasi').modal('show');
         }
 
@@ -540,6 +623,7 @@ if (!function_exists('_badge_status')) {
             const fd = new FormData();
             fd.append('nip', pendingTambah.nip);
             fd.append('nama', pendingTambah.nama);
+            fd.append('status_pegawai', pendingTambah.status);
             fd.append('jenis_usulan', jenisUsulan);
             fd.append(CSRF_NAME, CSRF_HASH);
 
@@ -547,7 +631,9 @@ if (!function_exists('_badge_status')) {
                     method: 'POST',
                     body: fd
                 })
-                .then(function(r) { return r.json(); })
+                .then(function(r) {
+                    return r.json();
+                })
                 .then(function(res) {
                     if (res.csrf_hash) CSRF_HASH = res.csrf_hash;
                     if (res.csrf_name) CSRF_NAME = res.csrf_name;
@@ -577,22 +663,33 @@ if (!function_exists('_badge_status')) {
         let pendingJenis = null;
 
         document.querySelectorAll('.btn-pilih-jenis').forEach(function(btn) {
-            btn.addEventListener('click', function() {
-                pendingJenis = {
-                    id: this.dataset.id
-                };
-                document.getElementById('jenis-nama').textContent = this.dataset.nama;
-                document.getElementById('jenis-nip').textContent = this.dataset.nip;
 
-                const sel = document.getElementById('select-jenis');
-                for (let i = 0; i < sel.options.length; i++) {
-                    if (sel.options[i].value === this.dataset.jenis) {
-                        sel.selectedIndex = i;
-                        break;
-                    }
-                }
+            btn.addEventListener('click', function() {
+
+                const status = this.dataset.status;
+                const jenisLama = this.dataset.jenis;
+
+                pendingJenis = {
+                    id: this.dataset.id,
+                    status: status
+                };
+
+                document.getElementById('jenis-nama').textContent =
+                    this.dataset.nama;
+
+                document.getElementById('jenis-nip').textContent =
+                    this.dataset.nip;
+
+                // FILTER DAN PILIH JENIS YANG SEDANG TERSIMPAN
+                filterJenisPemberhentian(
+                    'select-jenis',
+                    status,
+                    jenisLama
+                );
+
                 $('#modalJenis').modal('show');
             });
+
         });
 
         document.getElementById('btn-simpan-jenis').addEventListener('click', function() {
@@ -612,7 +709,9 @@ if (!function_exists('_badge_status')) {
                     method: 'POST',
                     body: fd
                 })
-                .then(function(r) { return r.json(); })
+                .then(function(r) {
+                    return r.json();
+                })
                 .then(function(res) {
                     if (res.csrf_hash) CSRF_HASH = res.csrf_hash;
                     if (res.csrf_name) CSRF_NAME = res.csrf_name;
@@ -669,7 +768,9 @@ if (!function_exists('_badge_status')) {
                     method: 'POST',
                     body: fd
                 })
-                .then(function(r) { return r.json(); })
+                .then(function(r) {
+                    return r.json();
+                })
                 .then(function(res) {
                     if (res.csrf_hash) CSRF_HASH = res.csrf_hash;
                     if (res.csrf_name) CSRF_NAME = res.csrf_name;
@@ -694,4 +795,3 @@ if (!function_exists('_badge_status')) {
         });
     })();
 </script>
-

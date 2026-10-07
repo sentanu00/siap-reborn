@@ -49,14 +49,26 @@ class Sihenti_pegawai extends SB_Controller
 		// Fetch jenis pemberhentian dari model (disimpan ke $this->data)
 		$this->load->model('jenispemberhentianmodel');
 		$this->data['jenis_pemberhentian_list'] = $this->db->get('jenis_pemberhentian')->result();
-		
+
 		// ---------- Tabel Atas: Usulan Pemberhentian ----------
 		$this->data['usulan_list'] = $this->db
-			->select('id, nip, nama, tanggal_usul, jenis_usulan,
-                      diusulkan_oleh, tanggal_edit, status_usulan, keterangan')
-			->from('usulan_pemberhentian')
-			->order_by('tanggal_usul', 'DESC')
-			->order_by('id', 'DESC')
+			->select('
+        u.id,
+        u.nip,
+        u.nama,
+        u.tanggal_usul,
+        u.jenis_usulan,
+        u.diusulkan_oleh,
+        u.tanggal_edit,
+        u.status_usulan,
+        u.keterangan,
+        sp.nama AS status_pegawai
+    ')
+			->from('usulan_pemberhentian u')
+			->join('pegawai p', 'p.NIP_BARU = u.nip', 'left')
+			->join('status_pegawai sp', 'p.STATUS_PEGAWAI = sp.STATUS_PEGAWAI_ID', 'left')
+			->order_by('u.tanggal_usul', 'DESC')
+			->order_by('u.id', 'DESC')
 			->get()->result();
 
 		// ---------- NIP yang masih punya usulan aktif ----------
@@ -102,6 +114,7 @@ class Sihenti_pegawai extends SB_Controller
 		// Hitung total
 		$this->db
 			->from('pegawai p')
+			->join('status_pegawai sp', 'p.STATUS_PEGAWAI = sp.STATUS_PEGAWAI_ID')
 			->join('satker s1', 'p.SATKER_ID = s1.SATKER_ID')
 			->join('satker s2', 's1.SATKER_INDUK_ID = s2.SATKER_ID')
 			->where_in('p.STATUS_PEGAWAI', array('1', '2', '10', '18'));
@@ -114,9 +127,10 @@ class Sihenti_pegawai extends SB_Controller
 
 		// Ambil data halaman ini
 		$this->db
-			->select('p.NIP_BARU, p.NAMA, s1.NAMA AS satker,
+			->select('p.NIP_BARU, p.NAMA, sp.nama as status, s1.NAMA AS satker,
                   s2.NAMA AS satker_induk, p.TANGGAL_PENSIUN')
 			->from('pegawai p')
+			->join('status_pegawai sp', 'p.STATUS_PEGAWAI = sp.STATUS_PEGAWAI_ID')
 			->join('satker s1', 'p.SATKER_ID = s1.SATKER_ID')
 			->join('satker s2', 's1.SATKER_INDUK_ID = s2.SATKER_ID')
 			->where_in('p.STATUS_PEGAWAI', array('1', '2', '10', '18'));
@@ -126,7 +140,7 @@ class Sihenti_pegawai extends SB_Controller
 		}
 
 		$rows = $this->db
-			->order_by('p.TANGGAL_PENSIUN', 'DESC')
+			->order_by('p.TANGGAL_PENSIUN', 'ASC')
 			->limit($per_page, $offset)
 			->get()->result();
 
@@ -143,6 +157,7 @@ class Sihenti_pegawai extends SB_Controller
 			$data[] = array(
 				'nip'             => $r->NIP_BARU,
 				'nama'            => $r->NAMA,
+				'status'          => $r->status,
 				'satker'          => $r->satker,
 				'satker_induk'    => $r->satker_induk,
 				'tanggal_pensiun' => $r->TANGGAL_PENSIUN,
@@ -166,9 +181,10 @@ class Sihenti_pegawai extends SB_Controller
      * ===================================================== */
 	public function tambah_usulan()
 	{
-		$nip          = trim($this->input->post('nip', TRUE));
-		$nama         = trim($this->input->post('nama', TRUE));
-		$jenis_usulan = trim($this->input->post('jenis_usulan', TRUE));
+		$nip           = $this->input->post('nip', TRUE);
+		$nama          = $this->input->post('nama', TRUE);
+		$jenis_usulan  = $this->input->post('jenis_usulan', TRUE);
+		$status_pegawai = $this->input->post('status_pegawai', TRUE);
 
 		if (empty($nip) || empty($nama) || empty($jenis_usulan)) {
 			return $this->_json(array(
@@ -198,6 +214,7 @@ class Sihenti_pegawai extends SB_Controller
 		$insert = array(
 			'nip'            => $nip,
 			'nama'           => $nama,
+			'status_pegawai' => $status_pegawai,
 			'tanggal_usul'   => date('Y-m-d'),
 			'jenis_usulan'   => $jenis_usulan,
 			'diusulkan_oleh' => $userNama,
@@ -296,7 +313,7 @@ class Sihenti_pegawai extends SB_Controller
 		$this->load->view('layouts/main', $this->data);
 	}
 
-	
+
 	public function hapus_usulan()
 	{
 		$id = (int) $this->input->post('id');
