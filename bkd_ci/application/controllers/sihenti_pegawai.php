@@ -391,7 +391,7 @@ class Sihenti_pegawai extends SB_Controller
 			return $this->_json(array(
 				'status'  => 'error',
 				'message' => 'Data ' . $cfg['label'] .
-					' belum ada. Silakan lengkapi dulu di menu Pegawai Siap Online.'
+					' belum ada. Silakan lengkapi dulu di menu Pegawai Siap Online atau SIGAWAI.'
 			));
 		}
 
@@ -647,6 +647,7 @@ class Sihenti_pegawai extends SB_Controller
 				$this->db->order_by($cfg['pk'], 'DESC');
 				$this->db->limit(1);
 				$row = $this->db->get($cfg['tabel'])->row();
+				
 
 				if ($row) {
 					$item['id_record']   = (int) $row->id_record;
@@ -656,7 +657,8 @@ class Sihenti_pegawai extends SB_Controller
 					$item['bisa_upload'] = TRUE;
 
 					if (!empty($row->file_pdf)) {
-						$item['link_file'] = base_url('dokumen/' . $usulan->nip . '/' . $row->file_pdf);
+						$item['link_file'] = "https://siap-bkpsdm.probolinggokab.go.id/" . $row->file_pdf; //hardcode link file ke SIAP
+						// $item['link_file'] = base_url($row->file_pdf);
 					}
 				}
 			}

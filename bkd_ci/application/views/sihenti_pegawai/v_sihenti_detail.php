@@ -1,3 +1,4 @@
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 <style>
     .detail-dt {
         font-weight: 600;
@@ -14,7 +15,7 @@
     <h4 class="mb-0">
         <i class="bi bi-folder2-open"></i> Detail Berkas Pemberhentian
     </h4>
-    <a href="<?= site_url('sihenti_pegawai') ?>" class="btn btn-outline-secondary btn-sm">
+    <a href="<?= site_url('sihenti_pegawai') ?>" class="btn btn-outline-secondary btn-md">
         <i class="bi bi-arrow-left"></i> Kembali
     </a>
 </div>
@@ -83,9 +84,9 @@
                 <label class="form-label detail-dt">Jenis Pemberhentian</label>
                 <input type="text" class="form-control" readonly
                     value="<?= htmlspecialchars($jenis->jenis) ?>">
-                <small class="text-muted">
+                <p class="text-muted">
                     Status Pegawai: <b><?= htmlspecialchars($jenis->status_pegawai) ?></b>
-                </small>
+                </p>
             </div>
 
             <div class="mb-3">
@@ -124,7 +125,7 @@
 <!-- ==================================================== -->
 <div class="card shadow-sm mb-3">
     <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
-        <span><i class="bi bi-paperclip"></i> Berkas Persyaratan</span>
+        <span style="color: black;"><i class="bi bi-paperclip"></i> Berkas Persyaratan</span>
         <span class="badge bg-dark" id="badge-berkas">
             <?php
             $total   = count($berkas_list);
@@ -152,7 +153,7 @@
                         <td><?= $no++ ?></td>
                         <td>
                             <strong><?= htmlspecialchars($b['label']) ?></strong>
-                            <br><small class="text-muted">Format: <?= htmlspecialchars($b['format_nama_file']) ?></small>
+                            <br><p>Format: <?= htmlspecialchars($b['format_nama_file']) ?></p>
                         </td>
                         <td class="text-center">
                             <?php if ($b['wajib']): ?>
@@ -185,7 +186,7 @@
                                     </a>
                                 <?php endif; ?>
 
-                                <label class="btn btn-sm btn-outline-primary mb-0">
+                                <!-- <label class="btn btn-sm btn-outline-primary mb-0">
                                     <i class="bi bi-upload"></i>
                                     <?= $b['ada_file'] ? 'Ganti' : 'Upload' ?>
                                     <input type="file"
@@ -193,7 +194,8 @@
                                         data-id-usulan="<?= (int) $usulan->id ?>"
                                         data-kode="<?= htmlspecialchars($b['kode']) ?>"
                                         accept="application/pdf">
-                                </label>
+                                </label> -->
+                                
                             <?php endif; ?>
                         </td>
                     </tr>
