@@ -301,8 +301,28 @@ class Sihenti_pegawai extends SB_Controller
 
 		if (!$usulan) redirect('sihenti_pegawai');
 
-		$this->data['pageTitle'] = 'Detail Usulan Pemberhentian';
-		$this->data['usulan']    = $usulan;
+		// --- Cari jenis pemberhentian berdasarkan teks ---
+		$jenis = $this->db
+			->where('jenis', $usulan->jenis_usulan)
+			->get('jenis_pemberhentian')->row();
+
+		// --- Ambil daftar detail sesuai id_siasn ---
+		$detail_list = array();
+		if ($jenis) {
+			$detail_list = $this->db
+				->where('id_siasn_jenis_pemberhentian', (int) $jenis->id_siasn)
+				->order_by('detail_pemberhentian', 'ASC')
+				->get('detail_pemberhentian')->result();
+		}
+
+		// ⭐ BARU: Ambil daftar berkas + status upload
+		$berkas_list = $this->_get_berkas_list($usulan);
+
+		$this->data['pageTitle']   = 'Detail Usulan Pemberhentian';
+		$this->data['usulan']      = $usulan;
+		$this->data['jenis']       = $jenis;
+		$this->data['detail_list'] = $detail_list;
+		$this->data['berkas_list'] = $berkas_list;   // ⭐ BARU
 
 		$this->data['content'] = $this->load->view(
 			'sihenti_pegawai/v_sihenti_detail',
@@ -313,6 +333,169 @@ class Sihenti_pegawai extends SB_Controller
 		$this->load->view('layouts/main', $this->data);
 	}
 
+
+	/* =====================================================
+ * AJAX: UPLOAD BERKAS PEGAWAI (SK CPNS, PNS, Pangkat, Jabatan, Gaji)
+ * ===================================================== */
+	public function upload_berkas_pegawai()
+	{
+		$id_usulan = (int) $this->input->post('id_usulan');
+		$kode      = $this->input->post('kode_berkas', TRUE);
+
+		if (!$id_usulan || empty($kode)) {
+			return $this->_json(array(
+				'status'  => 'error',
+				'message' => 'Parameter tidak lengkap.'
+			));
+		}
+
+		$config_all = $this->_berkas_config();
+		if (!isset($config_all[$kode])) {
+			return $this->_json(array(
+				'status'  => 'error',
+				'message' => 'Kode berkas tidak valid.'
+			));
+		}
+		$cfg = $config_all[$kode];
+
+		$usulan = $this->db->where('id', $id_usulan)
+			->get('usulan_pemberhentian')->row();
+		if (!$usulan) {
+			return $this->_json(array(
+				'status'  => 'error',
+				'message' => 'Usulan tidak ditemukan.'
+			));
+		}
+
+		// Cari PEGAWAI_ID
+		$pegawai = $this->db->select('PEGAWAI_ID')
+			->where('NIP_BARU', $usulan->nip)
+			->get('pegawai')->row();
+		if (!$pegawai) {
+			return $this->_json(array(
+				'status'  => 'error',
+				'message' => 'Data pegawai tidak ditemukan di tabel pegawai.'
+			));
+		}
+		$pegawai_id = $pegawai->PEGAWAI_ID;
+
+		// Cari record di tabel sumber
+		$this->db->select($cfg['pk'] . ' AS id_record');
+		$this->db->where('PEGAWAI_ID', $pegawai_id);
+		$this->db->order_by($cfg['kolom_order'], $cfg['order_dir']);
+		$this->db->order_by($cfg['pk'], 'DESC');
+		$this->db->limit(1);
+		$rec = $this->db->get($cfg['tabel'])->row();
+
+		if (!$rec) {
+			return $this->_json(array(
+				'status'  => 'error',
+				'message' => 'Data ' . $cfg['label'] .
+					' belum ada. Silakan lengkapi dulu di menu Pegawai Siap Online.'
+			));
+		}
+
+		// Siapkan folder
+		$nip         = $usulan->nip;
+		$upload_path = './dokumen/' . $nip . '/';
+		if (!is_dir($upload_path)) {
+			@mkdir($upload_path, 0777, TRUE);
+		}
+
+		// Nama file sesuai format
+		$tgl       = date('Ymd');
+		$nama_file = str_replace(
+			array('{NIP}', '{TGL}'),
+			array($nip, $tgl),
+			$cfg['nama_file']
+		);
+
+		// Config upload
+		$config = array(
+			'upload_path'   => $upload_path,
+			'allowed_types' => 'pdf',
+			'max_size'      => 1000,     // 1 MB (dalam KB untuk CI)
+			'overwrite'     => TRUE,
+			'file_name'     => $nama_file,
+		);
+
+		$this->load->library('upload', $config);
+		$this->upload->initialize($config);
+
+		if (!$this->upload->do_upload('file_berkas')) {
+			return $this->_json(array(
+				'status'  => 'error',
+				'message' => 'Upload gagal: ' . $this->upload->display_errors('', '')
+			));
+		}
+
+		// Update FILE_PDF di tabel sumber
+		$this->db->where($cfg['pk'], $rec->id_record);
+		$this->db->update($cfg['tabel'], array($cfg['kolom_file'] => $nama_file));
+
+		$err = method_exists($this->db, '_error_message') ? $this->db->_error_message() : '';
+		if (!empty($err)) {
+			return $this->_json(array(
+				'status'  => 'error',
+				'message' => 'File terupload, tapi gagal update DB: ' . $err,
+				'debug'   => array('last_query' => $this->db->last_query())
+			));
+		}
+
+		return $this->_json(array(
+			'status'   => 'success',
+			'message'  => 'Berkas ' . $cfg['label'] . ' berhasil diupload.',
+			'file_pdf' => $nama_file,
+		));
+	}
+
+
+	public function ajukan_usulan()
+	{
+		$id = (int) $this->input->post('id');
+		if (!$id) {
+			return $this->_json(array('status' => 'error', 'message' => 'ID tidak valid.'));
+		}
+
+		$row = $this->db->where('id', $id)->get('usulan_pemberhentian')->row();
+		if (!$row) {
+			return $this->_json(array('status' => 'error', 'message' => 'Usulan tidak ditemukan.'));
+		}
+
+		// 1. Cek detail pemberhentian
+		if (empty($row->id_detail_pemberhentian)) {
+			return $this->_json(array(
+				'status'  => 'error',
+				'message' => 'Pilih detail pemberhentian terlebih dahulu.'
+			));
+		}
+
+		// 2. ⭐ Cek semua berkas wajib sudah lengkap
+		$berkas_list = $this->_get_berkas_list($row);
+		$belum = array();
+		foreach ($berkas_list as $b) {
+			if ($b['wajib'] && !$b['ada_file']) {
+				$belum[] = $b['label'];
+			}
+		}
+		if (!empty($belum)) {
+			return $this->_json(array(
+				'status'  => 'error',
+				'message' => 'Berkas berikut belum lengkap: ' . implode(', ', $belum)
+			));
+		}
+
+		// 3. Update status
+		$this->db->where('id', $id)->update('usulan_pemberhentian', array(
+			'status_usulan' => 'Diajukan',
+			'tanggal_edit'  => date('Y-m-d H:i:s'),
+		));
+
+		return $this->_json(array(
+			'status'  => 'success',
+			'message' => 'Usulan berhasil diajukan.'
+		));
+	}
 
 	public function hapus_usulan()
 	{
@@ -363,5 +546,124 @@ class Sihenti_pegawai extends SB_Controller
 		$this->output
 			->set_content_type('application/json')
 			->set_output(json_encode($arr));
+	}
+
+
+	/* =====================================================
+ * HELPER: Definisi berkas yang diperlukan
+ * ===================================================== */
+	private function _berkas_config()
+	{
+		return array(
+			'sk_cpns' => array(
+				'label'       => 'SK CPNS',
+				'tabel'       => 'sk_cpns',
+				'pk'          => 'SK_CPNS_ID',
+				'kolom_file'  => 'FILE_PDF',
+				'kolom_order' => 'SK_CPNS_ID',
+				'order_dir'   => 'DESC',
+				'nama_file'   => 'CPNS_SK_{NIP}.pdf',
+				'wajib'       => TRUE,
+			),
+			'sk_pns' => array(
+				'label'       => 'SK PNS Terakhir',
+				'tabel'       => 'sk_pns',
+				'pk'          => 'SK_PNS_ID',
+				'kolom_file'  => 'FILE_PDF',
+				'kolom_order' => 'TMT_PNS',
+				'order_dir'   => 'DESC',
+				'nama_file'   => 'SK_PNS_{NIP}_{TGL}.pdf',
+				'wajib'       => TRUE,
+			),
+			'pangkat' => array(
+				'label'       => 'SK Pangkat Terakhir',
+				'tabel'       => 'pangkat_riwayat',
+				'pk'          => 'PANGKAT_RIWAYAT_ID',
+				'kolom_file'  => 'FILE_PDF',
+				'kolom_order' => 'TMT_PANGKAT',
+				'order_dir'   => 'DESC',
+				'nama_file'   => 'SK_KP_{NIP}_{TGL}.pdf',
+				'wajib'       => TRUE,
+			),
+			'jabatan' => array(
+				'label'       => 'SK Jabatan Terakhir',
+				'tabel'       => 'jabatan_riwayat',
+				'pk'          => 'JABATAN_RIWAYAT_ID',
+				'kolom_file'  => 'FILE_PDF',
+				'kolom_order' => 'TMT_JABATAN',
+				'order_dir'   => 'DESC',
+				'nama_file'   => 'SK_Jabatan_{NIP}_{TGL}.pdf',
+				'wajib'       => TRUE,
+			),
+			'gaji' => array(
+				'label'       => 'SK Gaji Terakhir',
+				'tabel'       => 'gaji_riwayat',
+				'pk'          => 'GAJI_RIWAYAT_ID',
+				'kolom_file'  => 'FILE_PDF',
+				'kolom_order' => 'TMT_SK',
+				'order_dir'   => 'DESC',
+				'nama_file'   => 'SK_Gaji_{NIP}_{TGL}.pdf',
+				'wajib'       => TRUE,
+			),
+		);
+	}
+
+	/* =====================================================
+ * HELPER: Ambil daftar berkas + status untuk 1 usulan
+ * ===================================================== */
+	private function _get_berkas_list($usulan)
+	{
+		$pegawai = $this->db
+			->select('PEGAWAI_ID')
+			->where('NIP_BARU', $usulan->nip)
+			->get('pegawai')->row();
+
+		$pegawai_id = $pegawai ? $pegawai->PEGAWAI_ID : NULL;
+		$tgl        = date('Ymd');
+		$list       = array();
+
+		foreach ($this->_berkas_config() as $kode => $cfg) {
+			$item = array(
+				'kode'             => $kode,
+				'label'            => $cfg['label'],
+				'wajib'            => $cfg['wajib'],
+				'id_record'        => NULL,
+				'file_pdf'         => NULL,
+				'ada_record'       => FALSE,
+				'ada_file'         => FALSE,
+				'bisa_upload'      => FALSE,
+				'format_nama_file' => str_replace(
+					array('{NIP}', '{TGL}'),
+					array($usulan->nip, $tgl),
+					$cfg['nama_file']
+				),
+				'link_file'        => NULL,
+			);
+
+			if ($pegawai_id) {
+				$this->db->select($cfg['pk'] . ' AS id_record, ' . $cfg['kolom_file'] . ' AS file_pdf');
+				$this->db->where('PEGAWAI_ID', $pegawai_id);
+				$this->db->order_by($cfg['kolom_order'], $cfg['order_dir']);
+				$this->db->order_by($cfg['pk'], 'DESC');
+				$this->db->limit(1);
+				$row = $this->db->get($cfg['tabel'])->row();
+
+				if ($row) {
+					$item['id_record']   = (int) $row->id_record;
+					$item['file_pdf']    = $row->file_pdf;
+					$item['ada_record']  = TRUE;
+					$item['ada_file']    = !empty($row->file_pdf);
+					$item['bisa_upload'] = TRUE;
+
+					if (!empty($row->file_pdf)) {
+						$item['link_file'] = base_url('dokumen/' . $usulan->nip . '/' . $row->file_pdf);
+					}
+				}
+			}
+
+			$list[] = $item;
+		}
+
+		return $list;
 	}
 }
