@@ -556,7 +556,7 @@ class Sihenti_pegawai extends SB_Controller
 	{
 		return array(
 			'sk_cpns' => array(
-				'label'       => 'SK CPNS',
+				'label'       => 'SK CPNS / PPPK',
 				'tabel'       => 'sk_cpns',
 				'pk'          => 'SK_CPNS_ID',
 				'kolom_file'  => 'FILE_PDF',
@@ -566,13 +566,23 @@ class Sihenti_pegawai extends SB_Controller
 				'wajib'       => TRUE,
 			),
 			'sk_pns' => array(
-				'label'       => 'SK PNS Terakhir',
+				'label'       => 'SK PNS',
 				'tabel'       => 'sk_pns',
 				'pk'          => 'SK_PNS_ID',
 				'kolom_file'  => 'FILE_PDF',
 				'kolom_order' => 'TMT_PNS',
 				'order_dir'   => 'DESC',
 				'nama_file'   => 'SK_PNS_{NIP}_{TGL}.pdf',
+				'wajib'       => TRUE,
+			),
+			'spmt' => array(
+				'label'       => 'SPMT',
+				'tabel'       => 'sk_cpns',
+				'pk'          => 'SK_CPNS_ID',
+				'kolom_file'  => 'FILE_SPMT',
+				'kolom_order' => 'SK_CPNS_ID',
+				'order_dir'   => 'DESC',
+				'nama_file'   => 'SPMT_SK_{NIP}.pdf',
 				'wajib'       => TRUE,
 			),
 			'pangkat' => array(
@@ -614,13 +624,91 @@ class Sihenti_pegawai extends SB_Controller
 	private function _get_berkas_list($usulan)
 	{
 		$pegawai = $this->db
-			->select('PEGAWAI_ID')
+			->select('PEGAWAI_ID, FOTO_SETENGAH')
 			->where('NIP_BARU', $usulan->nip)
-			->get('pegawai')->row();
+			->get('pegawai')
+			->row();
 
 		$pegawai_id = $pegawai ? $pegawai->PEGAWAI_ID : NULL;
-		$tgl        = date('Ymd');
-		$list       = array();
+
+		// ================================================
+		// FOTO, KTP, DAN KK DARI SIAP ONLINE
+		// ================================================
+		if ($pegawai_id) {
+
+			// FOTO
+			$foto = $this->db
+				->select('FOTO_SETENGAH')
+				->where('PEGAWAI_ID', $pegawai_id)
+				->get('pegawai')
+				->row();
+
+			// FOTO
+			$nama_foto = $pegawai->FOTO_SETENGAH ?? NULL;
+
+			$list[] = array(
+				'kode'             => 'foto',
+				'label'            => 'Foto Berwarna',
+				'wajib'            => TRUE,
+				'id_record'        => NULL,
+				'file_pdf'         => $nama_foto,
+				'ada_record'       => !empty($nama_foto),
+				'ada_file'         => !empty($nama_foto),
+				'bisa_upload'      => FALSE,
+				'format_nama_file' => $nama_foto ?: '-',
+				'link_file'        => !empty($nama_foto)
+					? 'https://siap-bkpsdm.probolinggokab.go.id/' . ltrim($nama_foto, '/')
+					: NULL,
+				'tipe_file'        => 'image',
+			);
+
+			// KTP dan KK
+			$dokumen_config = array(
+				'ktp' => array(
+					'label' => 'KTP',
+					'jenis' => 1,
+				),
+				'kk' => array(
+					'label' => 'Kartu Keluarga (KK)',
+					'jenis' => 29,
+				),
+			);
+
+			foreach ($dokumen_config as $kode => $cfg) {
+
+				$dok = $this->db
+					->select('id_dokumen, nama_file')
+					->where('fid_jenis_dokumen', $cfg['jenis'])
+					->where('PEGAWAI_ID', $pegawai_id)
+					->order_by('id_dokumen', 'DESC')
+					->limit(1)
+					->get('dokumen')
+					->row();
+
+				$nama_file = $dok ? $dok->nama_file : NULL;
+
+				$list[] = array(
+					'kode'             => $kode,
+					'label'            => $cfg['label'],
+					'wajib'            => TRUE,
+					'id_record'        => $dok ? $dok->id_dokumen : NULL,
+					'file_pdf'         => $nama_file,
+					'ada_record'       => !empty($nama_file),
+					'ada_file'         => !empty($nama_file),
+					'bisa_upload'      => FALSE,
+					'format_nama_file' => $nama_file ?: '-',
+					'link_file'        => !empty($nama_file)
+						? 'https://siap-bkpsdm.probolinggokab.go.id/' . ltrim($nama_file, '/')
+						: NULL,
+					'tipe_file'        => 'dokumen',
+				);
+			}
+		}
+
+		$tgl = date('Ymd');
+
+		// Jangan reset $list di sini!
+		// Foto, KTP, dan KK sudah dimasukkan sebelumnya.
 
 		foreach ($this->_berkas_config() as $kode => $cfg) {
 			$item = array(
@@ -647,7 +735,7 @@ class Sihenti_pegawai extends SB_Controller
 				$this->db->order_by($cfg['pk'], 'DESC');
 				$this->db->limit(1);
 				$row = $this->db->get($cfg['tabel'])->row();
-				
+
 
 				if ($row) {
 					$item['id_record']   = (int) $row->id_record;

@@ -153,7 +153,8 @@
                         <td><?= $no++ ?></td>
                         <td>
                             <strong><?= htmlspecialchars($b['label']) ?></strong>
-                            <br><p>Format: <?= htmlspecialchars($b['format_nama_file']) ?></p>
+                            <br>
+                            <p>Format: <?= htmlspecialchars($b['format_nama_file']) ?></p>
                         </td>
                         <td class="text-center">
                             <?php if ($b['wajib']): ?>
@@ -178,12 +179,25 @@
                                     Lengkapi di menu <b>Pegawai Siap Online</b>
                                 </small>
                             <?php else: ?>
-                                <?php if ($b['ada_file']): ?>
-                                    <a href="<?= htmlspecialchars($b['link_file']) ?>"
-                                        target="_blank"
-                                        class="btn btn-sm btn-outline-success">
-                                        <i class="bi bi-file-pdf"></i> Lihat
-                                    </a>
+                                <?php if ($b['ada_file'] && !empty($b['link_file'])): ?>
+                                    <?php if (
+                                        isset($b['tipe_file']) &&
+                                        $b['tipe_file'] === 'image'
+                                    ): ?>
+                                        <button type="button"
+                                            class="btn btn-sm btn-outline-success btn-preview-gambar"
+                                            data-file-url="<?= htmlspecialchars($b['link_file'], ENT_QUOTES, 'UTF-8') ?>"
+                                            data-file-title="<?= htmlspecialchars($b['label'], ENT_QUOTES, 'UTF-8') ?>">
+                                            <i class="bi bi-image"></i> Lihat Foto
+                                        </button>
+                                    <?php else: ?>
+                                        <button type="button"
+                                            class="btn btn-sm btn-outline-success btn-preview-berkas"
+                                            data-file-url="<?= htmlspecialchars($b['link_file'], ENT_QUOTES, 'UTF-8') ?>"
+                                            data-file-title="<?= htmlspecialchars($b['label'], ENT_QUOTES, 'UTF-8') ?>">
+                                            <i class="bi bi-eye"></i> Lihat
+                                        </button>
+                                    <?php endif; ?>
                                 <?php endif; ?>
 
                                 <!-- <label class="btn btn-sm btn-outline-primary mb-0">
@@ -195,7 +209,7 @@
                                         data-kode="<?= htmlspecialchars($b['kode']) ?>"
                                         accept="application/pdf">
                                 </label> -->
-                                
+
                             <?php endif; ?>
                         </td>
                     </tr>
@@ -205,6 +219,84 @@
     </div>
 </div>
 
+
+<!-- ==================================================== -->
+<!-- MODAL PREVIEW BERKAS                                 -->
+<!-- ==================================================== -->
+<div class="modal fade" id="modalPreviewGambar"
+    tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="judulPreviewGambar">
+                    Preview Foto
+                </h5>
+                <button type="button" class="btn-close"
+                    data-bs-dismiss="modal" aria-label="Tutup"></button>
+            </div>
+            <div class="modal-body text-center">
+                <img id="gambarPreview"
+                    src=""
+                    alt="Foto pegawai"
+                    style="max-width:100%; max-height:70vh; object-fit:contain;">
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================================================== -->
+<!-- MODAL PREVIEW BERKAS PDF                             -->
+<!-- ==================================================== -->
+<div class="modal fade" id="modalPreviewBerkas"
+    tabindex="-1" aria-labelledby="modalPreviewBerkasLabel"
+    aria-hidden="true">
+
+    <div class="modal-dialog modal-dialog-centered"
+        style="max-width: 750px; width: calc(100% - 30px);">
+
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalPreviewBerkasLabel">
+                    Preview Berkas
+                </h5>
+
+                <div class="d-flex gap-2 ms-auto me-2">
+                    <a href="#" id="btnBukaTabBaru"
+                        class="btn btn-sm btn-outline-primary"
+                        target="_blank" rel="noopener">
+                        <i class="bi bi-box-arrow-up-right"></i>
+                        Buka Tab Baru
+                    </a>
+                </div>
+
+                <button type="button" class="btn-close"
+                    data-bs-dismiss="modal"
+                    data-dismiss="modal"
+                    aria-label="Tutup"></button>
+            </div>
+
+            <div class="modal-body p-0"
+                style="height:80vh; position:relative; overflow:hidden;">
+
+                <div id="previewLoading"
+                    class="justify-content-center align-items-center"
+                    style="display:flex; position:absolute; inset:0; z-index:2; background:#fff;">
+                    <div class="text-center">
+                        <div class="spinner-border text-primary" role="status"></div>
+                        <p class="mt-2 mb-0">Memuat berkas...</p>
+                    </div>
+                </div>
+
+                <iframe id="iframePreviewBerkas"
+                    src="about:blank"
+                    title="Preview Berkas PDF"
+                    style="position:absolute; inset:0; display:none; width:100%; height:100%; border:0;">
+                </iframe>
+
+            </div>
+        </div>
+    </div>
+</div>
 <!-- ==================================================== -->
 <!-- SCRIPT                                               -->
 <!-- ==================================================== -->
@@ -338,4 +430,161 @@
                 });
         });
     });
+
+    // ====================================================
+    // PREVIEW BERKAS - KOMPATIBEL BOOTSTRAP 4 / 5
+    // ====================================================
+    (function() {
+        const modalEl = document.getElementById('modalPreviewBerkas');
+        const iframe = document.getElementById('iframePreviewBerkas');
+        const loading = document.getElementById('previewLoading');
+        const judul = document.getElementById('modalPreviewBerkasLabel');
+        const btnTabBaru = document.getElementById('btnBukaTabBaru');
+
+        if (!modalEl || !iframe || !loading || !judul || !btnTabBaru) {
+            console.error('Elemen modal preview tidak lengkap.');
+            return;
+        }
+
+        let modalBS5 = null;
+        let modeModal = '';
+
+        // Deteksi Bootstrap 5
+        if (window.bootstrap && window.bootstrap.Modal) {
+            modalBS5 = window.bootstrap.Modal.getOrCreateInstance(modalEl);
+            modeModal = 'bs5';
+        }
+        // Deteksi Bootstrap 4
+        else if (window.jQuery && window.jQuery.fn.modal) {
+            modeModal = 'bs4';
+        }
+
+        function bukaModal() {
+            if (modeModal === 'bs5') {
+                modalBS5.show();
+            } else if (modeModal === 'bs4') {
+                window.jQuery(modalEl).modal('show');
+            } else {
+                alert(
+                    'Bootstrap Modal tidak ditemukan. ' +
+                    'Periksa JavaScript Bootstrap pada layouts/main.'
+                );
+            }
+        }
+
+        function tutupModal() {
+            if (modeModal === 'bs5') {
+                modalBS5.hide();
+            } else if (modeModal === 'bs4') {
+                window.jQuery(modalEl).modal('hide');
+            }
+        }
+
+        // Event delegation: preview PDF
+        document.addEventListener('click', function(event) {
+            const btn = event.target.closest('.btn-preview-berkas');
+            if (!btn) return;
+
+            event.preventDefault();
+
+            const url = btn.dataset.fileUrl;
+            const nama = btn.dataset.fileTitle || 'Preview Berkas';
+
+            if (!url) {
+                alert('URL berkas tidak tersedia.');
+                return;
+            }
+
+            if (!modeModal) {
+                alert('Bootstrap Modal tidak ditemukan.');
+                return;
+            }
+
+            // Atur judul dan tautan untuk membuka PDF di tab baru
+            judul.textContent = 'Preview Berkas - ' + nama;
+            btnTabBaru.href = url;
+
+            // Tampilkan iframe dan lapisan pemuatan
+            loading.innerHTML =
+                '<div class="text-center">' +
+                '<div class="spinner-border text-primary" role="status"></div>' +
+                '<p class="mt-2">Memuat berkas...</p>' +
+                '</div>';
+
+            loading.style.display = 'flex';
+            iframe.style.display = 'block';
+
+            // Buka modal
+            bukaModal();
+
+            // Muat PDF setelah modal mulai dibuka
+            setTimeout(function() {
+                iframe.src = url;
+            }, 300);
+
+            // Hilangkan tulisan pemuatan agar tidak menutupi PDF
+            setTimeout(function() {
+                loading.style.display = 'none';
+            }, 1500);
+        });
+
+        // Tombol tutup modal, kompatibel BS4 dan BS5
+        modalEl.querySelectorAll('[data-bs-dismiss="modal"], [data-dismiss="modal"]')
+            .forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    tutupModal();
+                });
+            });
+
+        // Bersihkan dokumen saat modal ditutup
+        if (modeModal === 'bs5') {
+            modalEl.addEventListener('hidden.bs.modal', function() {
+                iframe.src = 'about:blank';
+                iframe.style.display = 'none';
+                loading.style.display = 'block';
+            });
+        } else if (modeModal === 'bs4') {
+            window.jQuery(modalEl).on('hidden.bs.modal', function() {
+                iframe.src = 'about:blank';
+                iframe.style.display = 'none';
+                loading.style.display = 'block';
+            });
+        }
+    })();
+    (function() {
+        const modalEl = document.getElementById('modalPreviewGambar');
+        const gambar = document.getElementById('gambarPreview');
+        const judul = document.getElementById('judulPreviewGambar');
+
+        if (!modalEl || !gambar || !judul) return;
+
+        document.addEventListener('click', function(event) {
+            const btn = event.target.closest('.btn-preview-gambar');
+            if (!btn) return;
+
+            event.preventDefault();
+
+            const url = btn.dataset.fileUrl;
+            if (!url) {
+                alert('URL foto tidak tersedia.');
+                return;
+            }
+
+            gambar.src = url;
+            judul.textContent =
+                'Preview Foto - ' + (btn.dataset.fileTitle || 'Foto Pegawai');
+
+            if (window.bootstrap && window.bootstrap.Modal) {
+                window.bootstrap.Modal.getOrCreateInstance(modalEl).show();
+            } else if (window.jQuery && window.jQuery.fn.modal) {
+                window.jQuery(modalEl).modal('show');
+            } else {
+                window.open(url, '_blank', 'noopener');
+            }
+        });
+
+        modalEl.addEventListener('hidden.bs.modal', function() {
+            gambar.src = '';
+        });
+    })();
 </script>
