@@ -46,11 +46,9 @@ class Sihenti_pegawai extends SB_Controller
      * ===================================================== */
 	public function index()
 	{
-		// Fetch jenis pemberhentian dari model (disimpan ke $this->data)
 		$this->load->model('jenispemberhentianmodel');
 		$this->data['jenis_pemberhentian_list'] = $this->db->get('jenis_pemberhentian')->result();
 
-		// ---------- Tabel Atas: Usulan Pemberhentian ----------
 		$this->data['usulan_list'] = $this->db
 			->select('
         u.id,
@@ -71,7 +69,6 @@ class Sihenti_pegawai extends SB_Controller
 			->order_by('u.id', 'DESC')
 			->get()->result();
 
-		// ---------- NIP yang masih punya usulan aktif ----------
 		$aktif = $this->db
 			->select('nip')
 			->from('usulan_pemberhentian')
@@ -79,10 +76,8 @@ class Sihenti_pegawai extends SB_Controller
 			->get()->result();
 		$this->data['nip_aktif'] = array_column($aktif, 'nip');
 
-		// Konfigurasi pagination pegawai
 		$this->data['pegawai_per_page'] = 10;
 
-		// ---------- Render view ----------
 		$this->data['content'] = $this->load->view(
 			'sihenti_pegawai/v_sihenti_pegawai',
 			$this->data,
@@ -111,7 +106,6 @@ class Sihenti_pegawai extends SB_Controller
 			$cond   = "(p.NIP_BARU LIKE '%{$q_like}%' OR p.NAMA LIKE '%{$q_like}%')";
 		}
 
-		// Hitung total
 		$this->db
 			->from('pegawai p')
 			->join('status_pegawai sp', 'p.STATUS_PEGAWAI = sp.STATUS_PEGAWAI_ID')
@@ -125,7 +119,6 @@ class Sihenti_pegawai extends SB_Controller
 
 		$total = $this->db->count_all_results();
 
-		// Ambil data halaman ini
 		$this->db
 			->select('p.NIP_BARU, p.NAMA, sp.nama as status, s1.NAMA AS satker,
                   s2.NAMA AS satker_induk, p.TANGGAL_PENSIUN')
@@ -144,7 +137,6 @@ class Sihenti_pegawai extends SB_Controller
 			->limit($per_page, $offset)
 			->get()->result();
 
-		// NIP yang sudah aktif diusulkan
 		$aktif = $this->db
 			->select('nip')
 			->from('usulan_pemberhentian')
@@ -193,7 +185,6 @@ class Sihenti_pegawai extends SB_Controller
 			));
 		}
 
-		// Cek duplikat usulan aktif
 		$cek = $this->db
 			->where('nip', $nip)
 			->where('status_usulan !=', 'Selesai')
@@ -301,12 +292,10 @@ class Sihenti_pegawai extends SB_Controller
 
 		if (!$usulan) redirect('sihenti_pegawai');
 
-		// --- Cari jenis pemberhentian berdasarkan teks ---
 		$jenis = $this->db
 			->where('jenis', $usulan->jenis_usulan)
 			->get('jenis_pemberhentian')->row();
 
-		// --- Ambil daftar detail sesuai id_siasn ---
 		$detail_list = array();
 		if ($jenis) {
 			$detail_list = $this->db
@@ -315,14 +304,13 @@ class Sihenti_pegawai extends SB_Controller
 				->get('detail_pemberhentian')->result();
 		}
 
-		// ⭐ BARU: Ambil daftar berkas + status upload
 		$berkas_list = $this->_get_berkas_list($usulan);
 
 		$this->data['pageTitle']   = 'Detail Usulan Pemberhentian';
 		$this->data['usulan']      = $usulan;
 		$this->data['jenis']       = $jenis;
 		$this->data['detail_list'] = $detail_list;
-		$this->data['berkas_list'] = $berkas_list;   // ⭐ BARU
+		$this->data['berkas_list'] = $berkas_list;
 
 		$this->data['content'] = $this->load->view(
 			'sihenti_pegawai/v_sihenti_detail',
@@ -333,10 +321,35 @@ class Sihenti_pegawai extends SB_Controller
 		$this->load->view('layouts/main', $this->data);
 	}
 
+	/* =====================================================
+     * AJAX: SIMPAN DETAIL PEMBERHENTIAN
+     * ===================================================== */
+	public function simpan_detail()
+	{
+		$id_usulan               = (int) $this->input->post('id_usulan');
+		$id_detail_pemberhentian = (int) $this->input->post('id_detail_pemberhentian');
+
+		if (!$id_usulan || !$id_detail_pemberhentian) {
+			return $this->_json(array(
+				'status'  => 'error',
+				'message' => 'Parameter tidak lengkap.'
+			));
+		}
+
+		$this->db->where('id', $id_usulan)->update('usulan_pemberhentian', array(
+			'id_detail_pemberhentian' => $id_detail_pemberhentian,
+			'tanggal_edit'            => date('Y-m-d H:i:s'),
+		));
+
+		return $this->_json(array(
+			'status'  => 'success',
+			'message' => 'Detail pemberhentian berhasil disimpan.'
+		));
+	}
 
 	/* =====================================================
- * AJAX: UPLOAD BERKAS PEGAWAI (SK CPNS, PNS, Pangkat, Jabatan, Gaji)
- * ===================================================== */
+     * AJAX: UPLOAD BERKAS PEGAWAI SYSTEM (SK CPNS, PNS, Pangkat, Jabatan, Gaji, SKP)
+     * ===================================================== */
 	public function upload_berkas_pegawai()
 	{
 		$id_usulan = (int) $this->input->post('id_usulan');
@@ -367,7 +380,6 @@ class Sihenti_pegawai extends SB_Controller
 			));
 		}
 
-		// Cari PEGAWAI_ID
 		$pegawai = $this->db->select('PEGAWAI_ID')
 			->where('NIP_BARU', $usulan->nip)
 			->get('pegawai')->row();
@@ -379,30 +391,34 @@ class Sihenti_pegawai extends SB_Controller
 		}
 		$pegawai_id = $pegawai->PEGAWAI_ID;
 
-		// Cari record di tabel sumber
 		$this->db->select($cfg['pk'] . ' AS id_record');
 		$this->db->where('PEGAWAI_ID', $pegawai_id);
-		$this->db->order_by($cfg['kolom_order'], $cfg['order_dir']);
-		$this->db->order_by($cfg['pk'], 'DESC');
+
+		// Pengecekan spesifik untuk SKP (sesuai tahun n-1)
+		if ($kode === 'skp') {
+			$tahun_lalu = (int) date('Y') - 1;
+			$this->db->where('TAHUN', $tahun_lalu);
+		} else {
+			$this->db->order_by($cfg['kolom_order'], $cfg['order_dir']);
+			$this->db->order_by($cfg['pk'], 'DESC');
+		}
+
 		$this->db->limit(1);
 		$rec = $this->db->get($cfg['tabel'])->row();
 
 		if (!$rec) {
 			return $this->_json(array(
 				'status'  => 'error',
-				'message' => 'Data ' . $cfg['label'] .
-					' belum ada. Silakan lengkapi dulu di menu Pegawai Siap Online atau SIGAWAI.'
+				'message' => 'Data ' . $cfg['label'] . ' belum ada di database sistem.'
 			));
 		}
 
-		// Siapkan folder
 		$nip         = $usulan->nip;
 		$upload_path = './dokumen/' . $nip . '/';
 		if (!is_dir($upload_path)) {
 			@mkdir($upload_path, 0777, TRUE);
 		}
 
-		// Nama file sesuai format
 		$tgl       = date('Ymd');
 		$nama_file = str_replace(
 			array('{NIP}', '{TGL}'),
@@ -410,11 +426,10 @@ class Sihenti_pegawai extends SB_Controller
 			$cfg['nama_file']
 		);
 
-		// Config upload
 		$config = array(
 			'upload_path'   => $upload_path,
 			'allowed_types' => 'pdf',
-			'max_size'      => 1000,     // 1 MB (dalam KB untuk CI)
+			'max_size'      => 1000,
 			'overwrite'     => TRUE,
 			'file_name'     => $nama_file,
 		);
@@ -429,7 +444,6 @@ class Sihenti_pegawai extends SB_Controller
 			));
 		}
 
-		// Update FILE_PDF di tabel sumber
 		$this->db->where($cfg['pk'], $rec->id_record);
 		$this->db->update($cfg['tabel'], array($cfg['kolom_file'] => $nama_file));
 
@@ -449,6 +463,102 @@ class Sihenti_pegawai extends SB_Controller
 		));
 	}
 
+	/* =====================================================
+     * AJAX: UPLOAD DOKUMEN MANUAL (detail_file_pemberhentian)
+     * ===================================================== */
+	public function upload_berkas_manual()
+	{
+		$id_usulan   = (int) $this->input->post('id_usulan');
+		$kode        = $this->input->post('kode_berkas', TRUE);
+		$halaman     = (int) $this->input->post('halaman') ?: 1;
+
+		if (!$id_usulan || empty($kode)) {
+			return $this->_json(array(
+				'status'  => 'error',
+				'message' => 'Parameter tidak lengkap.'
+			));
+		}
+
+		$manual_config = $this->_dokumen_manual_config();
+		if (!isset($manual_config[$kode])) {
+			return $this->_json(array(
+				'status'  => 'error',
+				'message' => 'Kode dokumen manual tidak terdaftar.'
+			));
+		}
+		$cfg = $manual_config[$kode];
+
+		$usulan = $this->db->where('id', $id_usulan)->get('usulan_pemberhentian')->row();
+		if (!$usulan) {
+			return $this->_json(array(
+				'status'  => 'error',
+				'message' => 'Data usulan tidak ditemukan.'
+			));
+		}
+
+		$pegawai = $this->db->select('PEGAWAI_ID')->where('NIP_BARU', $usulan->nip)->get('pegawai')->row();
+		$pegawai_id = $pegawai ? $pegawai->PEGAWAI_ID : 0;
+
+		$nip         = $usulan->nip;
+		$upload_path = './dokumen/' . $nip . '/';
+		if (!is_dir($upload_path)) {
+			@mkdir($upload_path, 0777, TRUE);
+		}
+
+		$tgl       = date('Ymd_His');
+		$nama_file = str_replace(array('{NIP}', '{TGL}'), array($nip, $tgl), $cfg['nama_file']);
+
+		$config = array(
+			'upload_path'   => $upload_path,
+			'allowed_types' => 'pdf',
+			'max_size'      => 2048, // 2 MB
+			'overwrite'     => TRUE,
+			'file_name'     => $nama_file,
+		);
+
+		$this->load->library('upload', $config);
+		$this->upload->initialize($config);
+
+		if (!$this->upload->do_upload('file_berkas')) {
+			return $this->_json(array(
+				'status'  => 'error',
+				'message' => 'Upload gagal: ' . $this->upload->display_errors('', '')
+			));
+		}
+
+		// Cek apakah sudah pernah upload berdasarkan nama_dokumen
+		$cek = $this->db
+			->where('id_usulan', $id_usulan)
+			->where('nama_dokumen', $cfg['label'])
+			->get('detail_file_pemberhentian')
+			->row();
+
+		if ($cek) {
+			// Update
+			$this->db->where('id', $cek->id)->update('detail_file_pemberhentian', array(
+				'nama_file'   => $nama_file,
+				'halaman'     => $halaman,
+				'updated_at'  => date('Y-m-d H:i:s'),
+			));
+		} else {
+			// Insert Baru
+			$this->db->insert('detail_file_pemberhentian', array(
+				'id_usulan'     => $id_usulan,
+				'fid_pegawai'   => $pegawai_id,
+				'jenis_dokumen' => $kode,
+				'nama_dokumen'  => $cfg['label'],
+				'nama_file'     => $nama_file,
+				'halaman'       => $halaman,
+				'updated_at'    => date('Y-m-d H:i:s'),
+			));
+		}
+
+		return $this->_json(array(
+			'status'   => 'success',
+			'message'  => 'Dokumen ' . $cfg['label'] . ' berhasil diupload.',
+			'file_pdf' => $nama_file,
+		));
+	}
 
 	public function ajukan_usulan()
 	{
@@ -462,7 +572,6 @@ class Sihenti_pegawai extends SB_Controller
 			return $this->_json(array('status' => 'error', 'message' => 'Usulan tidak ditemukan.'));
 		}
 
-		// 1. Cek detail pemberhentian
 		if (empty($row->id_detail_pemberhentian)) {
 			return $this->_json(array(
 				'status'  => 'error',
@@ -470,7 +579,6 @@ class Sihenti_pegawai extends SB_Controller
 			));
 		}
 
-		// 2. ⭐ Cek semua berkas wajib sudah lengkap
 		$berkas_list = $this->_get_berkas_list($row);
 		$belum = array();
 		foreach ($berkas_list as $b) {
@@ -485,7 +593,6 @@ class Sihenti_pegawai extends SB_Controller
 			));
 		}
 
-		// 3. Update status
 		$this->db->where('id', $id)->update('usulan_pemberhentian', array(
 			'status_usulan' => 'Diajukan',
 			'tanggal_edit'  => date('Y-m-d H:i:s'),
@@ -508,7 +615,6 @@ class Sihenti_pegawai extends SB_Controller
 			));
 		}
 
-		// Cek apakah data ada
 		$row = $this->db->where('id', $id)->get('usulan_pemberhentian')->row();
 		if (!$row) {
 			return $this->_json(array(
@@ -517,7 +623,6 @@ class Sihenti_pegawai extends SB_Controller
 			));
 		}
 
-		// Eksekusi Hapus
 		$ok = $this->db->where('id', $id)->delete('usulan_pemberhentian');
 
 		if (!$ok) {
@@ -548,10 +653,9 @@ class Sihenti_pegawai extends SB_Controller
 			->set_output(json_encode($arr));
 	}
 
-
 	/* =====================================================
- * HELPER: Definisi berkas yang diperlukan
- * ===================================================== */
+     * HELPER: Definisi berkas sistem
+     * ===================================================== */
 	private function _berkas_config()
 	{
 		return array(
@@ -615,12 +719,76 @@ class Sihenti_pegawai extends SB_Controller
 				'nama_file'   => 'SK_Gaji_{NIP}_{TGL}.pdf',
 				'wajib'       => TRUE,
 			),
+			'skp' => array(
+				'label'       => 'Penilaian SKP Terakhir',
+				'tabel'       => 'skp22',
+				'pk'          => 'skp22_id',
+				'kolom_file'  => 'FILE_PDF',
+				'kolom_order' => 'TAHUN',
+				'order_dir'   => 'DESC',
+				'nama_file'   => 'SKP_{NIP}_{TGL}.pdf',
+				'wajib'       => FALSE,
+			),
 		);
 	}
 
 	/* =====================================================
- * HELPER: Ambil daftar berkas + status untuk 1 usulan
- * ===================================================== */
+     * HELPER: Daftar Dokumen Tambahan (Upload Manual)
+     * ===================================================== */
+	private function _dokumen_manual_config()
+	{
+		return array(
+			'skp' => array(
+				'label'     => 'Penilaian SKP Terakhir',
+				'nama_file' => 'SKP_{NIP}_{TGL}.pdf',
+				'wajib'     => FALSE,
+			),
+			'sk_jft_pertama' => array(
+				'label'     => 'SK PENGANGKATAN PERTAMA DALAM JABATAN FUNGSIONAL',
+				'nama_file' => 'SK_JFT1_{NIP}_{TGL}.pdf',
+				'wajib'     => FALSE,
+			),
+			'sk_pmk' => array(
+				'label'     => 'SK PENAMBAHAN MASA KERJA (PMK)',
+				'nama_file' => 'SK_PMK_{NIP}_{TGL}.pdf',
+				'wajib'     => FALSE,
+			),
+			'buku_tabungan' => array(
+				'label'     => 'BUKU TABUNGAN',
+				'nama_file' => 'TABUNGAN_{NIP}_{TGL}.pdf',
+				'wajib'     => TRUE,
+			),
+			'surat_kuliah' => array(
+				'label'     => 'SURAT KETERANGAN MASIH KULIAH DARI KAMPUS / LEMBAGA BAGI ANAK USIA 21 s/d 25 TAHUN (BELUM MENIKAH / BEKERJA)',
+				'nama_file' => 'SURAT_KULIAH_{NIP}_{TGL}.pdf',
+				'wajib'     => FALSE,
+			),
+			'dpcp' => array(
+				'label'     => 'DATA PERORANGAN CALON PENERIMA PENSIUN (DPCP)',
+				'nama_file' => 'DPCP_{NIP}_{TGL}.pdf',
+				'wajib'     => TRUE,
+			),
+			'usulan_pd' => array(
+				'label'     => 'Surat / Usulan pensiun dari Kepala Perangkat Daerah',
+				'nama_file' => 'USULAN_PD_{NIP}_{TGL}.pdf',
+				'wajib'     => TRUE,
+			),
+			'sk_tidak_hd' => array(
+				'label'     => 'SURAT KETERANGAN TIDAK DIJATUHI HUKUMAN DISIPLIN TINGKAT SEDANG / BERAT',
+				'nama_file' => 'SK_TIDAK_HD_{NIP}_{TGL}.pdf',
+				'wajib'     => TRUE,
+			),
+			'akta_kematian_cerai' => array(
+				'label'     => 'Akta Kematian / Akta Cerai (bagi PNS yang menikah lebih dari 1 kali)',
+				'nama_file' => 'AKTA_NIKAH_CERAI_{NIP}_{TGL}.pdf',
+				'wajib'     => FALSE,
+			),
+		);
+	}
+
+	/* =====================================================
+     * HELPER: Ambil daftar berkas + status untuk 1 usulan
+     * ===================================================== */
 	private function _get_berkas_list($usulan)
 	{
 		$pegawai = $this->db
@@ -632,18 +800,9 @@ class Sihenti_pegawai extends SB_Controller
 		$pegawai_id = $pegawai ? $pegawai->PEGAWAI_ID : NULL;
 
 		// ================================================
-		// FOTO, KTP, DAN KK DARI SIAP ONLINE
+		// 1. FOTO, KTP, DAN KK DARI SIAP ONLINE
 		// ================================================
 		if ($pegawai_id) {
-
-			// FOTO
-			$foto = $this->db
-				->select('FOTO_SETENGAH')
-				->where('PEGAWAI_ID', $pegawai_id)
-				->get('pegawai')
-				->row();
-
-			// FOTO
 			$nama_foto = $pegawai->FOTO_SETENGAH ?? NULL;
 
 			$list[] = array(
@@ -662,7 +821,6 @@ class Sihenti_pegawai extends SB_Controller
 				'tipe_file'        => 'image',
 			);
 
-			// KTP dan KK
 			$dokumen_config = array(
 				'ktp' => array(
 					'label' => 'KTP',
@@ -675,11 +833,10 @@ class Sihenti_pegawai extends SB_Controller
 			);
 
 			foreach ($dokumen_config as $kode => $cfg) {
-
 				$dok = $this->db
 					->select('id_dokumen, nama_file')
 					->where('fid_jenis_dokumen', $cfg['jenis'])
-					->where('PEGAWAI_ID', $pegawai_id)
+					->where('fid_pegawai', $pegawai_id)
 					->order_by('id_dokumen', 'DESC')
 					->limit(1)
 					->get('dokumen')
@@ -707,10 +864,12 @@ class Sihenti_pegawai extends SB_Controller
 
 		$tgl = date('Ymd');
 
-		// Jangan reset $list di sini!
-		// Foto, KTP, dan KK sudah dimasukkan sebelumnya.
-
+		// ================================================
+		// 2. BERKAS RIWAYAT SISTEM (EXCLUDE SKP)
+		// ================================================
 		foreach ($this->_berkas_config() as $kode => $cfg) {
+			if ($kode === 'skp') continue; // SKP diproses terpisah secara dinamis di bawah
+
 			$item = array(
 				'kode'             => $kode,
 				'label'            => $cfg['label'],
@@ -736,7 +895,6 @@ class Sihenti_pegawai extends SB_Controller
 				$this->db->limit(1);
 				$row = $this->db->get($cfg['tabel'])->row();
 
-
 				if ($row) {
 					$item['id_record']   = (int) $row->id_record;
 					$item['file_pdf']    = $row->file_pdf;
@@ -745,13 +903,97 @@ class Sihenti_pegawai extends SB_Controller
 					$item['bisa_upload'] = TRUE;
 
 					if (!empty($row->file_pdf)) {
-						$item['link_file'] = "https://siap-bkpsdm.probolinggokab.go.id/" . $row->file_pdf; //hardcode link file ke SIAP
-						// $item['link_file'] = base_url($row->file_pdf);
+						$item['link_file'] = "https://siap-bkpsdm.probolinggokab.go.id/" . $row->file_pdf;
 					}
 				}
 			}
 
 			$list[] = $item;
+		}
+
+		// ================================================
+		// 3. DINAMIS: PENGECEKAN SKP PERIODE (TAHUN - 1)
+		// ================================================
+		$tahun_lalu = (int) date('Y') - 1; // Misal sekarang 2026 -> 2025
+		$skp_22     = NULL;
+
+		if ($pegawai_id) {
+			$skp_22 = $this->db
+				->where('PEGAWAI_ID', $pegawai_id)
+				->where('TAHUN', $tahun_lalu)
+				->get('skp22')
+				->row();
+		}
+
+		if ($skp_22) {
+			// Mode Sistem: Pegawai punya data SKP22 di tahun (n-1)
+			$list[] = array(
+				'kode'             => 'skp',
+				'label'            => "Penilaian SKP Terakhir ({$tahun_lalu})",
+				'wajib'            => FALSE,
+				'id_record'        => (int) $skp_22->skp22_id,
+				'file_pdf'         => $skp_22->FILE_PDF,
+				'ada_record'       => TRUE,
+				'ada_file'         => !empty($skp_22->FILE_PDF),
+				'bisa_upload'      => TRUE,
+				'is_manual'        => FALSE,
+				'format_nama_file' => "SKP_{$usulan->nip}_{$tgl}.pdf",
+				'link_file'        => !empty($skp_22->FILE_PDF) ? "https://siap-bkpsdm.probolinggokab.go.id/" . $skp_22->FILE_PDF : NULL,
+				'tipe_file'        => 'dokumen',
+			);
+		} else {
+			// upload manual jika user tidak punya skp22 di tahun (n-1) di sistem
+			$dok_manual = $this->db
+				->where('id_usulan', $usulan->id)
+				->where('nama_dokumen', 'Penilaian SKP Terakhir')
+				->get('detail_file_pemberhentian')
+				->row();
+
+			$nama_file = $dok_manual ? $dok_manual->nama_file : NULL;
+
+			$list[] = array(
+				'kode'             => 'skp',
+				'label'            => 'Penilaian SKP Terakhir',
+				'wajib'            => FALSE,
+				'id_record'        => $dok_manual ? $dok_manual->id : NULL,
+				'file_pdf'         => $nama_file,
+				'ada_record'       => !empty($dok_manual),
+				'ada_file'         => !empty($nama_file),
+				'bisa_upload'      => TRUE,
+				'is_manual'        => TRUE,
+				'format_nama_file' => "SKP_{$usulan->nip}_{$tgl}.pdf",
+				'link_file'        => !empty($nama_file) ? base_url('dokumen/' . $usulan->nip . '/' . $nama_file) : NULL,
+				'tipe_file'        => 'dokumen',
+			);
+		}
+
+		// ================================================
+		// 4. DOKUMEN MANUAL LAINNYA
+		// ================================================
+		foreach ($this->_dokumen_manual_config() as $kode => $cfg) {
+			if ($kode === 'skp') continue; 
+			$dok_manual = $this->db
+				->where('id_usulan', $usulan->id)
+				->where('nama_dokumen', $cfg['label'])
+				->get('detail_file_pemberhentian')
+				->row();
+
+			$nama_file = $dok_manual ? $dok_manual->nama_file : NULL;
+
+			$list[] = array(
+				'kode'             => $kode,
+				'label'            => $cfg['label'],
+				'wajib'            => $cfg['wajib'],
+				'id_record'        => $dok_manual ? $dok_manual->id : NULL,
+				'file_pdf'         => $nama_file,
+				'ada_record'       => !empty($dok_manual),
+				'ada_file'         => !empty($nama_file),
+				'bisa_upload'      => TRUE,
+				'is_manual'        => TRUE,
+				'format_nama_file' => str_replace(array('{NIP}', '{TGL}'), array($usulan->nip, $tgl), $cfg['nama_file']),
+				'link_file'        => !empty($nama_file) ? base_url('dokumen/' . $usulan->nip . '/' . $nama_file) : NULL,
+				'tipe_file'        => 'dokumen',
+			);
 		}
 
 		return $list;
