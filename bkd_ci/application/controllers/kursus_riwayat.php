@@ -8,6 +8,11 @@ class Kursus_riwayat extends SB_Controller
 	public $per_page	= '10';
 	public $idx			= '';
 
+
+	// === TAMBAHAN ===
+	private $api_mws_token;
+	// === END TAMBAHAN ===
+
 	function __construct()
 	{
 		parent::__construct();
@@ -123,9 +128,13 @@ class Kursus_riwayat extends SB_Controller
 			// tombol #tambahan untuk view pdf
 			$btn .= '</div>';
 			if ($dt->FILE_PDF != '') {
-				#perlu diedit--------------------------------------------------
+				// FILE_PDF lokal ada → langsung tampilkan
 				$row[] = '<a href="javascript:SximoModal(\'' . site_url('kursus_riwayat/viewfile/FILE_PDF') . '/' . $dt->$idku . '\',\'View File\',1000)"><img src="' . base_url('/assets/icon/adadoc.png') . '" style="width:20px"></a>';
+			} elseif (!empty($dt->dok_uri)) {
+				// FILE_PDF kosong tapi DOK_URI SIASN ada → download on-demand
+				$row[] = '<a href="javascript:SximoModal(\'' . site_url('kursus_riwayat/viewfile/FILE_PDF') . '/' . $dt->$idku . '\',\'View File\',1000)"><img src="' . base_url('/assets/icon/adadoc.png') . '" style="width:20px" title="Download dari SIASN"></a>';
 			} else {
+				// tidak ada keduanya
 				$row[] = '<img src="' . base_url('/assets/icon/nodoc.png') . '" style="width:20px">';
 			}
 
@@ -415,20 +424,100 @@ class Kursus_riwayat extends SB_Controller
 
 	// ----------------------------------------   start #tambahan   -----------------------------------
 
-	// fungsi #tambahan untuk view pdf
 	function viewfile($col, $id)
 	{
-		#perlu diedit--------------------------------
-		$th = $this->db->query("SELECT $col FROM kursus_riwayat WHERE diklat_riwayat_id = '$id'")->row();
-		$ext = explode(".", $th->$col);
-		$maxext = count($ext);
-		$extn = $ext[$maxext - 1];
-		if ($extn == 'pdf') {
-			$urlberkas = base_url($th->$col);
-			echo '<iframe src="' . $urlberkas . '?time=' . date('ymdhis') . '" width="100%" height="600px"></iframe>';
+		// Ambil data riwayat kursus
+		$row = $this->db->query("
+        SELECT FILE_PDF, dok_uri, PEGAWAI_ID, tanggalKursus
+        FROM kursus_riwayat
+        WHERE diklat_riwayat_id = '$id'
+    ")->row();
+
+		if (!$row) {
+			echo "Data tidak ditemukan.";
+			return;
+		}
+
+		// 1. FILE_PDF lokal ada → langsung tampilkan
+		if (!empty($row->FILE_PDF)) {
+			$this->displayFile($row->FILE_PDF);
+			return;
+		}
+
+		// 2. FILE_PDF kosong & dok_uri kosong → tidak ada file
+		if (empty($row->dok_uri)) {
+			echo "Tidak ada file dan tidak ada referensi dok_uri.";
+			return;
+		}
+
+		// 3. Ambil NIP untuk penamaan file
+		$pegawai = $this->db->query("SELECT NIP_BARU FROM pegawai WHERE PEGAWAI_ID = '$row->PEGAWAI_ID'")->row();
+		if (!$pegawai) {
+			echo "Data pegawai tidak ditemukan.";
+			return;
+		}
+		$nip = $pegawai->NIP_BARU;
+
+		// Pakai tanggal kursus untuk nama file (fallback ke tanggal hari ini)
+		$tglKursus = !empty($row->tanggalKursus) && $row->tanggalKursus != '0000-00-00'
+			? date('YmdHis', strtotime($row->tanggalKursus))
+			: date('YmdHis');
+
+		// 4. Download dari SIASN
+		$result = $this->get_file_siasn($row->dok_uri);
+
+		if (!is_array($result) || !isset($result['status']) || $result['status'] !== true) {
+			$errorDetail = isset($result['message']) ? $result['message'] : 'Unknown error';
+			echo '<div style="padding: 30px 20px; background: #fef9e7; color: #7d6608; border-radius: 10px; border: 1px solid #f9e79f; max-width: 450px; margin: 40px auto; text-align: center; font-family: Arial, sans-serif;">';
+			echo '<div style="font-size: 40px; margin-bottom: 10px;">⏳</div>';
+			echo '<strong style="font-size: 18px;">Sedang memuat file...</strong><br>';
+			echo '<span style="font-size: 15px;">Server BKN sedang sibuk, silakan coba lagi beberapa saat.</span>';
+			echo '</div>';
+			echo '<!-- Error: ' . htmlspecialchars($errorDetail) . ' -->';
+			error_log("kursus viewfile error ID $id: " . $errorDetail);
+			return;
+		}
+
+		// 5. Simpan hasil download & update FILE_PDF
+		$fileContent = $result['content'];
+		$newFilename = 'DIKLATSEMINAR_' . $nip . '_' . $tglKursus . '.pdf';
+		$folder      = FCPATH . './dokumen/' . $nip . '/';
+
+		if (!is_dir($folder)) mkdir($folder, 0777, true);
+
+		$savePath     = $folder . $newFilename;
+		$relativePath = 'dokumen/' . $nip . '/' . $newFilename;
+
+		if (file_put_contents($savePath, $fileContent) === false) {
+			echo '<div style="padding: 20px; background: #fef9e7; color: #7d6608; border-radius: 10px; border: 1px solid #f9e79f; max-width: 450px; margin: 40px auto; text-align: center;">';
+			echo '<strong>Gagal menyimpan file, coba lagi.</strong>';
+			echo '</div>';
+			error_log("Gagal simpan file $savePath");
+			return;
+		}
+
+		// Update kolom FILE_PDF supaya next time tinggal pakai file lokal
+		$this->db->where('diklat_riwayat_id', $id);
+		$this->db->update('kursus_riwayat', [
+			'FILE_PDF'      => $relativePath,
+			'filesync_date' => date('Y-m-d H:i:s'),
+		]);
+
+		$this->displayFile($relativePath);
+	}
+
+	/**
+	 * Helper: tampilkan file (PDF via iframe, lainnya via img)
+	 */
+	private function displayFile($file_path)
+	{
+		$ext       = pathinfo($file_path, PATHINFO_EXTENSION);
+		$urlberkas = base_url($file_path) . '?time=' . date('ymdhis');
+
+		if (strtolower($ext) == 'pdf') {
+			echo '<iframe src="' . $urlberkas . '" width="100%" height="600px"></iframe>';
 		} else {
-			$urlberkas = base_url($th->$col);
-			echo '<img src="' . $urlberkas . '?time=' . date('ymdhis') . '" style="max-width:100%">';
+			echo '<img src="' . $urlberkas . '" style="max-width:100%">';
 		}
 	}
 
@@ -996,5 +1085,78 @@ class Kursus_riwayat extends SB_Controller
 		} else {
 			echo "Tidak ada data yang perlu dikirim.";
 		}
+	}
+
+	/**
+	 * Download file dari SIASN menggunakan DOK_URI
+	 * @param string $dok_uri - path file dari tabel kursus_riwayat
+	 * @return array ['status' => bool, 'content' => string|false, 'message' => string]
+	 */
+	public function get_file_siasn($dok_uri)
+	{
+		// Lazy-load token (hanya saat dibutuhkan)
+		if (empty($this->api_mws_token)) {
+			$this->api_mws_token = $this->getApiMwsToken();
+		}
+
+		$api_mws_token = 'Bearer ' . $this->api_mws_token;
+		$sso_token     = 'bearer ' . $this->getSsoToken();
+
+		$curl = curl_init();
+		curl_setopt_array($curl, array(
+			CURLOPT_URL => 'https://apimws.bkn.go.id:8243/apisiasn/1.0/download-dok?filePath=' . $dok_uri,
+			CURLOPT_RETURNTRANSFER => true,
+			CURLOPT_ENCODING => '',
+			CURLOPT_MAXREDIRS => 10,
+			CURLOPT_TIMEOUT => 120,
+			CURLOPT_FOLLOWLOCATION => true,
+			CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+			CURLOPT_CUSTOMREQUEST => 'GET',
+			CURLOPT_HTTPHEADER => array(
+				'accept: application/json',
+				'Auth: ' . $sso_token,
+				'Authorization: ' . $api_mws_token,
+				'Cookie: ff8d625df24f2272ecde05bd53b814bc=ce158eaac3b25204bfaa39e480fc50f7; pdns=1091068938.13088.0000'
+			),
+			CURLOPT_SSL_VERIFYPEER => false,
+			CURLOPT_SSL_VERIFYHOST => false,
+		));
+
+		$response  = curl_exec($curl);
+		$httpCode  = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+		$curlError = curl_error($curl);
+		curl_close($curl);
+
+		error_log("SIASN kursus download: HTTP $httpCode, dok_uri: $dok_uri, cURL error: $curlError");
+
+		if ($httpCode == 200 && empty($curlError)) {
+			// Cek apakah response JSON (error) atau PDF
+			$json = json_decode($response, true);
+			if ($json !== null && isset($json['message'])) {
+				error_log("SIASN kursus download error message: " . $json['message']);
+				return ['status' => false, 'message' => $json['message']];
+			}
+
+			// Validasi header PDF (%PDF-)
+			if (substr($response, 0, 5) === "%PDF-") {
+				return ['status' => true, 'content' => $response];
+			}
+
+			error_log("SIASN kursus download response bukan PDF valid");
+			return ['status' => false, 'message' => 'Respons bukan PDF valid'];
+		}
+
+		$msg = "HTTP $httpCode";
+		if ($curlError) {
+			$msg .= " - cURL: $curlError";
+		}
+		$json = json_decode($response, true);
+		if (isset($json['message'])) {
+			$msg .= " - Message: " . $json['message'];
+		} elseif (!empty($response)) {
+			$msg .= " - Response: " . substr($response, 0, 200);
+		}
+		error_log("SIASN kursus download gagal: $msg");
+		return ['status' => false, 'message' => $msg];
 	}
 }

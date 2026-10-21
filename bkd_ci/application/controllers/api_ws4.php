@@ -811,6 +811,8 @@ class Api_ws4 extends SB_Controller
     }
 
 
+
+
     public function resetAntrianGolongan()
     {
         header('Content-Type: text/plain; charset=utf-8');
@@ -1791,5 +1793,513 @@ class Api_ws4 extends SB_Controller
         echo "SELESAI\n";
         echo "Waktu    : " . date('Y-m-d H:i:s') . "\n";
         echo "=========================================\n";
+    }
+
+
+    public function get_kursus($api_mws_token, $nip_baru)
+    {
+
+
+        $sso_token = "bearer eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJBUWNPM0V3MVBmQV9MQ0FtY2J6YnRLUEhtcWhLS1dRbnZ1VDl0RUs3akc4In0.eyJleHAiOjE3MzE5NTQ4MzUsImlhdCI6MTczMTkxMTYzNSwianRpIjoiMzcyZTliZTctZmNhYS00NjFhLWE0OTYtMGUxN2ZmMzI4MDUwIiwiaXNzIjoiaHR0cHM6Ly9zc28tc2lhc24uYmtuLmdvLmlkL2F1dGgvcmVhbG1zL3B1YmxpYy1zaWFzbiIsImF1ZCI6ImFjY291bnQiLCJzdWIiOiIxNzhkOWQ4OC1iOGRlLTRjYWEtYmQ1OS05NDg0NjdlZDJiOTYiLCJ0eXAiOiJCZWFyZXIiLCJhenAiOiJrYWJwcm9ib2xpbmdnb3dzIiwic2Vzc2lvbl9zdGF0ZSI6Ijg2NjFkZjkxLTBjNzMtNDk2Zi05N2YxLTM3MmJkZmYzNTBmNiIsImFjciI6IjEiLCJhbGxvd2VkLW9yaWdpbnMiOlsiaHR0cHM6Ly9kZXYtY2x1c3Rlci5wcm9ib2xpbmdnb2thYi5nby5pZCIsImh0dHA6Ly8xMjcuMC4wLjE6MzAwMC8qIiwiaHR0cDovLzEyNy4wLjAuMTozMDAwIiwiaHR0cDovL2xvY2FsaG9zdDozMDAwLyoiLCJodHRwOi8vbG9jYWxob3N0OjMwMDAiLCJodHRwczovL2Rldi1jbHVzdGVyLnByb2JvbGluZ2dva2FiLmdvLmlkLyoiXSwicmVhbG1fYWNjZXNzIjp7InJvbGVzIjpbInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW1hamFhbjpvcGVyYXRvciIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW5jYW5hYW46aW5zdGFuc2ktb3BlcmF0b3ItaW5mb2phYiIsInJvbGU6c2lhc24taW5zdGFuc2k6cGk6b3BlcmF0b3IiLCJyb2xlOnNpYXNuLWluc3RhbnNpOnBlcmVuY2FuYWFuOmluc3RhbnNpLW1vbml0b3ItcGVyZW5jYW5hYW4ta2VwZWdhd2FpYW4iLCJyb2xlOnNpYXNuLWluc3RhbnNpOnBlbmdhZGFhbjphcHByb3ZhbCIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVuZ2FkYWFuOm9wZXJhdG9yLXNrcG5zIiwicm9sZTpzaWFzbi1pbnN0YW5zaTprcDphcHByb3ZhbCIsInJvbGU6c2lhc24taW5zdGFuc2k6a3A6b3BlcmF0b3IiLCJyb2xlOmRhc2hib2FyZC1rZWJpamFrYW46aW5zdGFuc2kiLCJyb2xlOm1hbmFqZW1lbi13czpkZXZlbG9wZXIiLCJvZmZsaW5lX2FjY2VzcyIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW5jYW5hYW46aW5zdGFuc2ktb3BlcmF0b3ItcGVtZW51aGFuLWtlYi1wZWdhd2FpIiwidW1hX2F1dGhvcml6YXRpb24iLCJyb2xlOnNpYXNuLWluc3RhbnNpOnNrazphcHByb3ZhbCIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW5jYW5hYW46aW5zdGFuc2ktb3BlcmF0b3ItZXZhamFiIiwicm9sZTpzaWFzbi1pbnN0YW5zaTpza2s6b3BlcmF0b3IiLCJyb2xlOnNpYXNuLWluc3RhbnNpOnBlcmVtYWphYW46YXBwcm92YWwiLCJyb2xlOnNpYXNuLWluc3RhbnNpOnBlcmVuY2FuYWFuOmluc3RhbnNpLW9wZXJhdG9yLXNvdGsiLCJyb2xlOmRhc2hib2FyZC1vcGVyYXNpb25hbDppbnN0YW5zaSIsInJvbGU6ZGlzcGFrYXRpOmluc3RhbnNpOm9wZXJhdG9yIiwicm9sZTpzaWFzbi1pbnN0YW5zaTpwZW1iZXJoZW50aWFuOm9wZXJhdG9yX2l6aW5fcHBwayIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVuZ2FkYWFuOm9wZXJhdG9yIiwicm9sZTpzaWFzbi1pbnN0YW5zaTpwZW1iZXJoZW50aWFuOm9wZXJhdG9yIiwicm9sZTpzaWFzbi1pbnN0YW5zaTpwaTphcHByb3ZhbCIsInJvbGU6c2lhc24taW5zdGFuc2k6aXBhc246bW9uaXRvcmluZyIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW5jYW5hYW46aW5zdGFuc2ktb3BlcmF0b3Itc3RhbmRhci1rb21wLWphYiIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVtYmVyaGVudGlhbjphcHByb3ZhbCIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW5jYW5hYW46aW5zdGFuc2ktcGVuZXRhcGFuLXNvdGsiLCJyb2xlOnNpYXNuLWluc3RhbnNpOnByb2ZpbGFzbjp2aWV3cHJvZmlsIiwicm9sZTpkYXNoYm9hcmQtb3BlcmFzaW9uYWw6aW5zdGFuc2ktcGltcGluYW4iLCJyb2xlOnNpYXNuLWluc3RhbnNpOmFkbWluOmFkbWluIiwicm9sZTpzaWFzbi1pbnN0YW5zaTpwZXJlbmNhbmFhbjppbnN0YW5zaS12YWxpZGF0b3Itc3RhbmRhci1rb21wLWphYiJdfSwicmVzb3VyY2VfYWNjZXNzIjp7ImFjY291bnQiOnsicm9sZXMiOlsibWFuYWdlLWFjY291bnQiLCJtYW5hZ2UtYWNjb3VudC1saW5rcyIsInZpZXctcHJvZmlsZSJdfX0sInNjb3BlIjoiZW1haWwgcHJvZmlsZSIsImVtYWlsX3ZlcmlmaWVkIjpmYWxzZSwibmFtZSI6IlNSSSBLVVNUQU5USSIsInByZWZlcnJlZF91c2VybmFtZSI6IjE5ODMwNzA0MjAxMDAxMjAxMiIsImdpdmVuX25hbWUiOiJTUkkiLCJmYW1pbHlfbmFtZSI6IktVU1RBTlRJIiwiZW1haWwiOiJrdXN0YW50aTQ3QGdtYWlsLmNvbSJ9.L4spM6cVggKdzQAS8jw99mzy_bz-J5HZ128QnHhWV65pzlWkSp286wzAjoWDfcaIM8PTo70k0PeRG0ZdTMQrKsJ3-w_50SAvDUjDQnWhLNnVnKsg6Et50ifrE1k6AMLA5BrPwIC8TpjbWaB7hTQ3xk9sz8KgejGA9e4mPzaV53tKuLa-r9LCYJ2tQNP2-XxYZtizHs9gI2B59YEVJkmR0ne-IIFImKo-oicnr-ePO1FFFPrOGQWXxqwavyDT6f93zAjMGN7Tjwghvlpvj563aT1yFaEGN1b_eQR2Un5pBgbiI54NP7mx7PIdrTYY-QIfbv1rine6ZqtVQhtcJVTEkA";
+        $api_mws_token = "Bearer " . $api_mws_token;
+        $curl = curl_init();
+
+        curl_setopt_array($curl, array(
+            CURLOPT_URL => 'https://apimws.bkn.go.id:8243/apisiasn/1.0/pns/rw-kursus/' . $nip_baru,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_ENCODING => '',
+            CURLOPT_MAXREDIRS => 10,
+            CURLOPT_TIMEOUT => 0,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+            CURLOPT_CUSTOMREQUEST => 'GET',
+            CURLOPT_HTTPHEADER => array(
+                'accept: application/json',
+                'Auth: bearer eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJBUWNPM0V3MVBmQV9MQ0FtY2J6YnRLUEhtcWhLS1dRbnZ1VDl0RUs3akc4In0.eyJleHAiOjE3MzE5NTQ4MzUsImlhdCI6MTczMTkxMTYzNSwianRpIjoiMzcyZTliZTctZmNhYS00NjFhLWE0OTYtMGUxN2ZmMzI4MDUwIiwiaXNzIjoiaHR0cHM6Ly9zc28tc2lhc24uYmtuLmdvLmlkL2F1dGgvcmVhbG1zL3B1YmxpYy1zaWFzbiIsImF1ZCI6ImFjY291bnQiLCJzdWIiOiIxNzhkOWQ4OC1iOGRlLTRjYWEtYmQ1OS05NDg0NjdlZDJiOTYiLCJ0eXAiOiJCZWFyZXIiLCJhenAiOiJrYWJwcm9ib2xpbmdnb3dzIiwic2Vzc2lvbl9zdGF0ZSI6Ijg2NjFkZjkxLTBjNzMtNDk2Zi05N2YxLTM3MmJkZmYzNTBmNiIsImFjciI6IjEiLCJhbGxvd2VkLW9yaWdpbnMiOlsiaHR0cHM6Ly9kZXYtY2x1c3Rlci5wcm9ib2xpbmdnb2thYi5nby5pZCIsImh0dHA6Ly8xMjcuMC4wLjE6MzAwMC8qIiwiaHR0cDovLzEyNy4wLjAuMTozMDAwIiwiaHR0cDovL2xvY2FsaG9zdDozMDAwLyoiLCJodHRwOi8vbG9jYWxob3N0OjMwMDAiLCJodHRwczovL2Rldi1jbHVzdGVyLnByb2JvbGluZ2dva2FiLmdvLmlkLyoiXSwicmVhbG1fYWNjZXNzIjp7InJvbGVzIjpbInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW1hamFhbjpvcGVyYXRvciIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW5jYW5hYW46aW5zdGFuc2ktb3BlcmF0b3ItaW5mb2phYiIsInJvbGU6c2lhc24taW5zdGFuc2k6cGk6b3BlcmF0b3IiLCJyb2xlOnNpYXNuLWluc3RhbnNpOnBlcmVuY2FuYWFuOmluc3RhbnNpLW1vbml0b3ItcGVyZW5jYW5hYW4ta2VwZWdhd2FpYW4iLCJyb2xlOnNpYXNuLWluc3RhbnNpOnBlbmdhZGFhbjphcHByb3ZhbCIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVuZ2FkYWFuOm9wZXJhdG9yLXNrcG5zIiwicm9sZTpzaWFzbi1pbnN0YW5zaTprcDphcHByb3ZhbCIsInJvbGU6c2lhc24taW5zdGFuc2k6a3A6b3BlcmF0b3IiLCJyb2xlOmRhc2hib2FyZC1rZWJpamFrYW46aW5zdGFuc2kiLCJyb2xlOm1hbmFqZW1lbi13czpkZXZlbG9wZXIiLCJvZmZsaW5lX2FjY2VzcyIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW5jYW5hYW46aW5zdGFuc2ktb3BlcmF0b3ItcGVtZW51aGFuLWtlYi1wZWdhd2FpIiwidW1hX2F1dGhvcml6YXRpb24iLCJyb2xlOnNpYXNuLWluc3RhbnNpOnNrazphcHByb3ZhbCIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW5jYW5hYW46aW5zdGFuc2ktb3BlcmF0b3ItZXZhamFiIiwicm9sZTpzaWFzbi1pbnN0YW5zaTpza2s6b3BlcmF0b3IiLCJyb2xlOnNpYXNuLWluc3RhbnNpOnBlcmVtYWphYW46YXBwcm92YWwiLCJyb2xlOnNpYXNuLWluc3RhbnNpOnBlcmVuY2FuYWFuOmluc3RhbnNpLW9wZXJhdG9yLXNvdGsiLCJyb2xlOmRhc2hib2FyZC1vcGVyYXNpb25hbDppbnN0YW5zaSIsInJvbGU6ZGlzcGFrYXRpOmluc3RhbnNpOm9wZXJhdG9yIiwicm9sZTpzaWFzbi1pbnN0YW5zaTpwZW1iZXJoZW50aWFuOm9wZXJhdG9yX2l6aW5fcHBwayIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVuZ2FkYWFuOm9wZXJhdG9yIiwicm9sZTpzaWFzbi1pbnN0YW5zaTpwZW1iZXJoZW50aWFuOm9wZXJhdG9yIiwicm9sZTpzaWFzbi1pbnN0YW5zaTpwaTphcHByb3ZhbCIsInJvbGU6c2lhc24taW5zdGFuc2k6aXBhc246bW9uaXRvcmluZyIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW5jYW5hYW46aW5zdGFuc2ktb3BlcmF0b3Itc3RhbmRhci1rb21wLWphYiIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVtYmVyaGVudGlhbjphcHByb3ZhbCIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW5jYW5hYW46aW5zdGFuc2ktcGVuZXRhcGFuLXNvdGsiLCJyb2xlOnNpYXNuLWluc3RhbnNpOnByb2ZpbGFzbjp2aWV3cHJvZmlsIiwicm9sZTpkYXNoYm9hcmQtb3BlcmFzaW9uYWw6aW5zdGFuc2ktcGltcGluYW4iLCJyb2xlOnNpYXNuLWluc3RhbnNpOmFkbWluOmFkbWluIiwicm9sZTpzaWFzbi1pbnN0YW5zaTpwZXJlbmNhbmFhbjppbnN0YW5zaS12YWxpZGF0b3Itc3RhbmRhci1rb21wLWphYiJdfSwicmVzb3VyY2VfYWNjZXNzIjp7ImFjY291bnQiOnsicm9sZXMiOlsibWFuYWdlLWFjY291bnQiLCJtYW5hZ2UtYWNjb3VudC1saW5rcyIsInZpZXctcHJvZmlsZSJdfX0sInNjb3BlIjoiZW1haWwgcHJvZmlsZSIsImVtYWlsX3ZlcmlmaWVkIjpmYWxzZSwibmFtZSI6IlNSSSBLVVNUQU5USSIsInByZWZlcnJlZF91c2VybmFtZSI6IjE5ODMwNzA0MjAxMDAxMjAxMiIsImdpdmVuX25hbWUiOiJTUkkiLCJmYW1pbHlfbmFtZSI6IktVU1RBTlRJIiwiZW1haWwiOiJrdXN0YW50aTQ3QGdtYWlsLmNvbSJ9.L4spM6cVggKdzQAS8jw99mzy_bz-J5HZ128QnHhWV65pzlWkSp286wzAjoWDfcaIM8PTo70k0PeRG0ZdTMQrKsJ3-w_50SAvDUjDQnWhLNnVnKsg6Et50ifrE1k6AMLA5BrPwIC8TpjbWaB7hTQ3xk9sz8KgejGA9e4mPzaV53tKuLa-r9LCYJ2tQNP2-XxYZtizHs9gI2B59YEVJkmR0ne-IIFImKo-oicnr-ePO1FFFPrOGQWXxqwavyDT6f93zAjMGN7Tjwghvlpvj563aT1yFaEGN1b_eQR2Un5pBgbiI54NP7mx7PIdrTYY-QIfbv1rine6ZqtVQhtcJVTEkA',
+                'Authorization: ' . $api_mws_token,
+                'Cookie: ff8d625df24f2272ecde05bd53b814bc=ce158eaac3b25204bfaa39e480fc50f7; pdns=1091068938.13088.0000'
+            ),
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYHOST => false,
+        ));
+
+        $response = curl_exec($curl);
+
+        curl_close($curl);
+        // $hasil['data']['sso_token'] = $sso_token;
+        // $hasil['data']['api_mws_token'] = $api_mws_token;
+        // $hasil['data']['return'] = $response;
+
+        return $response;
+        // return $hasil;
+    }
+
+    public function SingkronKursusBkn($peg_id)
+    {
+        $result = [
+            'success'  => false,
+            'message'  => '',
+            'total'    => 0,
+            'inserted' => 0,
+            'updated'  => 0,
+            'skipped'  => 0
+        ];
+
+        if (empty($peg_id)) {
+            $result['message'] = 'Parameter pegawai_id wajib diisi.';
+            return $result;
+        }
+
+        $data_peg = $this->db->get_where('pegawai', ['pegawai_id' => $peg_id])->row();
+        if (!$data_peg) {
+            $result['message'] = 'Pegawai tidak ditemukan.';
+            return $result;
+        }
+
+        $kursusData = $this->get_kursus($this->api_mws_token, $data_peg->NIP_BARU);
+        $data = json_decode($kursusData, true);
+
+        if (!isset($data['data']) || !is_array($data['data'])) {
+            $result['message'] = $data['message'] ?? $data['description'] ?? 'Tidak ada data riwayat kursus dari SIASN.';
+            return $result;
+        }
+
+        $total = 0;
+        $inserted = 0;
+        $updated = 0;
+        $skipped = 0;
+
+        // Helper format tanggal d-m-Y -> Y-m-d
+        $formatTanggal = function ($tgl) {
+            if (empty($tgl)) return null;
+            $d = DateTime::createFromFormat('d-m-Y', $tgl);
+            return $d ? $d->format('Y-m-d') : null;
+        };
+
+        foreach ($data['data'] as $kursus) {
+            $total++;
+
+            // ==========================================================
+            // FILTER UTAMA: hanya proses jika path ADA / TIDAK KOSONG
+            // (kosong = null, [], {} )
+            // ==========================================================
+            if (empty($kursus['path']) || !is_array($kursus['path'])) {
+                $skipped++;
+                continue;
+            }
+
+            $siasn_id = $kursus['id'];
+
+            // Ambil dokumen pertama dari path (kalau ada lebih dari satu)
+            $dok_id   = null;
+            $dok_uri  = null;
+            $dok_nama = null;
+            $object   = null;
+            $slug     = null;
+
+            foreach ($kursus['path'] as $p) {
+                if (!is_array($p)) continue;
+                $dok_id   = $p['dok_id']   ?? null;
+                $dok_uri  = $p['dok_uri']  ?? null;
+                $dok_nama = $p['dok_nama'] ?? null;
+                $object   = $p['object']   ?? null;
+                $slug     = $p['slug']     ?? null;
+                break; // cukup yang pertama
+            }
+
+            $common_data = [
+                'pnsOrangId'            => $kursus['idPns'] ?? null,
+                'jenisDiklatId'         => $kursus['jenisDiklatId'] ?? null,
+                'jenisKursus'           => $kursus['jenisKursusId'] ?? null,
+                'jenisKursusNama'       => $kursus['jenisKursusNama'] ?? null,
+                'jenisKursusSertipikat' => $kursus['jenisKursusSertifikat'] ?? null,
+                'namaKursus'            => $kursus['namaKursus'] ?? null,
+                'institusiPenyelenggara' => $kursus['institusiPenyelenggara'] ?? null,
+                'nomorSertipikat'       => $kursus['noSertipikat'] ?? null,
+                'tanggalKursus'         => $formatTanggal($kursus['tanggalKursus'] ?? ''),
+                'tanggalSelesaiKursus'  => $formatTanggal($kursus['tanggalSelesaiKursus'] ?? ''),
+                'tahunKursus'           => $kursus['tahunKursus'] ?? null,
+                'jumlahJam'             => $kursus['jumlahJam'] ?? null,
+                // 'FILE_PDF'              => $dok_uri,
+                'dok_id'                => $dok_id,
+                'dok_uri'               => $dok_uri,
+                'dok_nama'              => $dok_nama,
+                'object'                => $object,
+                'slug'                  => $slug,
+                'path'                  => json_encode($kursus['path']),
+            ];
+
+            // Cek existing berdasarkan kursus_id_siasn (UUID SIASN)
+            $existing = $this->db->get_where('kursus_riwayat', [
+                'kursus_id_siasn' => $siasn_id,
+                'PEGAWAI_ID'      => $peg_id
+            ])->row();
+
+            if ($existing) {
+                // UPDATE — field yang tidak ada di WS (jenisDiklatNama, rumpunDiklat, dll)
+                // sengaja TIDAK dimasukkan agar nilai lama tetap terjaga
+                $update_data = $common_data + [
+                    'udpate_date' => date('Y-m-d H:i:s'),
+                    'update_by'   => $data_peg->NIP_BARU,
+                ];
+                $this->db->where('diklat_riwayat_id', $existing->diklat_riwayat_id)
+                    ->update('kursus_riwayat', $update_data);
+                $updated++;
+            } else {
+                // INSERT
+                $insert_data = $common_data + [
+                    'PEGAWAI_ID'     => $peg_id,
+                    'kursus_id_siasn' => $siasn_id,
+                    'insert_date'    => date('Y-m-d H:i:s'),
+                    'insert_by'      => $data_peg->NIP_BARU,
+                ];
+                $this->db->insert('kursus_riwayat', $insert_data);
+                $inserted++;
+            }
+        }
+
+        $result['success']  = true;
+        $result['message']  = "Sinkronisasi kursus selesai. Total: $total, Insert: $inserted, Update: $updated, Skip(path kosong): $skipped";
+        $result['total']    = $total;
+        $result['inserted'] = $inserted;
+        $result['updated']  = $updated;
+        $result['skipped']  = $skipped;
+
+        return $result;
+    }
+
+    public function sync_rw_kursus_batch($limit = 50, $batastolreansi = 5)
+    {
+        echo "================================ mulai ambil rw kursus " . date('Y-m-d H:i:s') . " ================================\n\n";
+
+        $token = $this->api_mws_token;
+
+        $pegawai = $this->db
+            ->where('kursus', 1)
+            ->where_in('statusPegawai', ['PNS', 'CPNS', 'PPPK', 'PPPK PARUH WAKTU'])
+            ->where('retry_count_kursus <', $batastolreansi)
+            ->order_by('id')
+            ->limit($limit)
+            ->get('siasnpegawaiid')
+            ->result();
+
+        if (empty($pegawai)) {
+            echo "Tidak ada pegawai dengan kursus=1 dan retry_count < $batastolreansi.\n";
+            echo "\n\n================================ selesai " . date('Y-m-d H:i:s') . " ================================\n";
+            return;
+        }
+
+        foreach ($pegawai as $p) {
+            echo "\nSedang diproses : {$p->nip}";
+
+            $json  = $this->get_kursus($token, $p->nip);
+            $retry = $p->retry_count_kursus + 1;
+
+            // 1. Response kosong
+            if (empty($json)) {
+                $this->db->where('id', $p->id)->update('siasnpegawaiid', [
+                    'kursus'               => ($retry >= $batastolreansi ? 3 : 1),
+                    'retry_count_kursus'   => $retry
+                ]);
+                echo " ==> Response kosong ({$retry}/{$batastolreansi})";
+                continue;
+            }
+
+            // 2. Decode JSON
+            $response = json_decode($json, true);
+            if (json_last_error() != JSON_ERROR_NONE) {
+                $this->db->where('id', $p->id)->update('siasnpegawaiid', [
+                    'kursus'               => ($retry >= $batastolreansi ? 3 : 1),
+                    'retry_count_kursus'   => $retry
+                ]);
+                echo " ==> JSON tidak valid ({$retry}/{$batastolreansi})";
+                continue;
+            }
+
+            // 3. Sukses dari SIASN
+            if (isset($response['code']) && $response['code'] == 1) {
+                $save = $this->SingkronKursusBkn($p->pegawai_id);
+
+                if ($save['success']) {
+                    $this->db->where('id', $p->id)->update('siasnpegawaiid', [
+                        'kursus'             => 0,
+                        'retry_count_kursus' => 0
+                    ]);
+                    echo " ==> SUKSES (Insert: {$save['inserted']}, Update: {$save['updated']}, Skip: {$save['skipped']})";
+                } else {
+                    $this->db->where('id', $p->id)->update('siasnpegawaiid', [
+                        'kursus'             => ($retry >= $batastolreansi ? 3 : 1),
+                        'retry_count_kursus' => $retry
+                    ]);
+                    echo " ==> Gagal menyimpan data: {$save['message']}";
+                }
+                continue;
+            }
+
+            // 4. Gagal dari SIASN
+            $this->db->where('id', $p->id)->update('siasnpegawaiid', [
+                'kursus'             => ($retry >= $batastolreansi ? 3 : 1),
+                'retry_count_kursus' => $retry
+            ]);
+            $pesan = $response['message'] ?? 'Unknown Error';
+            echo " ==> GAGAL ({$retry}/{$batastolreansi}) : {$pesan}";
+        }
+
+        echo "\n\n================================ selesai ambil rw kursus " . date('Y-m-d H:i:s') . " ================================\n";
+    }
+
+    public function resetAntrianKursus()
+    {
+        header('Content-Type: text/plain; charset=utf-8');
+        echo "=========================================\n";
+        echo "RESET ANTRIAN KURSUS\n";
+        echo "Dimulai : " . date('Y-m-d H:i:s') . "\n";
+        echo "=========================================\n\n";
+
+        $this->db
+            ->where_in('statusPegawai', ['PNS', 'CPNS', 'PPPK', 'PPPK PARUH WAKTU'])
+            ->update('siasnpegawaiid', [
+                'kursus'             => 1,
+                'retry_count_kursus' => 0
+            ]);
+
+        $affected_rows = $this->db->affected_rows();
+
+        echo "Update berhasil.\n";
+        echo "Jumlah baris diupdate: " . number_format($affected_rows) . "\n";
+        echo "Status pegawai direset: PNS, CPNS, PPPK, PPPK PARUH WAKTU\n";
+        echo "=========================================\n";
+        echo "SELESAI\n";
+        echo "Waktu    : " . date('Y-m-d H:i:s') . "\n";
+        echo "=========================================\n";
+    }
+
+
+    /**
+     * ============================================================
+     * CRON: download file kursus dari SIASN untuk data yang
+     *       dok_uri ada tetapi FILE_PDF masih kosong.
+     * 
+     * Contoh:
+     *   /api_ws4/sync_kursus_files_batch/50/5
+     *      limit=50, batas retry=5
+     * ============================================================
+     */
+    public function sync_kursus_files_batch($limit = 50, $batastolreansi = 5)
+    {
+        header('Content-Type: text/plain; charset=utf-8');
+        set_time_limit(0);
+        @ob_implicit_flush(true);
+
+        echo "======== mulai download file kursus " . date('Y-m-d H:i:s') . " ========\n\n";
+
+        // Lazy-load token
+        if (empty($this->api_mws_token)) {
+            $this->api_mws_token = $this->apimodel->getApiMwsToken();
+            if (empty($this->api_mws_token)) {
+                echo "ERROR: Gagal mendapatkan token API MWS.\n";
+                return;
+            }
+        }
+
+        $rows = $this->db
+            ->select('k.diklat_riwayat_id, k.dok_uri, k.PEGAWAI_ID, k.tanggalKursus,
+                  k.download_retry_count, p.NIP_BARU')
+            ->from('kursus_riwayat k')
+            ->join('pegawai p', 'p.PEGAWAI_ID = k.PEGAWAI_ID', 'left')
+            ->where("k.dok_uri IS NOT NULL AND k.dok_uri != ''", null, false)
+            ->where("(k.FILE_PDF IS NULL OR k.FILE_PDF = '')", null, false)
+            ->where('k.download_retry_count <', (int)$batastolreansi)
+            ->order_by('k.diklat_riwayat_id', 'ASC')
+            ->limit((int)$limit)
+            ->get()
+            ->result();
+
+        if (empty($rows)) {
+            echo "Tidak ada data yang perlu didownload.\n";
+            echo "======== selesai " . date('Y-m-d H:i:s') . " ========\n";
+            return;
+        }
+
+        $total = count($rows);
+        $ok = 0;
+        $fail = 0;
+        $skip = 0;
+        $index = 0;
+
+        foreach ($rows as $r) {
+            $index++;
+            echo "[$index/$total] ID {$r->diklat_riwayat_id} (NIP: {$r->NIP_BARU}) ... ";
+
+            // ---- Validasi NIP ----
+            if (empty($r->NIP_BARU)) {
+                $this->db->where('diklat_riwayat_id', $r->diklat_riwayat_id)
+                    ->update('kursus_riwayat', [
+                        'download_message'     => 'NIP kosong, tidak bisa simpan file',
+                        'download_date'        => date('Y-m-d H:i:s'),
+                        'download_retry_count' => (int)$batastolreansi, // stop retry
+                    ]);
+                echo "SKIP (NIP kosong)\n";
+                $skip++;
+                @ob_flush();
+                @flush();
+                continue;
+            }
+
+            // ---- Download dari SIASN ----
+            $res = $this->download_file_siasn($r->dok_uri);
+
+            if (!$res['status']) {
+                $retry = ((int)$r->download_retry_count) + 1;
+                $this->db->where('diklat_riwayat_id', $r->diklat_riwayat_id)
+                    ->update('kursus_riwayat', [
+                        'download_message'     => substr($res['message'], 0, 490),
+                        'download_date'        => date('Y-m-d H:i:s'),
+                        'download_retry_count' => $retry,
+                    ]);
+                echo "GAGAL ({$retry}/{$batastolreansi}): {$res['message']}\n";
+                $fail++;
+                @ob_flush();
+                @flush();
+                sleep(1); // beri jeda lebih panjang saat gagal
+                continue;
+            }
+
+            // ---- Simpan ke disk ----
+            $nip    = $r->NIP_BARU;
+            $folder = FCPATH . './dokumen/' . $nip . '/';
+            if (!is_dir($folder)) @mkdir($folder, 0777, true);
+
+            $tglKursus = (!empty($r->tanggalKursus) && $r->tanggalKursus != '0000-00-00')
+                ? date('YmdHis', strtotime($r->tanggalKursus))
+                : date('YmdHis');
+
+            $newFilename  = 'DIKLATSEMINAR_' . $nip . '_' . $tglKursus . '.pdf';
+            $savePath     = $folder . $newFilename;
+            $relativePath = 'dokumen/' . $nip . '/' . $newFilename;
+
+            if (file_put_contents($savePath, $res['content']) === false) {
+                $retry = ((int)$r->download_retry_count) + 1;
+                $this->db->where('diklat_riwayat_id', $r->diklat_riwayat_id)
+                    ->update('kursus_riwayat', [
+                        'download_message'     => 'Gagal simpan file ke disk: ' . $savePath,
+                        'download_date'        => date('Y-m-d H:i:s'),
+                        'download_retry_count' => $retry,
+                    ]);
+                echo "GAGAL simpan ke disk\n";
+                $fail++;
+                @ob_flush();
+                @flush();
+                continue;
+            }
+
+            // ---- Update DB ----
+            $this->db->where('diklat_riwayat_id', $r->diklat_riwayat_id)
+                ->update('kursus_riwayat', [
+                    'FILE_PDF'             => $relativePath,
+                    'download_message'     => 'OK',
+                    'download_date'        => date('Y-m-d H:i:s'),
+                    'download_retry_count' => 0,
+                ]);
+
+            $kb = round(strlen($res['content']) / 1024);
+            echo "SUKSES ({$kb} KB)\n";
+            $ok++;
+            @ob_flush();
+            @flush();
+
+            // delay antar request agar BKN tidak overload
+            usleep(500000); // 0.5 detik
+        }
+
+        echo "\n======== selesai " . date('Y-m-d H:i:s') . " ========\n";
+        echo "Total: $total | OK: $ok | GAGAL: $fail | SKIP: $skip\n";
+    }
+
+
+    /**
+     * Helper: download file dari SIASN berdasarkan dok_uri
+     * @return array ['status'=>bool, 'content'=>string, 'message'=>string]
+     */
+    private function download_file_siasn($dok_uri)
+    {
+        $sso_token = "bearer eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJBUWNPM0V3MVBmQV9MQ0FtY2J6YnRLUEhtcWhLS1dRbnZ1VDl0RUs3akc4In0.eyJleHAiOjE3MzE5NTQ4MzUsImlhdCI6MTczMTkxMTYzNSwianRpIjoiMzcyZTliZTctZmNhYS00NjFhLWE0OTYtMGUxN2ZmMzI4MDUwIiwiaXNzIjoiaHR0cHM6Ly9zc28tc2lhc24uYmtuLmdvLmlkL2F1dGgvcmVhbG1zL3B1YmxpYy1zaWFzbiIsImF1ZCI6ImFjY291bnQiLCJzdWIiOiIxNzhkOWQ4OC1iOGRlLTRjYWEtYmQ1OS05NDg0NjdlZDJiOTYiLCJ0eXAiOiJCZWFyZXIiLCJhenAiOiJrYWJwcm9ib2xpbmdnb3dzIiwic2Vzc2lvbl9zdGF0ZSI6Ijg2NjFkZjkxLTBjNzMtNDk2Zi05N2YxLTM3MmJkZmYzNTBmNiIsImFjciI6IjEiLCJhbGxvd2VkLW9yaWdpbnMiOlsiaHR0cHM6Ly9kZXYtY2x1c3Rlci5wcm9ib2xpbmdnb2thYi5nby5pZCIsImh0dHA6Ly8xMjcuMC4wLjE6MzAwMC8qIiwiaHR0cDovLzEyNy4wLjAuMTozMDAwIiwiaHR0cDovL2xvY2FsaG9zdDozMDAwLyoiLCJodHRwOi8vbG9jYWxob3N0OjMwMDAiLCJodHRwczovL2Rldi1jbHVzdGVyLnByb2JvbGluZ2dva2FiLmdvLmlkLyoiXSwicmVhbG1fYWNjZXNzIjp7InJvbGVzIjpbInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW1hamFhbjpvcGVyYXRvciIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW5jYW5hYW46aW5zdGFuc2ktb3BlcmF0b3ItaW5mb2phYiIsInJvbGU6c2lhc24taW5zdGFuc2k6cGk6b3BlcmF0b3IiLCJyb2xlOnNpYXNuLWluc3RhbnNpOnBlcmVuY2FuYWFuOmluc3RhbnNpLW1vbml0b3ItcGVyZW5jYW5hYW4ta2VwZWdhd2FpYW4iLCJyb2xlOnNpYXNuLWluc3RhbnNpOnBlbmdhZGFhbjphcHByb3ZhbCIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVuZ2FkYWFuOm9wZXJhdG9yLXNrcG5zIiwicm9sZTpzaWFzbi1pbnN0YW5zaTprcDphcHByb3ZhbCIsInJvbGU6c2lhc24taW5zdGFuc2k6a3A6b3BlcmF0b3IiLCJyb2xlOmRhc2hib2FyZC1rZWJpamFrYW46aW5zdGFuc2kiLCJyb2xlOm1hbmFqZW1lbi13czpkZXZlbG9wZXIiLCJvZmZsaW5lX2FjY2VzcyIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW5jYW5hYW46aW5zdGFuc2ktb3BlcmF0b3ItcGVtZW51aGFuLWtlYi1wZWdhd2FpIiwidW1hX2F1dGhvcml6YXRpb24iLCJyb2xlOnNpYXNuLWluc3RhbnNpOnNrazphcHByb3ZhbCIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW5jYW5hYW46aW5zdGFuc2ktb3BlcmF0b3ItZXZhamFiIiwicm9sZTpzaWFzbi1pbnN0YW5zaTpza2s6b3BlcmF0b3IiLCJyb2xlOnNpYXNuLWluc3RhbnNpOnBlcmVtYWphYW46YXBwcm92YWwiLCJyb2xlOnNpYXNuLWluc3RhbnNpOnBlcmVuY2FuYWFuOmluc3RhbnNpLW9wZXJhdG9yLXNvdGsiLCJyb2xlOmRhc2hib2FyZC1vcGVyYXNpb25hbDppbnN0YW5zaSIsInJvbGU6ZGlzcGFrYXRpOmluc3RhbnNpOm9wZXJhdG9yIiwicm9sZTpzaWFzbi1pbnN0YW5zaTpwZW1iZXJoZW50aWFuOm9wZXJhdG9yX2l6aW5fcHBwayIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVuZ2FkYWFuOm9wZXJhdG9yIiwicm9sZTpzaWFzbi1pbnN0YW5zaTpwZW1iZXJoZW50aWFuOm9wZXJhdG9yIiwicm9sZTpzaWFzbi1pbnN0YW5zaTpwaTphcHByb3ZhbCIsInJvbGU6c2lhc24taW5zdGFuc2k6aXBhc246bW9uaXRvcmluZyIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW5jYW5hYW46aW5zdGFuc2ktb3BlcmF0b3Itc3RhbmRhci1rb21wLWphYiIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVtYmVyaGVudGlhbjphcHByb3ZhbCIsInJvbGU6c2lhc24taW5zdGFuc2k6cGVyZW5jYW5hYW46aW5zdGFuc2ktcGVuZXRhcGFuLXNvdGsiLCJyb2xlOnNpYXNuLWluc3RhbnNpOnByb2ZpbGFzbjp2aWV3cHJvZmlsIiwicm9sZTpkYXNoYm9hcmQtb3BlcmFzaW9uYWw6aW5zdGFuc2ktcGltcGluYW4iLCJyb2xlOnNpYXNuLWluc3RhbnNpOmFkbWluOmFkbWluIiwicm9sZTpzaWFzbi1pbnN0YW5zaTpwZXJlbmNhbmFhbjppbnN0YW5zaS12YWxpZGF0b3Itc3RhbmRhci1rb21wLWphYiJdfSwicmVzb3VyY2VfYWNjZXNzIjp7ImFjY291bnQiOnsicm9sZXMiOlsibWFuYWdlLWFjY291bnQiLCJtYW5hZ2UtYWNjb3VudC1saW5rcyIsInZpZXctcHJvZmlsZSJdfX0sInNjb3BlIjoiZW1haWwgcHJvZmlsZSIsImVtYWlsX3ZlcmlmaWVkIjpmYWxzZSwibmFtZSI6IlNSSSBLVVNUQU5USSIsInByZWZlcnJlZF91c2VybmFtZSI6IjE5ODMwNzA0MjAxMDAxMjAxMiIsImdpdmVuX25hbWUiOiJTUkkiLCJmYW1pbHlfbmFtZSI6IktVU1RBTlRJIiwiZW1haWwiOiJrdXN0YW50aTQ3QGdtYWlsLmNvbSJ9.L4spM6cVggKdzQAS8jw99mzy_bz-J5HZ128QnHhWV65pzlWkSp286wzAjoWDfcaIM8PTo70k0PeRG0ZdTMQrKsJ3-w_50SAvDUjDQnWhLNnVnKsg6Et50ifrE1k6AMLA5BrPwIC8TpjbWaB7hTQ3xk9sz8KgejGA9e4mPzaV53tKuLa-r9LCYJ2tQNP2-XxYZtizHs9gI2B59YEVJkmR0ne-IIFImKo-oicnr-ePO1FFFPrOGQWXxqwavyDT6f93zAjMGN7Tjwghvlpvj563aT1yFaEGN1b_eQR2Un5pBgbiI54NP7mx7PIdrTYY-QIfbv1rine6ZqtVQhtcJVTEkA";
+
+        $api_mws_token = 'Bearer ' . $this->api_mws_token;
+
+        $curl = curl_init();
+        curl_setopt_array($curl, array(
+            CURLOPT_URL            => 'https://apimws.bkn.go.id:8243/apisiasn/1.0/download-dok?filePath=' . $dok_uri,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_ENCODING       => '',
+            CURLOPT_MAXREDIRS      => 10,
+            CURLOPT_TIMEOUT        => 120,
+            CURLOPT_CONNECTTIMEOUT => 30,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_HTTP_VERSION   => CURL_HTTP_VERSION_1_1,
+            CURLOPT_CUSTOMREQUEST  => 'GET',
+            CURLOPT_HTTPHEADER     => array(
+                'accept: application/json',
+                'Auth: ' . $sso_token,
+                'Authorization: ' . $api_mws_token,
+                'Cookie: ff8d625df24f2272ecde05bd53b814bc=ce158eaac3b25204bfaa39e480fc50f7; pdns=1091068938.13088.0000',
+            ),
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYHOST => false,
+        ));
+
+        $response  = curl_exec($curl);
+        $httpCode  = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($curl);
+        curl_close($curl);
+
+        if ($httpCode == 200 && empty($curlError)) {
+            // Cek apakah response JSON error
+            $json = json_decode($response, true);
+            if ($json !== null && isset($json['message'])) {
+                return ['status' => false, 'message' => $json['message']];
+            }
+            // Validasi header PDF
+            if (substr($response, 0, 5) === '%PDF-') {
+                return ['status' => true, 'content' => $response];
+            }
+            return ['status' => false, 'message' => 'Response bukan PDF valid'];
+        }
+
+        $msg = "HTTP $httpCode";
+        if ($curlError) {
+            $msg .= " - cURL: $curlError";
+        }
+        $json = json_decode($response, true);
+        if (isset($json['message'])) {
+            $msg .= ' - ' . $json['message'];
+        } elseif (!empty($response) && strlen($response) < 300) {
+            $msg .= ' - ' . substr($response, 0, 200);
+        }
+
+        return ['status' => false, 'message' => $msg];
+    }
+
+    public function reset_kursus_files_download($onlyFailed = 0)
+    {
+        header('Content-Type: text/plain; charset=utf-8');
+        echo "Reset antrian download file kursus...\n";
+
+        $this->db->where("dok_uri IS NOT NULL AND dok_uri != ''", null, false);
+        $this->db->where("(FILE_PDF IS NULL OR FILE_PDF = '')", null, false);
+
+        if ($onlyFailed) {
+            // hanya yang sudah mentok batas (belum pernah sukses) — untuk retry habis diperpanjang
+            $this->db->where('download_retry_count >', 0);
+        }
+
+        $this->db->update('kursus_riwayat', [
+            'download_retry_count' => 0,
+            'download_message'     => null,
+            'download_date'        => null,
+        ]);
+
+        echo "Baris di-reset: " . $this->db->affected_rows() . "\n";
+        echo "Selesai.\n";
     }
 }
