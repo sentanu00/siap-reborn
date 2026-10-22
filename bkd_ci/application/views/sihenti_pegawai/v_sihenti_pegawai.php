@@ -4,9 +4,9 @@ if (!function_exists('_badge_status')) {
     {
         $map = array(
             'Draft'       => 'secondary',
-            'Input Data'  => 'info',
+            'Input Data'  => 'info text-dark',
             'Diajukan'    => 'primary',
-            'Diproses'    => 'warning',
+            'Diproses'    => 'warning text-dark',
             'Disetujui'   => 'success',
             'Ditolak'     => 'danger',
             'Selesai'     => 'dark',
@@ -51,19 +51,42 @@ if (!function_exists('_badge_status')) {
 
 <h4 class="mb-3">
     <i class="bi bi-person-x"></i>
-    <?= htmlspecialchars($pageTitle) ?>
+    Layanan Usul Pemberhentian ASN
 </h4>
 
-<?php if (!empty($pageNote)): ?>
-    <p class="text-muted"><?= htmlspecialchars($pageNote) ?></p>
-<?php endif; ?>
+
 
 <!-- ==================================================== -->
 <!-- TABEL 1 : USULAN PEMBERHENTIAN                       -->
 <!-- ==================================================== -->
 <div class="card shadow-sm mb-4">
-    <div class="card-header bg-primary text-white">
-        <i class="bi bi-list-check"></i> Daftar Usulan Pemberhentian
+    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <p class="mb-0"><i class="bi bi-list-check"></i> Daftar Usulan Pemberhentian</p>
+        <div class="d-flex align-items-center gap-2">
+            <!-- Filter Status -->
+            <select id="filter-status-usulan" class="form-select form-select-sm shadow-none" style="width:auto;">
+                <option value="">-- Semua Status --</option>
+                <option value="Draft">Draft</option>
+                <option value="Input Data">Input Data</option>
+                <option value="Diajukan">Diajukan</option>
+                <option value="Diproses">Diproses</option>
+                <option value="Disetujui">Disetujui</option>
+                <option value="Ditolak">Ditolak</option>
+                <option value="Selesai">Selesai</option>
+            </select>
+
+            <!-- Search NIP -->
+            <div class="input-group input-group-sm rounded-pill overflow-hidden bg-white border" style="min-width: 250px;">
+                <span class="input-group-text bg-transparent border-0 pe-1 text-muted">
+                    <i class="bi bi-search"></i>
+                </span>
+                <input type="text" id="search-usulan" class="form-control border-0 bg-transparent shadow-none px-2"
+                    placeholder="Cari NIP…">
+                <button class="btn btn-link text-decoration-none border-0 pe-2 d-none" type="button" id="btn-reset-usulan" title="Reset Pencarian">
+                    <i class="bi bi-x-circle-fill text-secondary opacity-75"></i>
+                </button>
+            </div>
+        </div>
     </div>
     <div class="card-body table-responsive">
         <table class="table table-sm table-bordered table-hover align-middle" id="table-usulan">
@@ -101,29 +124,33 @@ if (!function_exists('_badge_status')) {
                             <td class="col-status"><?= _badge_status($u->status_usulan) ?></td>
                             <td><?= htmlspecialchars($u->keterangan ?: '-') ?></td>
                             <td class="text-center">
-                                <button type="button"
-                                    class="btn btn-sm btn-outline-primary btn-pilih-jenis"
-                                    data-id="<?= $u->id ?>"
-                                    data-nip="<?= htmlspecialchars($u->nip) ?>"
-                                    data-nama="<?= htmlspecialchars($u->nama) ?>"
-                                    data-status="<?= htmlspecialchars($u->status_pegawai) ?>"
-                                    data-jenis="<?= htmlspecialchars($u->jenis_usulan) ?>"
-                                    title="Pilih Jenis Usulan">
-                                    <i class="bi bi-pencil-square"></i> Pilih Jenis
-                                </button>
+                                <?php if ($this->session->userdata('gid') != 20):?>
+                                    <button type="button"
+                                        class="btn btn-sm btn-outline-primary btn-pilih-jenis"
+                                        data-id="<?= $u->id ?>"
+                                        data-nip="<?= htmlspecialchars($u->nip) ?>"
+                                        data-nama="<?= htmlspecialchars($u->nama) ?>"
+                                        data-status="<?= htmlspecialchars($u->status_pegawai) ?>"
+                                        data-jenis="<?= htmlspecialchars($u->jenis_usulan) ?>"
+                                        title="Pilih Jenis Usulan">
+                                        <i class="bi bi-pencil-square"></i> Pilih Jenis
+                                    </button>
+                                <?php endif; ?>
                                 <a href="<?= site_url('sihenti_pegawai/detail/' . $u->id) ?>"
                                     class="btn btn-sm btn-outline-success"
                                     title="Detail Berkas">
                                     <i class="bi bi-folder2-open"></i> Detail
                                 </a>
-                                <button type="button"
-                                    class="btn btn-sm btn-outline-danger btn-hapus-usulan"
-                                    data-id="<?= $u->id ?>"
-                                    data-nip="<?= htmlspecialchars($u->nip) ?>"
-                                    data-nama="<?= htmlspecialchars($u->nama) ?>"
-                                    title="Hapus Usulan">
-                                    <i class="fa fa-trash"></i>
-                                </button>
+                                <?php if ($this->session->userdata('gid') != 20):?>
+                                    <button type="button"
+                                        class="btn btn-sm btn-outline-danger btn-hapus-usulan"
+                                        data-id="<?= $u->id ?>"
+                                        data-nip="<?= htmlspecialchars($u->nip) ?>"
+                                        data-nama="<?= htmlspecialchars($u->nama) ?>"
+                                        title="Hapus Usulan">
+                                        <i class="fa fa-trash"></i>
+                                    </button>
+                                <?php endif; ?>
                             </td>
                         </tr>
                 <?php endforeach;
@@ -136,6 +163,7 @@ if (!function_exists('_badge_status')) {
 <!-- ==================================================== -->
 <!-- TABEL 2 : DAFTAR PEGAWAI (AJAX + Pagination)         -->
 <!-- ==================================================== -->
+<?php if ($this->session->userdata('gid') != 20):?>
 <div class="card shadow-sm mb-4">
     <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center flex-wrap gap-2">
         <p class="mb-0"><i class="bi bi-people"></i> Daftar Pegawai Aktif</p>
@@ -187,6 +215,7 @@ if (!function_exists('_badge_status')) {
         </nav>
     </div>
 </div>
+<?php endif; ?>
 
 <!-- ==================================================== -->
 <!-- MODAL TAMBAH USULAN (PILIH JENIS PEMBERHENTIAN)       -->
@@ -297,6 +326,80 @@ if (!function_exists('_badge_status')) {
         let CSRF_HASH = "<?= $this->security->get_csrf_hash() ?>";
 
         /* =========================================================
+        * BAGIAN FILTER TABEL USULAN (Client-Side Search)
+        * ========================================================= */
+        const searchUsulan = document.getElementById('search-usulan');
+        const filterStatusUsulan = document.getElementById('filter-status-usulan');
+        const btnResetUsulan = document.getElementById('btn-reset-usulan');
+        const tbodyUsulan = document.querySelector('#table-usulan tbody');
+
+        if (searchUsulan && filterStatusUsulan && tbodyUsulan) {
+
+            function filterTableUsulan() {
+                const queryNip = searchUsulan.value.trim().toLowerCase();
+                const selectedStatus = filterStatusUsulan.value.trim().toLowerCase();
+                
+                // Ambil semua baris data (kecuali baris "Belum ada usulan" atau "Tidak ditemukan")
+                const rows = tbodyUsulan.querySelectorAll('tr:not(#row-empty-usulan)');
+                let visibleCount = 0;
+
+                rows.forEach(function(row) {
+                    // Kolom NIP ada di sel ke-2 (index 1)
+                    const cellNip = row.cells[1] ? row.cells[1].textContent.trim().toLowerCase() : '';
+                    
+                    // Status diambil dari text di badge (.col-status)
+                    const statusElem = row.querySelector('.col-status');
+                    const cellStatus = statusElem ? statusElem.textContent.trim().toLowerCase() : '';
+
+                    // Cek kondisi pencarian
+                    const matchNip = cellNip.includes(queryNip);
+                    const matchStatus = (selectedStatus === '') || (cellStatus === selectedStatus);
+
+                    if (matchNip && matchStatus) {
+                        row.style.display = '';
+                        visibleCount++;
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+
+                // Tampilkan pesan jika tidak ada data yang cocok
+                let emptyRow = document.getElementById('row-empty-usulan');
+                if (visibleCount === 0) {
+                    if (!emptyRow) {
+                        emptyRow = document.createElement('tr');
+                        emptyRow.id = 'row-empty-usulan';
+                        emptyRow.innerHTML = '<td colspan="10" class="text-center text-muted py-3">Tidak ada usulan yang sesuai dengan filter.</td>';
+                        tbodyUsulan.appendChild(emptyRow);
+                    } else {
+                        emptyRow.style.display = '';
+                    }
+                } else if (emptyRow) {
+                    emptyRow.style.display = 'none';
+                }
+            }
+
+            // Event Listener Input & Select
+            searchUsulan.addEventListener('input', function() {
+                if (this.value.trim().length > 0) {
+                    btnResetUsulan.classList.remove('d-none');
+                } else {
+                    btnResetUsulan.classList.add('d-none');
+                }
+                filterTableUsulan();
+            });
+
+            filterStatusUsulan.addEventListener('change', filterTableUsulan);
+
+            btnResetUsulan.addEventListener('click', function() {
+                searchUsulan.value = '';
+                btnResetUsulan.classList.add('d-none');
+                searchUsulan.focus();
+                filterTableUsulan();
+            });
+        }
+
+        /* =========================================================
          * BAGIAN A: PEGAWAI - AJAX + Pagination + Search
          * ========================================================= */
         const statePegawai = {
@@ -314,264 +417,266 @@ if (!function_exists('_badge_status')) {
         const searchInput = document.getElementById('search-pegawai');
         const btnReset = document.getElementById('btn-reset-pegawai');
         const perPageSel = document.getElementById('per-page-pegawai');
+    
+        if (tbodyPegawai) {
 
-        function escapeHtml(s) {
-            if (s === null || s === undefined) return '';
-            return String(s)
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#39;');
-        }
-
-        function filterJenisPemberhentian(selectId, statusPegawai, selectedJenis) {
-            const select = document.getElementById(selectId);
-
-            if (!select) return;
-
-            // Normalisasi status
-            let statusFilter = String(statusPegawai || '').trim().toUpperCase();
-
-            // CPNS menggunakan daftar jenis PNS
-            if (statusFilter === 'CPNS') {
-                statusFilter = 'PNS';
+            function escapeHtml(s) {
+                if (s === null || s === undefined) return '';
+                return String(s)
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#39;');
             }
 
-            // Simpan semua option asli
-            const allOptions = Array.from(select.querySelectorAll('option'));
+            function filterJenisPemberhentian(selectId, statusPegawai, selectedJenis) {
+                const select = document.getElementById(selectId);
 
-            // Kosongkan select
-            select.innerHTML = '';
+                if (!select) return;
 
-            // Option default
-            const defaultOption = document.createElement('option');
-            defaultOption.value = '';
-            defaultOption.textContent = '-- Pilih Jenis Pemberhentian --';
-            select.appendChild(defaultOption);
+                // Normalisasi status
+                let statusFilter = String(statusPegawai || '').trim().toUpperCase();
 
-            let jumlah = 0;
+                // CPNS menggunakan daftar jenis PNS
+                if (statusFilter === 'CPNS') {
+                    statusFilter = 'PNS';
+                }
 
-            allOptions.forEach(function(option) {
+                // Simpan semua option asli
+                const allOptions = Array.from(select.querySelectorAll('option'));
 
-                // Lewati option default
-                if (!option.value) return;
+                // Kosongkan select
+                select.innerHTML = '';
 
-                const statusJenis = String(
-                    option.dataset.status || ''
-                ).trim().toUpperCase();
+                // Option default
+                const defaultOption = document.createElement('option');
+                defaultOption.value = '';
+                defaultOption.textContent = '-- Pilih Jenis Pemberhentian --';
+                select.appendChild(defaultOption);
 
-                if (statusJenis === statusFilter) {
+                let jumlah = 0;
 
-                    const newOption = document.createElement('option');
+                allOptions.forEach(function(option) {
 
-                    newOption.value = option.value;
-                    newOption.textContent = option.textContent;
-                    newOption.dataset.status = option.dataset.status;
+                    // Lewati option default
+                    if (!option.value) return;
 
-                    // Kalau sedang edit, pilih jenis yang lama
-                    if (selectedJenis && option.value === selectedJenis) {
-                        newOption.selected = true;
+                    const statusJenis = String(
+                        option.dataset.status || ''
+                    ).trim().toUpperCase();
+
+                    if (statusJenis === statusFilter) {
+
+                        const newOption = document.createElement('option');
+
+                        newOption.value = option.value;
+                        newOption.textContent = option.textContent;
+                        newOption.dataset.status = option.dataset.status;
+
+                        // Kalau sedang edit, pilih jenis yang lama
+                        if (selectedJenis && option.value === selectedJenis) {
+                            newOption.selected = true;
+                        }
+
+                        select.appendChild(newOption);
+
+                        jumlah++;
                     }
-
-                    select.appendChild(newOption);
-
-                    jumlah++;
-                }
-            });
-
-            console.log(
-                'Filter jenis pemberhentian:',
-                'status pegawai =', statusPegawai,
-                'filter =', statusFilter,
-                'jumlah jenis =', jumlah
-            );
-        }
-
-        function renderPegawai(data) {
-            if (!data || data.length === 0) {
-                tbodyPegawai.innerHTML =
-                    '<tr><td colspan="7" class="text-center text-muted py-3">' +
-                    'Tidak ada data pegawai.</td></tr>';
-                return;
-            }
-            let html = '';
-            const start = (statePegawai.page - 1) * statePegawai.per_page;
-            data.forEach(function(row, i) {
-                html += '<tr>';
-                html += '<td>' + (start + i + 1) + '</td>';
-                html += '<td>' + escapeHtml(row.nip) + '</td>';
-                html += '<td>' + escapeHtml(row.nama) + '</td>';
-                html += '<td>' + escapeHtml(row.status) + '</td>';
-                html += '<td>' + escapeHtml(row.satker) + '</td>';
-                html += '<td>' + escapeHtml(row.satker_induk) + '</td>';
-                html += '<td>' + escapeHtml(row.tanggal_pensiun) + '</td>';
-                html += '<td class="text-center">';
-                if (row.is_aktif) {
-                    html += '<button class="btn btn-sm btn-secondary" disabled ' +
-                        'title="Sudah ada usulan aktif">' +
-                        '<i class="bi bi-check2-circle"></i> Terdaftar</button>';
-                } else {
-                    html += '<button type="button" ' +
-                        'class="btn btn-sm btn-success btn-tambah" ' +
-                        'data-nip="' + escapeHtml(row.nip) + '" ' +
-                        'data-nama="' + escapeHtml(row.nama) + '" ' +
-                        'data-status="' + escapeHtml(row.status) + '">' +
-                        '<i class="bi bi-plus-circle"></i> Tambah</button>';
-                }
-                html += '</td>';
-                html += '</tr>';
-            });
-            tbodyPegawai.innerHTML = html;
-
-            tbodyPegawai.querySelectorAll('.btn-tambah').forEach(function(btn) {
-                btn.addEventListener('click', onKlikTambah);
-            });
-        }
-
-        function renderPagination() {
-            const total = statePegawai.total_page;
-            const curr = statePegawai.page;
-            if (total <= 1) {
-                paginasi.innerHTML = '';
-                return;
-            }
-
-            let html = '';
-            const mkBtn = function(label, page, disabled, active) {
-                let cls = 'page-item';
-                if (disabled) cls += ' disabled';
-                if (active) cls += ' active';
-                return '<li class="' + cls + '"><a class="page-link" data-page="' +
-                    page + '">' + label + '</a></li>';
-            };
-
-            html += mkBtn('&laquo;', curr - 1, curr <= 1, false);
-
-            let start = Math.max(1, curr - 2);
-            let end = Math.min(total, start + 4);
-            if (end - start < 4) start = Math.max(1, end - 4);
-
-            if (start > 1) {
-                html += mkBtn(1, 1, false, curr === 1);
-                if (start > 2) html += '<li class="page-item disabled"><span class="page-link">…</span></li>';
-            }
-            for (let i = start; i <= end; i++) {
-                html += mkBtn(i, i, false, curr === i);
-            }
-            if (end < total) {
-                if (end < total - 1) html += '<li class="page-item disabled"><span class="page-link">…</span></li>';
-                html += mkBtn(total, total, false, curr === total);
-            }
-
-            html += mkBtn('&raquo;', curr + 1, curr >= total, false);
-            paginasi.innerHTML = html;
-
-            paginasi.querySelectorAll('a.page-link').forEach(function(a) {
-                a.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    const p = parseInt(this.dataset.page, 10);
-                    if (!p || p === statePegawai.page) return;
-                    statePegawai.page = p;
-                    loadPegawai();
                 });
-            });
-        }
 
-        function loadPegawai() {
-            if (statePegawai.loading) return;
-            statePegawai.loading = true;
-            statePegawai.requestId++;
-            const myReq = statePegawai.requestId;
+                console.log(
+                    'Filter jenis pemberhentian:',
+                    'status pegawai =', statusPegawai,
+                    'filter =', statusFilter,
+                    'jumlah jenis =', jumlah
+                );
+            }
 
-            tbodyPegawai.innerHTML =
-                '<tr><td colspan="7" class="pegawai-loading">' +
-                '<div class="spinner-border spinner-border-sm text-secondary"></div> Memuat…' +
-                '</td></tr>';
-
-            const url = BASE + '/get_pegawai?page=' + statePegawai.page +
-                '&per_page=' + statePegawai.per_page +
-                '&q=' + encodeURIComponent(statePegawai.q);
-
-            fetch(url, {
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest'
+            function renderPegawai(data) {
+                if (!data || data.length === 0) {
+                    tbodyPegawai.innerHTML =
+                        '<tr><td colspan="7" class="text-center text-muted py-3">' +
+                        'Tidak ada data pegawai.</td></tr>';
+                    return;
+                }
+                let html = '';
+                const start = (statePegawai.page - 1) * statePegawai.per_page;
+                data.forEach(function(row, i) {
+                    html += '<tr>';
+                    html += '<td>' + (start + i + 1) + '</td>';
+                    html += '<td>' + escapeHtml(row.nip) + '</td>';
+                    html += '<td>' + escapeHtml(row.nama) + '</td>';
+                    html += '<td>' + escapeHtml(row.status) + '</td>';
+                    html += '<td>' + escapeHtml(row.satker) + '</td>';
+                    html += '<td>' + escapeHtml(row.satker_induk) + '</td>';
+                    html += '<td>' + escapeHtml(row.tanggal_pensiun) + '</td>';
+                    html += '<td class="text-center">';
+                    if (row.is_aktif) {
+                        html += '<button class="btn btn-sm btn-secondary" disabled ' +
+                            'title="Sudah ada usulan aktif">' +
+                            '<i class="bi bi-check2-circle"></i> Terdaftar</button>';
+                    } else {
+                        html += '<button type="button" ' +
+                            'class="btn btn-sm btn-success btn-tambah" ' +
+                            'data-nip="' + escapeHtml(row.nip) + '" ' +
+                            'data-nama="' + escapeHtml(row.nama) + '" ' +
+                            'data-status="' + escapeHtml(row.status) + '">' +
+                            '<i class="bi bi-plus-circle"></i> Tambah</button>';
                     }
-                })
-                .then(function(r) {
-                    return r.json();
-                })
-                .then(function(res) {
-                    if (myReq !== statePegawai.requestId) return;
-                    if (res.status !== 'success') {
+                    html += '</td>';
+                    html += '</tr>';
+                });
+                tbodyPegawai.innerHTML = html;
+
+                tbodyPegawai.querySelectorAll('.btn-tambah').forEach(function(btn) {
+                    btn.addEventListener('click', onKlikTambah);
+                });
+            }
+
+            function renderPagination() {
+                const total = statePegawai.total_page;
+                const curr = statePegawai.page;
+                if (total <= 1) {
+                    paginasi.innerHTML = '';
+                    return;
+                }
+
+                let html = '';
+                const mkBtn = function(label, page, disabled, active) {
+                    let cls = 'page-item';
+                    if (disabled) cls += ' disabled';
+                    if (active) cls += ' active';
+                    return '<li class="' + cls + '"><a class="page-link" data-page="' +
+                        page + '">' + label + '</a></li>';
+                };
+
+                html += mkBtn('&laquo;', curr - 1, curr <= 1, false);
+
+                let start = Math.max(1, curr - 2);
+                let end = Math.min(total, start + 4);
+                if (end - start < 4) start = Math.max(1, end - 4);
+
+                if (start > 1) {
+                    html += mkBtn(1, 1, false, curr === 1);
+                    if (start > 2) html += '<li class="page-item disabled"><span class="page-link">…</span></li>';
+                }
+                for (let i = start; i <= end; i++) {
+                    html += mkBtn(i, i, false, curr === i);
+                }
+                if (end < total) {
+                    if (end < total - 1) html += '<li class="page-item disabled"><span class="page-link">…</span></li>';
+                    html += mkBtn(total, total, false, curr === total);
+                }
+
+                html += mkBtn('&raquo;', curr + 1, curr >= total, false);
+                paginasi.innerHTML = html;
+
+                paginasi.querySelectorAll('a.page-link').forEach(function(a) {
+                    a.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        const p = parseInt(this.dataset.page, 10);
+                        if (!p || p === statePegawai.page) return;
+                        statePegawai.page = p;
+                        loadPegawai();
+                    });
+                });
+            }
+
+            function loadPegawai() {
+                if (statePegawai.loading) return;
+                statePegawai.loading = true;
+                statePegawai.requestId++;
+                const myReq = statePegawai.requestId;
+
+                tbodyPegawai.innerHTML =
+                    '<tr><td colspan="7" class="pegawai-loading">' +
+                    '<div class="spinner-border spinner-border-sm text-secondary"></div> Memuat…' +
+                    '</td></tr>';
+
+                const url = BASE + '/get_pegawai?page=' + statePegawai.page +
+                    '&per_page=' + statePegawai.per_page +
+                    '&q=' + encodeURIComponent(statePegawai.q);
+
+                fetch(url, {
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    })
+                    .then(function(r) {
+                        return r.json();
+                    })
+                    .then(function(res) {
+                        if (myReq !== statePegawai.requestId) return;
+                        if (res.status !== 'success') {
+                            tbodyPegawai.innerHTML =
+                                '<tr><td colspan="7" class="text-center text-danger py-3">' +
+                                'Gagal memuat data.</td></tr>';
+                            return;
+                        }
+                        statePegawai.total_page = res.total_page;
+                        renderPegawai(res.data);
+                        renderPagination();
+
+                        const from = res.total === 0 ? 0 : ((res.page - 1) * res.per_page) + 1;
+                        const to = Math.min(res.page * res.per_page, res.total);
+                        infoPegawai.textContent =
+                            'Menampilkan ' + from + '–' + to + ' dari ' + res.total + ' pegawai' +
+                            (res.q ? ' (pencarian: "' + res.q + '")' : '');
+                    })
+                    .catch(function(err) {
+                        if (myReq !== statePegawai.requestId) return;
                         tbodyPegawai.innerHTML =
                             '<tr><td colspan="7" class="text-center text-danger py-3">' +
-                            'Gagal memuat data.</td></tr>';
-                        return;
-                    }
-                    statePegawai.total_page = res.total_page;
-                    renderPegawai(res.data);
-                    renderPagination();
-
-                    const from = res.total === 0 ? 0 : ((res.page - 1) * res.per_page) + 1;
-                    const to = Math.min(res.page * res.per_page, res.total);
-                    infoPegawai.textContent =
-                        'Menampilkan ' + from + '–' + to + ' dari ' + res.total + ' pegawai' +
-                        (res.q ? ' (pencarian: "' + res.q + '")' : '');
-                })
-                .catch(function(err) {
-                    if (myReq !== statePegawai.requestId) return;
-                    tbodyPegawai.innerHTML =
-                        '<tr><td colspan="7" class="text-center text-danger py-3">' +
-                        'Error: ' + err + '</td></tr>';
-                })
-                .finally(function() {
-                    if (myReq === statePegawai.requestId) statePegawai.loading = false;
-                });
-        }
-
-        /* --- Toggle Tombol Reset & Debounce Pencarian --- */
-        let searchTimer = null;
-
-        function toggleResetButton() {
-            if (searchInput.value.trim().length > 0) {
-                btnReset.classList.remove('d-none');
-            } else {
-                btnReset.classList.add('d-none');
+                            'Error: ' + err + '</td></tr>';
+                    })
+                    .finally(function() {
+                        if (myReq === statePegawai.requestId) statePegawai.loading = false;
+                    });
             }
-        }
 
-        searchInput.addEventListener('input', function() {
-            toggleResetButton();
-            clearTimeout(searchTimer);
-            const val = this.value.trim();
-            searchTimer = setTimeout(function() {
-                statePegawai.q = val;
+            /* --- Toggle Tombol Reset & Debounce Pencarian --- */
+            let searchTimer = null;
+
+            function toggleResetButton() {
+                if (searchInput.value.trim().length > 0) {
+                    btnReset.classList.remove('d-none');
+                } else {
+                    btnReset.classList.add('d-none');
+                }
+            }
+
+            searchInput.addEventListener('input', function() {
+                toggleResetButton();
+                clearTimeout(searchTimer);
+                const val = this.value.trim();
+                searchTimer = setTimeout(function() {
+                    statePegawai.q = val;
+                    statePegawai.page = 1;
+                    loadPegawai();
+                }, 300);
+            });
+
+            btnReset.addEventListener('click', function() {
+                searchInput.value = '';
+                toggleResetButton();
+                searchInput.focus();
+
+                if (statePegawai.q !== '') {
+                    statePegawai.q = '';
+                    statePegawai.page = 1;
+                    loadPegawai();
+                }
+            });
+
+            perPageSel.addEventListener('change', function() {
+                statePegawai.per_page = parseInt(this.value, 10) || 10;
                 statePegawai.page = 1;
                 loadPegawai();
-            }, 300);
-        });
+            });
 
-        btnReset.addEventListener('click', function() {
-            searchInput.value = '';
-            toggleResetButton();
-            searchInput.focus();
-
-            if (statePegawai.q !== '') {
-                statePegawai.q = '';
-                statePegawai.page = 1;
-                loadPegawai();
-            }
-        });
-
-        perPageSel.addEventListener('change', function() {
-            statePegawai.per_page = parseInt(this.value, 10) || 10;
-            statePegawai.page = 1;
             loadPegawai();
-        });
-
-        loadPegawai();
-
+    }
         /* =========================================================
          * BAGIAN B: MODAL TAMBAH USULAN PEGAWAI (jQuery Bootstrap)
          * ========================================================= */

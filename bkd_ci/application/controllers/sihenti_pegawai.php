@@ -37,6 +37,11 @@ class Sihenti_pegawai extends SB_Controller
 				$this->con[$in] = $t['conn'];
 			}
 		}
+		// echo '<pre>';
+		// print_r($this->session->userdata('gid'));
+		// // print_r($this->session->userdata('username'));
+		// echo '</pre>';
+		// die();
 
 		if (!$this->session->userdata('logged_in')) redirect('user/login', 301);
 	}
@@ -49,22 +54,51 @@ class Sihenti_pegawai extends SB_Controller
 		$this->load->model('jenispemberhentianmodel');
 		$this->data['jenis_pemberhentian_list'] = $this->db->get('jenis_pemberhentian')->result();
 
-		$this->data['usulan_list'] = $this->db
+		$gid      = (int) $this->session->userdata('gid');
+		$username = $this->session->userdata('username');
+		$user_nip = $username;
+
+		
+		$user_satker = NULL;
+		if ($gid == 2 && !empty($username)) {
+			$usr = $this->db
+				->select('satker')
+				->where('username', $username)
+				->get('tb_users')
+				->row();
+
+			if ($usr) {
+				$user_satker = $usr->satker;
+			}
+		}
+
+		// Query usulan dengan filter berdasarkan GID
+		$this->db
 			->select('
-        u.id,
-        u.nip,
-        u.nama,
-        u.tanggal_usul,
-        u.jenis_usulan,
-        u.diusulkan_oleh,
-        u.tanggal_edit,
-        u.status_usulan,
-        u.keterangan,
-        sp.nama AS status_pegawai
-    ')
+				u.id,
+				u.nip,
+				u.nama,
+				u.tanggal_usul,
+				u.jenis_usulan,
+				u.diusulkan_oleh,
+				u.tanggal_edit,
+				u.status_usulan,
+				u.keterangan,
+				sp.nama AS status_pegawai
+			')
 			->from('usulan_pemberhentian u')
 			->join('pegawai p', 'p.NIP_BARU = u.nip', 'left')
-			->join('status_pegawai sp', 'p.STATUS_PEGAWAI = sp.STATUS_PEGAWAI_ID', 'left')
+			->join('status_pegawai sp', 'p.STATUS_PEGAWAI = sp.STATUS_PEGAWAI_ID', 'left');
+
+		
+		if ($gid == 2 && !empty($user_satker)) {
+			$this->db->like('p.SATKER_ID', $user_satker, 'after');
+		} elseif ($gid == 3 && !empty($user_nip)) {
+			$this->db->where('u.nip', $user_nip);
+		}
+
+
+		$this->data['usulan_list'] = $this->db
 			->order_by('u.tanggal_usul', 'DESC')
 			->order_by('u.id', 'DESC')
 			->get()->result();
@@ -83,7 +117,7 @@ class Sihenti_pegawai extends SB_Controller
 			$this->data,
 			TRUE
 		);
-
+		
 		$this->load->view('layouts/main', $this->data);
 	}
 
@@ -106,6 +140,31 @@ class Sihenti_pegawai extends SB_Controller
 			$cond   = "(p.NIP_BARU LIKE '%{$q_like}%' OR p.NAMA LIKE '%{$q_like}%')";
 		}
 
+		// Ambil filter role dari session
+		$gid         = (int) $this->session->userdata('gid');
+		$username = $this->session->userdata('username');
+		$user_nip    = $this->session->userdata('username');
+
+		$user_satker = NULL;
+		if ($gid == 2 && !empty($username)) {
+			$usr = $this->db
+				->select('satker')
+				->where('username', $username)
+				->get('tb_users')
+				->row();
+
+			if ($usr) {
+				$user_satker = $usr->satker;
+			}
+		}
+
+		// echo '<pre>';
+		// // print_r($user_satker);
+		// // print_r($this->session->userdata('nip'));
+		// echo '</pre>';
+		// die();
+
+		// 1. Hitung Total Data (Count Query)
 		$this->db
 			->from('pegawai p')
 			->join('status_pegawai sp', 'p.STATUS_PEGAWAI = sp.STATUS_PEGAWAI_ID')
@@ -117,8 +176,17 @@ class Sihenti_pegawai extends SB_Controller
 			$this->db->where($cond, NULL, FALSE);
 		}
 
+		// Filter berdasarkan GID
+		if ($gid == 2 && !empty($user_satker)) {
+			$this->db->like('p.SATKER_ID', $user_satker, 'after');
+		} elseif ($gid == 3 && !empty($user_nip)) {
+			$this->db->where('p.NIP_BARU', $user_nip);
+		}
+		// GID == 1 akan menampilkan seluruh data tanpa filter tambahan
+
 		$total = $this->db->count_all_results();
 
+		// 2. Ambil Rows Data (Data Query)
 		$this->db
 			->select('p.NIP_BARU, p.NAMA, sp.nama as status, s1.NAMA AS satker,
                   s2.NAMA AS satker_induk, p.TANGGAL_PENSIUN')
@@ -130,6 +198,13 @@ class Sihenti_pegawai extends SB_Controller
 
 		if ($cond !== '') {
 			$this->db->where($cond, NULL, FALSE);
+		}
+
+		// Filter berdasarkan GID
+		if ($gid == 2 && !empty($user_satker)) {
+			$this->db->like('p.SATKER_ID', $user_satker, 'after');
+		} elseif ($gid == 3 && !empty($user_nip)) {
+			$this->db->where('p.NIP_BARU', $user_nip);
 		}
 
 		$rows = $this->db
@@ -641,6 +716,60 @@ class Sihenti_pegawai extends SB_Controller
 		));
 	}
 
+	/* =====================================================
+     * AJAX: VALIDASI USULAN (Khusus Verifikator )
+     * ===================================================== */
+	public function validasi_usulan()
+	{
+		$group_access = array(1,20);
+		if (!in_array($this->session->userdata('gid'),$group_access)){
+			return $this->_json(array(
+				'status'  => 'error',
+				'message' => 'Akses ditolak'
+			));
+		}
+		$id_usulan     = (int) $this->input->post('id_usulan');
+		$status_usulan = $this->input->post('status_usulan', TRUE);
+		$keterangan    = $this->input->post('keterangan', TRUE);
+
+		if (!$id_usulan || empty($status_usulan)) {
+			return $this->_json(array(
+				'status'  => 'error',
+				'message' => 'Parameter tidak lengkap (ID Usulan atau Status Validasi kosong).'
+			));
+		}
+
+		$allowed_status = array('Diproses', 'Disetujui', 'Ditolak', 'Selesai');
+		if (!in_array($status_usulan, $allowed_status)) {
+			return $this->_json(array(
+				'status'  => 'error',
+				'message' => 'Status validasi tidak valid.'
+			));
+		}
+
+		$row = $this->db->where('id', $id_usulan)->get('usulan_pemberhentian')->row();
+		if (!$row) {
+			return $this->_json(array(
+				'status'  => 'error',
+				'message' => 'Data usulan tidak ditemukan.'
+			));
+		}
+
+		$update = array(
+			'status_usulan' => $status_usulan,
+			'keterangan'    => $keterangan ?: NULL,
+			'tanggal_edit'  => date('Y-m-d H:i:s'),
+			'updated_at'    => date('Y-m-d H:i:s')
+		);
+
+		$this->db->where('id', $id_usulan)->update('usulan_pemberhentian', $update);
+
+		return $this->_json(array(
+			'status'  => 'success',
+			'message' => 'Status usulan berhasil divalidasi menjadi "' . $status_usulan . '".'
+		));
+	}
+
 	private function _json($arr)
 	{
 		if (!is_array($arr)) $arr = array();
@@ -667,7 +796,7 @@ class Sihenti_pegawai extends SB_Controller
 				'kolom_order' => 'SK_CPNS_ID',
 				'order_dir'   => 'DESC',
 				'nama_file'   => 'CPNS_SK_{NIP}.pdf',
-				'wajib'       => TRUE,
+				'wajib'       => FALSE,
 			),
 			'sk_pns' => array(
 				'label'       => 'SK PNS',
@@ -677,7 +806,7 @@ class Sihenti_pegawai extends SB_Controller
 				'kolom_order' => 'TMT_PNS',
 				'order_dir'   => 'DESC',
 				'nama_file'   => 'SK_PNS_{NIP}_{TGL}.pdf',
-				'wajib'       => TRUE,
+				'wajib'       => FALSE,
 			),
 			'spmt' => array(
 				'label'       => 'SPMT',
@@ -687,7 +816,7 @@ class Sihenti_pegawai extends SB_Controller
 				'kolom_order' => 'SK_CPNS_ID',
 				'order_dir'   => 'DESC',
 				'nama_file'   => 'SPMT_SK_{NIP}.pdf',
-				'wajib'       => TRUE,
+				'wajib'       => FALSE,
 			),
 			'pangkat' => array(
 				'label'       => 'SK Pangkat Terakhir',
@@ -697,7 +826,7 @@ class Sihenti_pegawai extends SB_Controller
 				'kolom_order' => 'TMT_PANGKAT',
 				'order_dir'   => 'DESC',
 				'nama_file'   => 'SK_KP_{NIP}_{TGL}.pdf',
-				'wajib'       => TRUE,
+				'wajib'       => FALSE,
 			),
 			'jabatan' => array(
 				'label'       => 'SK Jabatan Terakhir',
@@ -707,7 +836,7 @@ class Sihenti_pegawai extends SB_Controller
 				'kolom_order' => 'TMT_JABATAN',
 				'order_dir'   => 'DESC',
 				'nama_file'   => 'SK_Jabatan_{NIP}_{TGL}.pdf',
-				'wajib'       => TRUE,
+				'wajib'       => FALSE,
 			),
 			'gaji' => array(
 				'label'       => 'SK Gaji Terakhir',
@@ -717,7 +846,7 @@ class Sihenti_pegawai extends SB_Controller
 				'kolom_order' => 'TMT_SK',
 				'order_dir'   => 'DESC',
 				'nama_file'   => 'SK_Gaji_{NIP}_{TGL}.pdf',
-				'wajib'       => TRUE,
+				'wajib'       => FALSE,
 			),
 			'skp' => array(
 				'label'       => 'Penilaian SKP Terakhir',
@@ -756,7 +885,7 @@ class Sihenti_pegawai extends SB_Controller
 			'buku_tabungan' => array(
 				'label'     => 'BUKU TABUNGAN',
 				'nama_file' => 'TABUNGAN_{NIP}_{TGL}.pdf',
-				'wajib'     => TRUE,
+				'wajib'     => FALSE,
 			),
 			'surat_kuliah' => array(
 				'label'     => 'SURAT KETERANGAN MASIH KULIAH DARI KAMPUS / LEMBAGA BAGI ANAK USIA 21 s/d 25 TAHUN (BELUM MENIKAH / BEKERJA)',
@@ -766,17 +895,17 @@ class Sihenti_pegawai extends SB_Controller
 			'dpcp' => array(
 				'label'     => 'DATA PERORANGAN CALON PENERIMA PENSIUN (DPCP)',
 				'nama_file' => 'DPCP_{NIP}_{TGL}.pdf',
-				'wajib'     => TRUE,
+				'wajib'     => FALSE,
 			),
 			'usulan_pd' => array(
 				'label'     => 'Surat / Usulan pensiun dari Kepala Perangkat Daerah',
 				'nama_file' => 'USULAN_PD_{NIP}_{TGL}.pdf',
-				'wajib'     => TRUE,
+				'wajib'     => FALSE,
 			),
 			'sk_tidak_hd' => array(
 				'label'     => 'SURAT KETERANGAN TIDAK DIJATUHI HUKUMAN DISIPLIN TINGKAT SEDANG / BERAT',
 				'nama_file' => 'SK_TIDAK_HD_{NIP}_{TGL}.pdf',
-				'wajib'     => TRUE,
+				'wajib'     => FALSE,
 			),
 			'akta_kematian_cerai' => array(
 				'label'     => 'Akta Kematian / Akta Cerai (bagi PNS yang menikah lebih dari 1 kali)',

@@ -92,8 +92,21 @@
 
             <dt class="col-sm-3 detail-dt">Status Usulan</dt>
             <dd class="col-sm-9">
-                <span class="badge bg-info text-dark px-2 py-1">
-                    <i class="bi bi-info-circle me-1"></i><?= htmlspecialchars($usulan->status_usulan) ?>
+                <?php
+                $status_map = array(
+                    'Draft'      => array('bg' => 'bg-secondary', 'text' => 'text-white', 'icon' => 'bi-file-earmark-text'),
+                    'Input Data' => array('bg' => 'bg-info',      'text' => 'text-dark',  'icon' => 'bi-pencil-square'),
+                    'Diajukan'   => array('bg' => 'bg-primary',   'text' => 'text-white', 'icon' => 'bi-send'),
+                    'Diproses'   => array('bg' => 'bg-warning',   'text' => 'text-dark',  'icon' => 'bi-gear-wide-connected'),
+                    'Disetujui'  => array('bg' => 'bg-success',   'text' => 'text-white', 'icon' => 'bi-check-circle'),
+                    'Ditolak'    => array('bg' => 'bg-danger',    'text' => 'text-white', 'icon' => 'bi-x-circle'),
+                    'Selesai'    => array('bg' => 'bg-dark',      'text' => 'text-white', 'icon' => 'bi-flag'),
+                );
+                $st = $usulan->status_usulan;
+                $badge_cfg = isset($status_map[$st]) ? $status_map[$st] : array('bg' => 'bg-secondary', 'text' => 'text-white', 'icon' => 'bi-info-circle');
+                ?>
+                <span class="badge <?= $badge_cfg['bg'] ?> <?= $badge_cfg['text'] ?> px-2 py-1">
+                    <i class="bi <?= $badge_cfg['icon'] ?> me-1"></i><?= htmlspecialchars($usulan->status_usulan) ?>
                 </span>
             </dd>
 
@@ -159,10 +172,23 @@
                     data-id-usulan="<?= (int) $usulan->id ?>">
                     <i class="bi bi-save me-1"></i> Simpan Detail
                 </button>
-                <button type="button" class="btn btn-success btn-sm px-3" id="btn-ajukan"
-                    data-id-usulan="<?= (int) $usulan->id ?>">
-                    <i class="bi bi-send me-1"></i> Ajukan Usulan
-                </button>
+                <?php if (!in_array($usulan->status_usulan, ['Diajukan', 'Disetujui', 'Selesai'])): ?>
+                    <button type="button" class="btn btn-success btn-sm px-3" id="btn-ajukan"
+                        data-id-usulan="<?= (int) $usulan->id ?>">
+                        <i class="bi bi-send me-1"></i> Ajukan Usulan
+                    </button>
+                <?php endif; ?>
+
+                <!-- TOMBOL VALIDASI KHUSUS VALIDATOR -->
+                <?php if ($this->session->userdata('gid') == 1 || $this->session->userdata('gid') == 20): ?>
+                    <button type="button" class="btn btn-warning btn-sm px-3" id="btn-validasi-modal"
+                        data-id-usulan="<?= (int) $usulan->id ?>"
+                        data-status="<?= htmlspecialchars($usulan->status_usulan, ENT_QUOTES, 'UTF-8') ?>"
+                        data-keterangan="<?= htmlspecialchars($usulan->keterangan ?: '', ENT_QUOTES, 'UTF-8') ?>">
+                        <i class="bi bi-check-circle me-1"></i> Validasi
+                    </button>
+                <?php endif; ?>
+            </div>
             </div>
         <?php endif; ?>
     </div>
@@ -333,6 +359,42 @@
 </div>
 
 <!-- ==================================================== -->
+<!-- MODAL VALIDASI                                        -->
+<!-- ==================================================== -->
+<div class="modal fade" id="modalValidasi" tabindex="-1" role="dialog">
+    <div class="modal-dialog" style="max-width: 500px !important; width: 90% !important; margin: 1.75rem auto;">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title mb-0"><i class="bi bi-check-circle me-1"></i> Validasi Usulan Pemberhentian</h5>
+                <button type="button" class="close text-dark border-0 bg-transparent opacity-100" data-dismiss="modal" data-bs-dismiss="modal" aria-label="Close" style="font-size: 1.5rem; cursor: pointer;">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Status Usulan Validasi <span class="text-danger">*</span></label>
+                    <select class="form-select" id="select-status-validasi">
+                        <option value="">-- Pilih Status Validasi --</option>
+                        <option value="Diproses">Diproses</option>
+                        <option value="Disetujui">Disetujui</option>
+                        <option value="Ditolak">Ditolak</option>
+                        <option value="Selesai">Selesai</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Keterangan / Catatan</label>
+                    <textarea class="form-control" id="text-keterangan-validasi" rows="3" placeholder="Masukkan keterangan atau alasan validasi…"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="btn btn-warning" id="btn-simpan-validasi">Simpan Validasi</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================================================== -->
 <!-- SCRIPT                                               -->
 <!-- ==================================================== -->
 <script>
@@ -386,6 +448,65 @@
                         btnSimpan.disabled = false;
                         btnSimpan.innerHTML = original;
                     });
+            });
+        }
+
+        // ---- Validasi Usulan  ----
+        const btnValidasiModal = document.getElementById('btn-validasi-modal');
+        if (btnValidasiModal) {
+            btnValidasiModal.addEventListener('click', function() {
+                const statusLama = this.dataset.status;
+                const ketLama = this.dataset.keterangan;
+
+                const selStatus = document.getElementById('select-status-validasi');
+                const textKet = document.getElementById('text-keterangan-validasi');
+
+                if (selStatus) selStatus.value = statusLama || '';
+                if (textKet) textKet.value = ketLama || '';
+
+                if (window.bootstrap && window.bootstrap.Modal) {
+                    window.bootstrap.Modal.getOrCreateInstance(document.getElementById('modalValidasi')).show();
+                } else if (window.jQuery && window.jQuery.fn.modal) {
+                    window.jQuery('#modalValidasi').modal('show');
+                }
+            });
+        }
+
+        const btnSimpanValidasi = document.getElementById('btn-simpan-validasi');
+        if (btnSimpanValidasi) {
+            btnSimpanValidasi.addEventListener('click', function() {
+                const selStatus = document.getElementById('select-status-validasi').value;
+                const textKet = document.getElementById('text-keterangan-validasi').value;
+                const idUsulan = btnValidasiModal ? btnValidasiModal.dataset.idUsulan : null;
+
+                if (!selStatus) {
+                    alert('Silakan pilih status validasi terlebih dahulu.');
+                    return;
+                }
+
+                const original = btnSimpanValidasi.innerHTML;
+                btnSimpanValidasi.disabled = true;
+                btnSimpanValidasi.textContent = 'Menyimpan…';
+
+                postForm(BASE + '/validasi_usulan', {
+                    id_usulan: idUsulan,
+                    status_usulan: selStatus,
+                    keterangan: textKet
+                })
+                .then(res => {
+                    alert(res.message);
+                    if (res.status === 'success') {
+                        if (window.jQuery && window.jQuery.fn.modal) {
+                            window.jQuery('#modalValidasi').modal('hide');
+                        }
+                        location.reload();
+                    }
+                })
+                .catch(err => alert('Error: ' + err))
+                .finally(() => {
+                    btnSimpanValidasi.disabled = false;
+                    btnSimpanValidasi.innerHTML = original;
+                });
             });
         }
 
