@@ -5,16 +5,19 @@
         border-radius: 10px;
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
     }
+
     .card-custom .card-header {
         font-weight: 600;
         border-top-left-radius: 10px !important;
         border-top-right-radius: 10px !important;
         padding: 0.8rem 1.25rem;
     }
+
     .detail-dt {
         font-weight: 600;
         color: #4a5568;
     }
+
     .doc-title {
         font-size: 0.925rem;
         font-weight: 600;
@@ -23,6 +26,7 @@
         display: block;
         margin-bottom: 3px;
     }
+
     .doc-format {
         font-size: 0.775rem;
         color: #718096;
@@ -33,22 +37,26 @@
         border: 1px solid #e2e8f0;
         display: inline-block;
     }
+
     .badge-origin {
         font-size: 0.7rem;
         padding: 2px 6px;
         border-radius: 4px;
         font-weight: 500;
     }
+
     .badge-system {
         background-color: #ebf8ff;
         color: #2b6cb0;
         border: 1px solid #bee3f8;
     }
+
     .badge-manual-tag {
         background-color: #f7fafc;
         color: #4a5568;
         border: 1px solid #e2e8f0;
     }
+
     .table-berkas tbody tr:hover {
         background-color: #f8fafc;
     }
@@ -189,9 +197,9 @@
                     </button>
                 <?php endif; ?>
             </div>
-            </div>
-        <?php endif; ?>
     </div>
+<?php endif; ?>
+</div>
 </div>
 
 <!-- ==================================================== -->
@@ -200,14 +208,24 @@
 <div class="card card-custom mb-4">
     <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
         <span class="fw-bold" style="color: #000;"><i class="bi bi-paperclip me-1"></i> Berkas Persyaratan Usulan</span>
-        <span class="badge bg-dark px-2 py-1" id="badge-berkas">
-            <?php
-            $total   = count($berkas_list);
-            $lengkap = 0;
-            foreach ($berkas_list as $b) if ($b['ada_file']) $lengkap++;
-            echo "Kelengkapan: " . $lengkap . ' / ' . $total;
-            ?>
-        </span>
+        <div class="d-flex gap-2 align-items-center">
+            <span class="badge bg-dark px-2 py-1" id="badge-berkas">
+                <?php
+                $total   = count($berkas_list);
+                $lengkap = 0;
+                foreach ($berkas_list as $b) if ($b['ada_file']) $lengkap++;
+                echo "Kelengkapan: " . $lengkap . ' / ' . $total;
+                ?>
+            </span>
+            <?php if ($lengkap > 0): ?>
+                <a href="<?= site_url('sihenti_pegawai/download_semua_berkas/' . (int) $usulan->id) ?>"
+                    id="btn-download-semua"
+                    class="btn btn-sm btn-dark"
+                    title="Unduh semua berkas dalam file ZIP">
+                    <i class="bi bi-file-earmark-zip me-1"></i> Download Semua
+                </a>
+            <?php endif; ?>
+        </div>
     </div>
     <div class="card-body p-0">
         <div class="table-responsive">
@@ -223,7 +241,7 @@
                 </thead>
                 <tbody>
                     <?php $no = 1;
-                    foreach ($berkas_list as $b): 
+                    foreach ($berkas_list as $b):
                         $is_manual = !empty($b['is_manual']);
                     ?>
                         <tr>
@@ -393,7 +411,331 @@
         </div>
     </div>
 </div>
+<!-- ==================================================== -->
+<!-- MODAL LOADING DOWNLOAD ZIP (Versi Cantik)             -->
+<!-- ==================================================== -->
+<style>
+    /* ===== Modal shell ===== */
+    .dl-modal-content {
+        border: none !important;
+        border-radius: 20px !important;
+        box-shadow: 0 25px 60px -12px rgba(15, 23, 42, 0.35),
+            0 8px 20px -8px rgba(15, 23, 42, 0.15) !important;
+        overflow: hidden;
+        animation: dl-modal-in .4s cubic-bezier(.16, 1, .3, 1);
+    }
 
+    @keyframes dl-modal-in {
+        0% {
+            transform: scale(.92) translateY(8px);
+            opacity: 0;
+        }
+
+        100% {
+            transform: scale(1) translateY(0);
+            opacity: 1;
+        }
+    }
+
+    .dl-modal-body {
+        padding: 2.5rem 2rem 2rem;
+        text-align: center;
+        position: relative;
+        background:
+            radial-gradient(circle at 50% 30%, rgba(59, 130, 246, .10), transparent 55%),
+            linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    }
+
+    /* ===== Circular progress ===== */
+    .dl-circle-wrap {
+        position: relative;
+        width: 128px;
+        height: 128px;
+        margin: 0 auto 1.5rem;
+    }
+
+    .dl-circle-svg {
+        width: 100%;
+        height: 100%;
+        transform: rotate(-90deg);
+        transform-origin: center;
+        overflow: visible;
+    }
+
+    .dl-circle-bg {
+        fill: none;
+        stroke: #e2e8f0;
+        stroke-width: 5;
+    }
+
+    .dl-circle-fg {
+        fill: none;
+        stroke: url(#dl-gradient);
+        stroke-width: 5;
+        stroke-linecap: round;
+        stroke-dasharray: 276.46;
+        /* 2π × 44 */
+        stroke-dashoffset: 276.46;
+        transition: stroke-dashoffset .35s cubic-bezier(.4, 0, .2, 1),
+            stroke .3s ease;
+        filter: drop-shadow(0 2px 6px rgba(59, 130, 246, .35));
+    }
+
+    /* Indeterminate spin (state loading) */
+    .dl-state-loading .dl-circle-svg {
+        animation: dl-spin 1.6s linear infinite;
+    }
+
+    .dl-state-loading .dl-circle-fg {
+        animation: dl-dash 1.6s ease-in-out infinite;
+    }
+
+    @keyframes dl-spin {
+        from {
+            transform: rotate(-90deg);
+        }
+
+        to {
+            transform: rotate(270deg);
+        }
+    }
+
+    @keyframes dl-dash {
+        0% {
+            stroke-dashoffset: 276.46;
+        }
+
+        50% {
+            stroke-dashoffset: 69.115;
+        }
+
+        100% {
+            stroke-dashoffset: 276.46;
+        }
+    }
+
+    /* ===== Ikon tengah ===== */
+    .dl-circle-center {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 2px;
+        pointer-events: none;
+    }
+
+    .dl-icon-download,
+    .dl-icon-check,
+    .dl-icon-error,
+    .dl-percent {
+        display: none;
+    }
+
+    .dl-icon-download {
+        display: block;
+        font-size: 2.2rem;
+        color: #3b82f6;
+        animation: dl-float 1.6s ease-in-out infinite;
+    }
+
+    @keyframes dl-float {
+
+        0%,
+        100% {
+            transform: translateY(0);
+        }
+
+        50% {
+            transform: translateY(5px);
+        }
+    }
+
+    .dl-state-progress .dl-icon-download {
+        display: none;
+    }
+
+    .dl-state-progress .dl-percent {
+        display: block;
+        font-size: 1.35rem;
+        font-weight: 700;
+        color: #1e40af;
+        letter-spacing: -0.02em;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .dl-state-success .dl-icon-download,
+    .dl-state-success .dl-percent {
+        display: none;
+    }
+
+    .dl-state-success .dl-icon-check {
+        display: block;
+        font-size: 2.6rem;
+        color: #10b981;
+        animation: dl-pop .45s cubic-bezier(.34, 1.56, .64, 1);
+    }
+
+    .dl-state-success .dl-circle-fg {
+        stroke: #10b981;
+        stroke-dashoffset: 0 !important;
+        filter: drop-shadow(0 2px 8px rgba(16, 185, 129, .4));
+    }
+
+    .dl-state-error .dl-icon-download,
+    .dl-state-error .dl-percent {
+        display: none;
+    }
+
+    .dl-state-error .dl-icon-error {
+        display: block;
+        font-size: 2.4rem;
+        color: #ef4444;
+        animation: dl-pop .45s cubic-bezier(.34, 1.56, .64, 1);
+    }
+
+    .dl-state-error .dl-circle-fg {
+        stroke: #ef4444;
+        stroke-dashoffset: 0 !important;
+        filter: drop-shadow(0 2px 8px rgba(239, 68, 68, .4));
+    }
+
+    @keyframes dl-pop {
+        0% {
+            transform: scale(0) rotate(-45deg);
+            opacity: 0;
+        }
+
+        100% {
+            transform: scale(1) rotate(0);
+            opacity: 1;
+        }
+    }
+
+    /* ===== Teks ===== */
+    .dl-title {
+        font-size: 1.15rem;
+        font-weight: 700;
+        color: #0f172a;
+        margin: 0 0 .35rem;
+        letter-spacing: -.01em;
+    }
+
+    .dl-subtitle {
+        font-size: .875rem;
+        color: #64748b;
+        margin: 0 0 .75rem;
+        min-height: 1.25rem;
+        line-height: 1.4;
+    }
+
+    /* Animasi titik-titik */
+    .dl-dots span {
+        display: inline-block;
+        animation: dl-dot 1.4s infinite;
+        opacity: .25;
+    }
+
+    .dl-dots span:nth-child(2) {
+        animation-delay: .2s;
+    }
+
+    .dl-dots span:nth-child(3) {
+        animation-delay: .4s;
+    }
+
+    @keyframes dl-dot {
+
+        0%,
+        60%,
+        100% {
+            opacity: .25;
+            transform: translateY(0);
+        }
+
+        30% {
+            opacity: 1;
+            transform: translateY(-2px);
+        }
+    }
+
+    .dl-state-progress .dl-dots,
+    .dl-state-success .dl-dots,
+    .dl-state-error .dl-dots {
+        display: none;
+    }
+
+    /* ===== Info ukuran ===== */
+    .dl-size-info {
+        font-size: .78rem;
+        color: #94a3b8;
+        font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+        min-height: 1.1rem;
+        margin-bottom: .25rem;
+        letter-spacing: .01em;
+    }
+
+    /* ===== Tombol fallback error ===== */
+    .dl-error-actions {
+        display: none;
+        margin-top: 1rem;
+    }
+
+    .dl-state-error .dl-error-actions {
+        display: block;
+    }
+</style>
+
+<div class="modal fade" id="modalDownloadLoading" tabindex="-1"
+    data-bs-backdrop="static" data-bs-keyboard="false"
+    data-backdrop="static" data-keyboard="false" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 400px;">
+        <div class="modal-content dl-modal-content dl-state-loading">
+            <div class="dl-modal-body">
+
+                <!-- Circular progress -->
+                <div class="dl-circle-wrap">
+                    <svg class="dl-circle-svg" viewBox="0 0 100 100">
+                        <defs>
+                            <linearGradient id="dl-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#3b82f6" />
+                                <stop offset="100%" stop-color="#8b5cf6" />
+                            </linearGradient>
+                        </defs>
+                        <circle class="dl-circle-bg" cx="50" cy="50" r="44" />
+                        <circle class="dl-circle-fg" cx="50" cy="50" r="44" />
+                    </svg>
+                    <div class="dl-circle-center">
+                        <i class="bi bi-cloud-arrow-down-fill dl-icon-download"></i>
+                        <span class="dl-percent">0%</span>
+                        <i class="bi bi-check-circle-fill dl-icon-check"></i>
+                        <i class="bi bi-exclamation-triangle-fill dl-icon-error"></i>
+                    </div>
+                </div>
+
+                <!-- Teks -->
+                <h5 class="dl-title">Menyiapkan berkas</h5>
+                <p class="dl-subtitle">
+                    <span class="dl-subtitle-text">Sedang mengumpulkan file dari server</span>
+                    <span class="dl-dots"><span>.</span><span>.</span><span>.</span></span>
+                </p>
+
+                <!-- Info ukuran -->
+                <div class="dl-size-info"></div>
+
+                <!-- Aksi error -->
+                <div class="dl-error-actions">
+                    <a class="btn btn-sm btn-primary rounded-pill px-3"
+                        target="_blank" rel="noopener" id="dl-fallback-link">
+                        <i class="bi bi-box-arrow-up-right me-1"></i> Coba Cara Lain
+                    </a>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
 <!-- ==================================================== -->
 <!-- SCRIPT                                               -->
 <!-- ==================================================== -->
@@ -489,24 +831,24 @@
                 btnSimpanValidasi.textContent = 'Menyimpan…';
 
                 postForm(BASE + '/validasi_usulan', {
-                    id_usulan: idUsulan,
-                    status_usulan: selStatus,
-                    keterangan: textKet
-                })
-                .then(res => {
-                    alert(res.message);
-                    if (res.status === 'success') {
-                        if (window.jQuery && window.jQuery.fn.modal) {
-                            window.jQuery('#modalValidasi').modal('hide');
+                        id_usulan: idUsulan,
+                        status_usulan: selStatus,
+                        keterangan: textKet
+                    })
+                    .then(res => {
+                        alert(res.message);
+                        if (res.status === 'success') {
+                            if (window.jQuery && window.jQuery.fn.modal) {
+                                window.jQuery('#modalValidasi').modal('hide');
+                            }
+                            location.reload();
                         }
-                        location.reload();
-                    }
-                })
-                .catch(err => alert('Error: ' + err))
-                .finally(() => {
-                    btnSimpanValidasi.disabled = false;
-                    btnSimpanValidasi.innerHTML = original;
-                });
+                    })
+                    .catch(err => alert('Error: ' + err))
+                    .finally(() => {
+                        btnSimpanValidasi.disabled = false;
+                        btnSimpanValidasi.innerHTML = original;
+                    });
             });
         }
 
@@ -568,9 +910,9 @@
                 elInput.disabled = true;
 
                 // Tentukan endpoint berdasarkan tipe berkas
-                const targetUrl = isManual 
-                    ? (BASE + '/upload_berkas_manual') 
-                    : (BASE + '/upload_berkas_pegawai');
+                const targetUrl = isManual ?
+                    (BASE + '/upload_berkas_manual') :
+                    (BASE + '/upload_berkas_pegawai');
 
                 fetch(targetUrl, {
                         method: 'POST',
@@ -736,6 +1078,185 @@
 
         modalEl.addEventListener('hidden.bs.modal', function() {
             gambar.src = '';
+        });
+    })();
+
+    // ====================================================
+    // DOWNLOAD SEMUA BERKAS (ZIP) — versi cantik
+    // ====================================================
+    (function() {
+        const btn = document.getElementById('btn-download-semua');
+        if (!btn) return;
+
+        const modalEl = document.getElementById('modalDownloadLoading');
+        const contentEl = modalEl.querySelector('.dl-modal-content');
+        const titleEl = modalEl.querySelector('.dl-title');
+        const subtitleText = modalEl.querySelector('.dl-subtitle-text');
+        const percentEl = modalEl.querySelector('.dl-percent');
+        const sizeInfoEl = modalEl.querySelector('.dl-size-info');
+        const circleFg = modalEl.querySelector('.dl-circle-fg');
+        const fallbackLink = document.getElementById('dl-fallback-link');
+
+        const CIRCUMFERENCE = 2 * Math.PI * 44; // ≈ 276.46
+
+        let modeModal = '';
+        if (window.bootstrap && window.bootstrap.Modal) modeModal = 'bs5';
+        else if (window.jQuery && window.jQuery.fn.modal) modeModal = 'bs4';
+
+        function showModal() {
+            if (modeModal === 'bs5') window.bootstrap.Modal.getOrCreateInstance(modalEl).show();
+            else if (modeModal === 'bs4') window.jQuery(modalEl).modal({
+                backdrop: 'static',
+                keyboard: false
+            });
+        }
+
+        function hideModal() {
+            if (modeModal === 'bs5') window.bootstrap.Modal.getOrCreateInstance(modalEl).hide();
+            else if (modeModal === 'bs4') window.jQuery(modalEl).modal('hide');
+        }
+
+        function setState(state) {
+            contentEl.classList.remove('dl-state-loading', 'dl-state-progress', 'dl-state-success', 'dl-state-error');
+            contentEl.classList.add('dl-state-' + state);
+        }
+
+        function setProgress(pct) {
+            pct = Math.max(0, Math.min(100, pct));
+            const offset = CIRCUMFERENCE - (CIRCUMFERENCE * pct / 100);
+            circleFg.style.strokeDashoffset = offset;
+            percentEl.textContent = pct + '%';
+        }
+
+        function formatSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / 1024 / 1024).toFixed(2) + ' MB';
+        }
+
+        function extractFilename(headers, fallback) {
+            const cd = headers.get('Content-Disposition') || '';
+            let m = cd.match(/filename\*\s*=\s*UTF-8''([^;]+)/i);
+            if (m) {
+                try {
+                    return decodeURIComponent(m[1].trim());
+                } catch (e) {}
+            }
+            m = cd.match(/filename\s*=\s*["']?([^"';]+)["']?/i);
+            if (m) return m[1].trim();
+            return fallback;
+        }
+
+        function saveBlob(blob, filename) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(function() {
+                URL.revokeObjectURL(url);
+            }, 1500);
+        }
+
+        function resetUI() {
+            setState('loading');
+            titleEl.textContent = 'Menyiapkan berkas';
+            subtitleText.textContent = 'Sedang mengumpulkan file dari server';
+            percentEl.textContent = '0%';
+            sizeInfoEl.textContent = '';
+            circleFg.style.strokeDashoffset = CIRCUMFERENCE;
+        }
+
+        btn.addEventListener('click', async function(e) {
+            e.preventDefault();
+            const url = this.href;
+
+            resetUI();
+            showModal();
+
+            try {
+                const res = await fetch(url, {
+                    method: 'GET',
+                    credentials: 'same-origin',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                const ctype = (res.headers.get('Content-Type') || '').toLowerCase();
+                const isZip = ctype.indexOf('zip') !== -1 ||
+                    ctype.indexOf('octet-stream') !== -1 ||
+                    ctype.indexOf('force-download') !== -1;
+
+                if (!res.ok || !isZip) {
+                    let msg = 'Gagal mengunduh berkas (HTTP ' + res.status + ').';
+                    try {
+                        const text = await res.text();
+                        const m = text.match(/<p>([^<]{5,300})<\/p>/i) ||
+                            text.match(/<h1>([^<]{5,300})<\/h1>/i);
+                        if (m) msg = m[1].replace(/\s+/g, ' ').trim();
+                    } catch (_) {}
+                    throw new Error(msg);
+                }
+
+                // --- Download dengan progress ---
+                const contentLength = parseInt(res.headers.get('Content-Length') || '0', 10);
+                const filename = extractFilename(res.headers, 'Berkas_Pemberhentian.zip');
+
+                // Begitu headers diterima → ganti ke mode progress
+                setState('progress');
+                titleEl.textContent = 'Mengunduh berkas';
+                subtitleText.textContent = 'File sedang dikirim dari server';
+
+                const reader = res.body.getReader();
+                const chunks = [];
+                let received = 0;
+
+                while (true) {
+                    const {
+                        done,
+                        value
+                    } = await reader.read();
+                    if (done) break;
+                    chunks.push(value);
+                    received += value.length;
+
+                    if (contentLength > 0) {
+                        const pct = Math.min(100, Math.round(received / contentLength * 100));
+                        setProgress(pct);
+                        sizeInfoEl.textContent =
+                            formatSize(received) + ' / ' + formatSize(contentLength);
+                    } else {
+                        // Server tidak kirim Content-Length → tetap loading state,
+                        // hanya update info ukuran
+                        sizeInfoEl.textContent = formatSize(received) + ' terunduh';
+                    }
+                }
+
+                // --- Selesai ---
+                const blob = new Blob(chunks, {
+                    type: 'application/zip'
+                });
+                saveBlob(blob, filename);
+
+                setState('success');
+                setProgress(100);
+                titleEl.textContent = 'Berhasil!';
+                subtitleText.textContent = 'File ZIP berhasil diunduh';
+                sizeInfoEl.textContent = formatSize(blob.size) + ' · ' + filename;
+
+                setTimeout(hideModal, 1800);
+
+            } catch (err) {
+                setState('error');
+                titleEl.textContent = 'Gagal mengunduh';
+                subtitleText.textContent = err.message || 'Terjadi kesalahan.';
+                sizeInfoEl.textContent = '';
+                if (fallbackLink) fallbackLink.href = url;
+                console.error('Download error:', err);
+            }
         });
     })();
 </script>

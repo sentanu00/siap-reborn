@@ -1137,4 +1137,157 @@ class Sihenti_pegawai extends SB_Controller
 
 		return $list;
 	}
+
+
+
+	/* =====================================================
+ * DOWNLOAD SEMUA BERKAS (ZIP)
+ * ===================================================== */
+	public function download_semua_berkas($id_usulan = NULL)
+	{
+		$id_usulan = (int) $id_usulan;
+		if (!$id_usulan) show_404();
+
+		if (!class_exists('ZipArchive')) {
+			show_error('Extension ZIP tidak tersedia di server.', 500);
+		}
+
+		$usulan = $this->db->where('id', $id_usulan)
+			->get('usulan_pemberhentian')->row();
+		if (!$usulan) show_404();
+
+		// Ambil daftar berkas (logic persis seperti halaman detail)
+		$berkas_list = $this->_get_berkas_list($usulan);
+
+		// Filter hanya yang punya file
+		$files = array();
+		foreach ($berkas_list as $b) {
+			if (!empty($b['ada_file']) && !empty($b['link_file'])) {
+				$files[] = $b;
+			}
+		}
+
+		if (empty($files)) {
+			$this->session->set_flashdata('error', 'Tidak ada berkas yang bisa diunduh.');
+			redirect('sihenti_pegawai/detail/' . $id_usulan);
+			return;
+		}
+
+		// Folder lokal untuk berkas manual
+		$local_folder = FCPATH . 'dokumen/' . $usulan->nip . '/';
+
+		// Folder temp untuk download dari SIAP
+		$tmpDir = sys_get_temp_dir() . '/zip_pemberhentian_' . uniqid('', true);
+		@mkdir($tmpDir, 0755, true);
+
+		$tmpZipPath = $tmpDir . '/result.zip';
+		$zip = new ZipArchive();
+		if ($zip->open($tmpZipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+			$this->_rrmdir($tmpDir);
+			show_error('Gagal membuat file ZIP.', 500);
+		}
+
+		$added = 0;
+		foreach ($files as $i => $b) {
+			$url      = $b['link_file'];
+			$basename = basename(parse_url($url, PHP_URL_PATH));
+			if (empty($basename)) $basename = 'berkas_' . ($i + 1);
+
+			$ext = strtolower(pathinfo($basename, PATHINFO_EXTENSION));
+			if ($ext === '') {
+				$tipe = isset($b['tipe_file']) ? $b['tipe_file'] : 'dokumen';
+				$ext  = ($tipe === 'image') ? 'jpg' : 'pdf';
+			}
+
+			// Nama entri di dalam ZIP
+			$safe_label = preg_replace('/[^a-z0-9\-_]+/i', '_', $b['label']);
+			$safe_label = trim($safe_label, '_');
+			if ($safe_label === '') $safe_label = 'berkas';
+			$zipEntry   = sprintf('%02d_%s.%s', $i + 1, $safe_label, $ext);
+
+			// Coba file lokal dulu
+			$localPath = rtrim($local_folder, '/') . '/' . $basename;
+			if (is_file($localPath)) {
+				if ($zip->addFile($localPath, $zipEntry)) $added++;
+				continue;
+			}
+
+			// Fallback: ambil dari URL (SIAP online)
+			$tmpFile = $tmpDir . '/dl_' . ($i + 1) . '.' . $ext;
+			if ($this->_download_to_file($url, $tmpFile)) {
+				if ($zip->addFile($tmpFile, $zipEntry)) $added++;
+			}
+		}
+
+		$zip->close();
+
+		if ($added === 0) {
+			$this->_rrmdir($tmpDir);
+			show_error('Tidak ada berkas yang berhasil diambil. Cek koneksi ke SIAP Online.', 500);
+		}
+
+		$zipName = 'Berkas_Pemberhentian_'
+			. preg_replace('/[^a-z0-9]+/i', '_', $usulan->nip)
+			. '_' . date('Ymd_His') . '.zip';
+
+		$this->load->helper('download');
+		force_download($zipName, file_get_contents($tmpZipPath));
+		$this->_rrmdir($tmpDir);
+	}
+
+	/* =====================================================
+ * HELPER: Unduh URL ke file lokal (pakai cURL / fallback)
+ * ===================================================== */
+	private function _download_to_file($url, $destPath)
+	{
+		if (function_exists('curl_init')) {
+			$fp = @fopen($destPath, 'w');
+			if (!$fp) return false;
+			$ch = curl_init($url);
+			curl_setopt_array($ch, array(
+				CURLOPT_FILE           => $fp,
+				CURLOPT_FOLLOWLOCATION => true,
+				CURLOPT_TIMEOUT        => 60,
+				CURLOPT_CONNECTTIMEOUT => 15,
+				CURLOPT_SSL_VERIFYPEER => false,
+				CURLOPT_SSL_VERIFYHOST => false,
+				CURLOPT_USERAGENT      => 'Mozilla/5.0 (SIAP-BKPSDM Downloader)',
+			));
+			$ok       = curl_exec($ch);
+			$httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+			curl_close($ch);
+			fclose($fp);
+
+			if ($ok && $httpCode >= 200 && $httpCode < 300 && filesize($destPath) > 0) {
+				return true;
+			}
+			@unlink($destPath);
+			return false;
+		}
+
+		// Fallback tanpa cURL
+		$ctx = stream_context_create(array(
+			'http' => array('timeout' => 60, 'ignore_errors' => true),
+			'ssl'  => array('verify_peer' => false, 'verify_peer_name' => false),
+		));
+		$data = @file_get_contents($url, false, $ctx);
+		if ($data === false || $data === '') return false;
+		return (bool) @file_put_contents($destPath, $data);
+	}
+
+	/* =====================================================
+ * HELPER: Hapus folder temp beserta isinya
+ * ===================================================== */
+	private function _rrmdir($dir)
+	{
+		if (!is_dir($dir)) return;
+		$items = @scandir($dir);
+		if ($items === false) return;
+		foreach ($items as $item) {
+			if ($item === '.' || $item === '..') continue;
+			$path = $dir . DIRECTORY_SEPARATOR . $item;
+			is_dir($path) ? $this->_rrmdir($path) : @unlink($path);
+		}
+		@rmdir($dir);
+	}
 }
