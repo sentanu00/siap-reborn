@@ -58,7 +58,7 @@ class Sihenti_pegawai extends SB_Controller
 		$username = $this->session->userdata('username');
 		$user_nip = $username;
 
-		
+
 		$user_satker = NULL;
 		if ($gid == 2 && !empty($username)) {
 			$usr = $this->db
@@ -90,7 +90,7 @@ class Sihenti_pegawai extends SB_Controller
 			->join('pegawai p', 'p.NIP_BARU = u.nip', 'left')
 			->join('status_pegawai sp', 'p.STATUS_PEGAWAI = sp.STATUS_PEGAWAI_ID', 'left');
 
-		
+
 		if ($gid == 2 && !empty($user_satker)) {
 			$this->db->like('p.SATKER_ID', $user_satker, 'after');
 		} elseif ($gid == 3 && !empty($user_nip)) {
@@ -117,7 +117,7 @@ class Sihenti_pegawai extends SB_Controller
 			$this->data,
 			TRUE
 		);
-		
+
 		$this->load->view('layouts/main', $this->data);
 	}
 
@@ -721,8 +721,8 @@ class Sihenti_pegawai extends SB_Controller
      * ===================================================== */
 	public function validasi_usulan()
 	{
-		$group_access = array(1,20);
-		if (!in_array($this->session->userdata('gid'),$group_access)){
+		$group_access = array(1, 20);
+		if (!in_array($this->session->userdata('gid'), $group_access)) {
 			return $this->_json(array(
 				'status'  => 'error',
 				'message' => 'Akses ditolak'
@@ -856,7 +856,7 @@ class Sihenti_pegawai extends SB_Controller
 				'kolom_order' => 'TAHUN',
 				'order_dir'   => 'DESC',
 				'nama_file'   => 'SKP_{NIP}_{TGL}.pdf',
-				'wajib'       => FALSE,
+				'wajib'       => TRUE,
 			),
 		);
 	}
@@ -870,7 +870,12 @@ class Sihenti_pegawai extends SB_Controller
 			'skp' => array(
 				'label'     => 'Penilaian SKP Terakhir',
 				'nama_file' => 'SKP_{NIP}_{TGL}.pdf',
-				'wajib'     => FALSE,
+				'wajib'     => TRUE,
+			),
+			'dpcp' => array(
+				'label'     => 'DATA PERORANGAN CALON PENERIMA PENSIUN (DPCP)',
+				'nama_file' => 'DPCP_{NIP}_{TGL}.pdf',
+				'wajib'     => TRUE,
 			),
 			'sk_jft_pertama' => array(
 				'label'     => 'SK PENGANGKATAN PERTAMA DALAM JABATAN FUNGSIONAL',
@@ -892,11 +897,6 @@ class Sihenti_pegawai extends SB_Controller
 				'nama_file' => 'SURAT_KULIAH_{NIP}_{TGL}.pdf',
 				'wajib'     => FALSE,
 			),
-			'dpcp' => array(
-				'label'     => 'DATA PERORANGAN CALON PENERIMA PENSIUN (DPCP)',
-				'nama_file' => 'DPCP_{NIP}_{TGL}.pdf',
-				'wajib'     => FALSE,
-			),
 			'usulan_pd' => array(
 				'label'     => 'Surat / Usulan pensiun dari Kepala Perangkat Daerah',
 				'nama_file' => 'USULAN_PD_{NIP}_{TGL}.pdf',
@@ -905,6 +905,16 @@ class Sihenti_pegawai extends SB_Controller
 			'sk_tidak_hd' => array(
 				'label'     => 'SURAT KETERANGAN TIDAK DIJATUHI HUKUMAN DISIPLIN TINGKAT SEDANG / BERAT',
 				'nama_file' => 'SK_TIDAK_HD_{NIP}_{TGL}.pdf',
+				'wajib'     => FALSE,
+			),
+			'sk_tidak_menjalani_hd' => array(
+				'label'     => 'Surat Pernyataan Tidak Sedang Menjalani Proses Pidana/ Pernah Dipidana',
+				'nama_file' => 'SK_TIDAK_HD_{NIP}_{TGL}.pdf',
+				'wajib'     => FALSE,
+			),
+			'sk_jandaduda' => array(
+				'label'     => 'Surat Keterangan Janda/Duda dari Kelurahan/Kecamatan',
+				'nama_file' => 'SK_JANDADUDA_{NIP}_{TGL}.pdf',
 				'wajib'     => FALSE,
 			),
 			'akta_kematian_cerai' => array(
@@ -1059,13 +1069,13 @@ class Sihenti_pegawai extends SB_Controller
 			$list[] = array(
 				'kode'             => 'skp',
 				'label'            => "Penilaian SKP Terakhir ({$tahun_lalu})",
-				'wajib'            => FALSE,
+				'wajib'            => TRUE,
 				'id_record'        => (int) $skp_22->skp22_id,
 				'file_pdf'         => $skp_22->FILE_PDF,
 				'ada_record'       => TRUE,
 				'ada_file'         => !empty($skp_22->FILE_PDF),
 				'bisa_upload'      => TRUE,
-				'is_manual'        => FALSE,
+				'is_manual'        => TRUE,
 				'format_nama_file' => "SKP_{$usulan->nip}_{$tgl}.pdf",
 				'link_file'        => !empty($skp_22->FILE_PDF) ? "https://siap-bkpsdm.probolinggokab.go.id/" . $skp_22->FILE_PDF : NULL,
 				'tipe_file'        => 'dokumen',
@@ -1083,7 +1093,7 @@ class Sihenti_pegawai extends SB_Controller
 			$list[] = array(
 				'kode'             => 'skp',
 				'label'            => 'Penilaian SKP Terakhir',
-				'wajib'            => FALSE,
+				'wajib'            => TRUE,
 				'id_record'        => $dok_manual ? $dok_manual->id : NULL,
 				'file_pdf'         => $nama_file,
 				'ada_record'       => !empty($dok_manual),
@@ -1100,7 +1110,7 @@ class Sihenti_pegawai extends SB_Controller
 		// 4. DOKUMEN MANUAL LAINNYA
 		// ================================================
 		foreach ($this->_dokumen_manual_config() as $kode => $cfg) {
-			if ($kode === 'skp') continue; 
+			if ($kode === 'skp') continue;
 			$dok_manual = $this->db
 				->where('id_usulan', $usulan->id)
 				->where('nama_dokumen', $cfg['label'])
